@@ -80,8 +80,26 @@
             <div style="flex: 1; display: flex; flex-direction: column; gap: 15px;">
                 <div style="font-size: 18px; font-weight: bold; color: #fff;" id="txt-titulo-modulo">Salão Principal</div>
 
-                <div id="view-salao-mesas"
-                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px;">
+                <div id="view-salao-wrapper" style="display: flex; flex-direction: column; gap: 10px;">
+                    <div
+                        style="background: #020617; border: 1px solid #1e293b; padding: 10px; border-radius: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <span style="font-size: 12px; color: #94a3b8; margin-right: 4px;">Filtrar mesas:</span>
+                        <button id="filter-mesas-all" onclick="filtrarMesas('all')"
+                            style="background: #38bdf8; color: #020617; border: 1px solid rgba(56, 189, 248, 0.5); padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                            Todas
+                        </button>
+                        <button id="filter-mesas-free" onclick="filtrarMesas('free')"
+                            style="background: transparent; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.35); padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                            Livres
+                        </button>
+                        <button id="filter-mesas-occupied" onclick="filtrarMesas('occupied')"
+                            style="background: transparent; color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.35); padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                            Ocupadas
+                        </button>
+                    </div>
+
+                    <div id="view-salao-mesas"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; max-height: 430px; overflow-y: auto; align-content: start;">
                     @foreach ($tables as $table)
                         @php
                             $styleMesa =
@@ -94,9 +112,11 @@
                                 $styleMesa =
                                     'background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3); color: #f43f5e;';
                             }
+                            $mesaStatusFiltro = $table->status === 'free' ? 'free' : 'occupied';
                         @endphp
 
-                        <button class="p-4 rounded-xl border transition text-center gap-1 group relative"
+                        <button class="p-4 rounded-xl border transition text-center gap-1 group relative mesa-card"
+                            data-status="{{ $mesaStatusFiltro }}"
                             style="{{ $styleMesa }} padding: 15px; border-radius: 10px; cursor: pointer;"
                             id="card-mesa-{{ $table->id }}"
                             onclick="selecionarMesa({{ $table->id }}, '{{ $table->name }}')">
@@ -107,6 +127,27 @@
                             </div>
                         </button>
                     @endforeach
+                </div>
+                </div>
+
+                <div id="restaurant-categories"
+                    style="background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; display: none; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px;">
+                    <button
+                        style="background: rgba(148, 163, 184, 0.08); border: 1px solid rgba(148, 163, 184, 0.2); color: #cbd5e1; padding: 10px 15px; border-radius: 10px; cursor: pointer; min-width: 120px;"
+                        onclick="voltarParaMesas()">
+                        <div style="font-size: 12px; font-weight: bold; color: #fff;">Voltar</div>
+                        <div style="font-size: 11px; margin-top: 2px;">Selecionar mesa</div>
+                    </button>
+                    @forelse ($restaurantCategories as $category)
+                        <button
+                            style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 10px 15px; border-radius: 10px; cursor: pointer; min-width: 120px;"
+                            onclick="mostrarCategoriaRestaurante({{ $category->id }})">
+                            <div style="font-size: 12px; font-weight: bold; color: #fff;">{{ $category->name }}</div>
+                            <div style="font-size: 11px; margin-top: 2px;">{{ $category->products->count() }} artigos</div>
+                        </button>
+                    @empty
+                        <div style="color: #64748b; font-size: 13px;">Nenhuma categoria com artigos de restaurante.</div>
+                    @endforelse
                 </div>
 
                 <div id="view-supermercado" class="hidden"
@@ -119,20 +160,6 @@
                             style="flex: 1; background: #020617; border: 1px solid #1e293b; color: #fff; padding: 10px; border-radius: 8px; font-size: 14px;"
                             placeholder="Passe o leitor de código de barras ou digite o nome do produto...">
                     </div>
-                </div>
-
-                <div id="restaurant-categories"
-                    style="background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; display: flex; gap: 10px; overflow-x: auto;">
-                    @forelse ($restaurantCategories as $category)
-                        <button
-                            style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 10px 15px; border-radius: 10px; cursor: pointer; min-width: 120px;"
-                            onclick="mostrarCategoriaRestaurante({{ $category->id }})">
-                            <div style="font-size: 12px; font-weight: bold; color: #fff;">{{ $category->name }}</div>
-                            <div style="font-size: 11px; margin-top: 2px;">{{ $category->products->count() }} artigos</div>
-                        </button>
-                    @empty
-                        <div style="color: #64748b; font-size: 13px;">Nenhuma categoria com artigos de restaurante.</div>
-                    @endforelse
                 </div>
 
                 <div id="restaurant-products"
@@ -308,6 +335,7 @@
 
         let mesaSelecionadaId = null;
         let modoAtual = 'salao';
+        let filtroMesasAtual = 'all';
         let totalGeralVendaActual = 0;
 
         // Atalhos de Teclado
@@ -333,9 +361,9 @@
             if (modo === 'salao') {
                 tabSalao.style.background = "#38bdf8";
                 tabSalao.style.color = "#020617";
-                document.getElementById('view-salao-mesas').style.display = 'grid';
+                document.getElementById('view-salao-wrapper').style.display = 'flex';
                 document.getElementById('view-supermercado').style.display = 'none';
-                document.getElementById('restaurant-categories').style.display = 'flex';
+                document.getElementById('restaurant-categories').style.display = 'none';
                 document.getElementById('restaurant-products').style.display = 'none';
                 document.getElementById('supermarket-products').style.display = 'none';
                 document.getElementById('txt-titulo-modulo').innerText = 'Salão Principal';
@@ -343,10 +371,11 @@
                 mesaSelecionadaId = null;
                 document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
                 document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
+                filtrarMesas(filtroMesasAtual);
             } else {
                 tabSupermercado.style.background = "#38bdf8";
                 tabSupermercado.style.color = "#020617";
-                document.getElementById('view-salao-mesas').style.display = 'none';
+                document.getElementById('view-salao-wrapper').style.display = 'none';
                 document.getElementById('view-supermercado').style.display = 'flex';
                 document.getElementById('restaurant-categories').style.display = 'none';
                 document.getElementById('restaurant-products').style.display = 'none';
@@ -364,6 +393,46 @@
                     }
                 }, 100);
             }
+            renderizarCarrinho();
+        }
+
+        function filtrarMesas(filtro) {
+            filtroMesasAtual = filtro;
+
+            document.querySelectorAll('.mesa-card').forEach(card => {
+                const deveMostrar = filtro === 'all' || card.dataset.status === filtro;
+                card.style.display = deveMostrar ? 'block' : 'none';
+            });
+
+            const filtros = {
+                all: document.getElementById('filter-mesas-all'),
+                free: document.getElementById('filter-mesas-free'),
+                occupied: document.getElementById('filter-mesas-occupied')
+            };
+
+            Object.keys(filtros).forEach(tipo => {
+                const btn = filtros[tipo];
+                if (!btn) return;
+
+                const ativo = tipo === filtro;
+                btn.style.background = ativo ? '#38bdf8' : 'transparent';
+                btn.style.color = ativo ? '#020617' : (tipo === 'free' ? '#34d399' : tipo === 'occupied' ? '#fbbf24' : '#cbd5e1');
+            });
+        }
+
+        function voltarParaMesas() {
+            mesaSelecionadaId = null;
+            document.getElementById('view-salao-wrapper').style.display = 'flex';
+            document.getElementById('restaurant-categories').style.display = 'none';
+            document.getElementById('restaurant-products').style.display = 'none';
+            document.getElementById('txt-titulo-modulo').innerText = 'Salao Principal';
+            document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
+            document.getElementById('lbl-cliente-tipo').innerText = 'Selecione uma mesa no salao';
+            document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
+            document.querySelectorAll('.restaurant-product').forEach(productButton => {
+                productButton.style.display = 'none';
+            });
+            filtrarMesas(filtroMesasAtual);
             renderizarCarrinho();
         }
 
@@ -388,6 +457,14 @@
 
             document.getElementById('lbl-mesa-ativa').innerText = nome;
             document.getElementById('lbl-cliente-tipo').innerText = 'Mesa Ativa • Conta Operacional';
+
+            document.getElementById('txt-titulo-modulo').innerText = `Mesa ${nome} - Categorias`;
+            document.getElementById('view-salao-mesas').style.display = 'none';
+            document.getElementById('restaurant-categories').style.display = 'grid';
+            document.getElementById('restaurant-products').style.display = 'none';
+            document.querySelectorAll('.restaurant-product').forEach(productButton => {
+                productButton.style.display = 'none';
+            });
 
             abrirOuCarregarMesaNaBD(id);
         }
@@ -731,6 +808,10 @@
                                 atualizarContadoresTop();
                                 mesaSelecionadaId = null;
                                 document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
+                                document.getElementById('view-salao-mesas').style.display = 'grid';
+                                document.getElementById('restaurant-categories').style.display = 'none';
+                                document.getElementById('restaurant-products').style.display = 'none';
+                                document.getElementById('txt-titulo-modulo').innerText = 'Salao Principal';
                                 renderizarCarrinho();
                             });
                     } else {
