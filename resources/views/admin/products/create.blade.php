@@ -1,23 +1,18 @@
 ﻿@extends('layouts.admin')
 
 @section('content')
-<div class="space-y-6 max-w-3xl">
-    <div class="rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-xl shadow-black/20">
-        <div class="mb-8">
-            <h1 class="text-3xl font-semibold text-white">Novo Produto</h1>
-            <p class="mt-2 text-sm text-slate-400">Preencha os dados do produto antes de gravar.</p>
+<div class="form-container">
+    <div class="form-card">
+        <div class="form-header">
+            <h1>Novo Produto</h1>
+            <p>Preencha os dados do produto antes de gravar.</p>
         </div>
 
-        @if(session('success'))
-            <div class="mb-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-200">
-                {{ session('success') }}
-            </div>
-        @endif
-
+        {{-- Alertas de Erro (Mantendo seu estilo, mas padronizado) --}}
         @if ($errors->any())
-            <div class="mb-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-rose-200">
-                <p class="font-semibold">Atenção:</p>
-                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-rose-100">
+            <div class="error-box">
+                <p><strong>Atenção:</strong> Verifique os campos abaixo.</p>
+                <ul>
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach
@@ -25,58 +20,87 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('admin.products.store') }}" class="space-y-6">
+        <form method="POST" action="{{ route('admin.products.store') }}" class="form-grid">
             @csrf
 
-            <div>
-                <label for="name" class="block text-sm font-semibold text-slate-300">Nome do Artigo</label>
-                <input id="name" name="name" value="{{ old('name') }}" placeholder="Ex: Produto Exemplo" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-orange-500" required>
+            <div class="form-group">
+                <label>Nome do Artigo</label>
+                <input name="name" type="text" value="{{ old('name') }}" placeholder="Ex: Produto Exemplo" required>
             </div>
 
-            <div>
-                <label for="category_id" class="block text-sm font-semibold text-slate-300">Categoria</label>
-                <select id="category_id" name="category_id" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-orange-500" required>
+            <div class="form-group">
+                <label>Categoria</label>
+                <select name="category_id" required>
                     <option value="">Selecione a categoria</option>
                     @foreach($categories as $category)
-                        <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                        <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
+                            {{ $category->name }}
+                        </option>
                     @endforeach
                 </select>
             </div>
 
-            <div class="grid gap-6 md:grid-cols-2">
-                <div>
-                    <label for="price" class="block text-sm font-semibold text-slate-300">Preço de Venda (AOA)</label>
-                    <input id="price" name="price" type="number" step="0.01" value="{{ old('price') }}" placeholder="0.00" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-orange-500" required>
+            <div class="row-2">
+                <div class="form-group">
+                    <label>Preço de Venda (AOA)</label>
+                    <input name="price" type="number" step="0.01" value="{{ old('price') }}" placeholder="0.00" required>
                 </div>
-                <div>
-                    <label for="stock" class="block text-sm font-semibold text-slate-300">Quantidade em Stock</label>
-                    <input id="stock" name="stock" type="number" value="{{ old('stock') }}" placeholder="0" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-orange-500" required>
+                <div class="form-group">
+                    <label>Quantidade em Stock</label>
+                    <input name="stock" type="number" value="{{ old('stock') }}" placeholder="0" required>
                 </div>
             </div>
 
-            <div>
-                <label for="barcode" class="block text-sm font-semibold text-slate-300">Código de Barras</label>
-                <input id="barcode" name="barcode" value="{{ old('barcode') }}" placeholder="Opcional" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-orange-500">
+            <div class="form-group">
+                <label>Código de Barras</label>
+                <input name="barcode" type="text" value="{{ old('barcode') }}" placeholder="Opcional">
             </div>
 
-            <div>
-                <label for="description" class="block text-sm font-semibold text-slate-300">Descrição</label>
-                <textarea id="description" name="description" rows="4" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-orange-500">{{ old('description') }}</textarea>
+            <div class="form-group">
+                <label>Descrição</label>
+                <textarea name="description" rows="3">{{ old('description') }}</textarea>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-2">
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                    <input type="checkbox" name="available_restaurant" value="1" {{ old('available_restaurant') ? 'checked' : '' }} class="h-4 w-4 text-orange-500 focus:ring-orange-500">
-                    <span class="text-sm text-slate-300">Disponível no Restaurante</span>
+            <div class="row-2">
+                <label class="checkbox-box">
+                    <input type="checkbox" name="available_restaurant" value="1" {{ old('available_restaurant') ? 'checked' : '' }}>
+                    <span>Restaurante</span>
                 </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                    <input type="checkbox" name="available_supermarket" value="1" {{ old('available_supermarket') ? 'checked' : '' }} class="h-4 w-4 text-orange-500 focus:ring-orange-500">
-                    <span class="text-sm text-slate-300">Disponível no Supermercado</span>
+                <label class="checkbox-box">
+                    <input type="checkbox" name="available_supermarket" value="1" {{ old('available_supermarket') ? 'checked' : '' }}>
+                    <span>Supermercado</span>
                 </label>
             </div>
 
-            <button type="submit" class="w-full rounded-2xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-400">Guardar Produto</button>
+            <div class="form-actions">
+                <a href="{{ route('admin.products.index') }}" class="btn-cancel">Cancelar</a>
+                <button type="submit" class="btn-save">Guardar Produto</button>
+            </div>
         </form>
     </div>
 </div>
+
+<style>
+    /* Reutilizando as classes padronizadas do sistema */
+    .form-container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .form-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 20px; padding: 40px; }
+    .form-header { margin-bottom: 30px; border-bottom: 1px solid #1e293b; padding-bottom: 20px; }
+    .form-header h1 { font-size: 1.5rem; color: #fff; margin: 0; }
+    .form-header p { color: #64748b; font-size: 0.9rem; margin-top: 5px; }
+
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 8px; font-weight: 600; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px 16px; background: #020617; border: 1px solid #334155; border-radius: 10px; color: #fff; }
+    
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .checkbox-box { display: flex; align-items: center; gap: 10px; background: #020617; padding: 12px 16px; border-radius: 10px; border: 1px solid #334155; cursor: pointer; color: #94a3b8; font-size: 0.9rem; }
+    .checkbox-box input[type="checkbox"] { width: 18px; height: 18px; accent-color: #ea580c; cursor: pointer; }
+
+    .error-box { background: #4c0519; border: 1px solid #9f1239; color: #fda4af; padding: 16px; border-radius: 12px; margin-bottom: 20px; font-size: 0.85rem; }
+    .error-box ul { margin: 10px 0 0 20px; }
+
+    .form-actions { display: flex; gap: 15px; margin-top: 30px; border-top: 1px solid #1e293b; padding-top: 20px; }
+    .btn-cancel { width: 30%; text-align: center; padding: 12px; border-radius: 10px; border: 1px solid #334155; color: #94a3b8; text-decoration: none; }
+    .btn-save { width: 70%; padding: 12px; border-radius: 10px; border: none; background: #ea580c; color: #fff; font-weight: bold; cursor: pointer; }
+</style>
 @endsection

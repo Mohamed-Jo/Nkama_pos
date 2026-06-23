@@ -3,42 +3,51 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Operator, Product, Customer, RestaurantOrder, RestaurantTable, Sale, SaleItem, Shift, StockMovement};
+use App\Models\{Operator, Product, Customer, RestaurantTable, Sale, SaleItem, Shift, Category};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PosController extends Controller
 {
-    public function index()
+   public function index()
     {
         return view('admin.pos.index', [
-            'products' => Product::where('status', true)->get(),
+            'products' => Product::where('status', true)->orderBy('name')->get(),
+            'restaurantCategories' => Category::where('status', true)
+                ->whereHas('products', function ($query) {
+                    $query->where('status', true)->where('available_restaurant', true);
+                })
+                ->with(['products' => function ($query) {
+                    $query->where('status', true)
+                        ->where('available_restaurant', true)
+                        ->orderBy('name');
+                }])
+                ->orderBy('name')
+                ->get(),
             'customers' => Customer::where('status', true)->get(),
             'operatorName' => Operator::find(session('operator_id'))?->name ?? 'Operador',
             'shift' => Shift::where('operator_id', session('operator_id'))->where('status', 'open')->first(),
-            'tables' => RestaurantTable::all(),
+            'tables' => RestaurantTable::all(), // <-- ADICIONA ESTA LINHA AQUI
         ]);
     }
 
     public function checkout(Request $request)
     {
-        // 1. Validar a requisição
         $request->validate([
-            'table_id' => 'required',
             'items' => 'required|array',
+            'total' => 'required|numeric',
         ]);
 
         try {
             DB::beginTransaction();
 
-            // 2. Criar o Registo de Venda (Order)
             $order = Sale::create([
-                'table_id' => $request->table_id,
                 'total' => $request->total,
-                'status' => 'paid'
+                'status' => 'paid',
+                // Correção: $request->method() devolve "POST". Captura o campo 'payment_method' do JSON/Form
+                'method' => $request->input('payment_method', 'cash')
             ]);
 
-            // 3. Inserir itens e baixar stock
             foreach ($request->items as $item) {
                 SaleItem::create([
                     'order_id' => $order->id,
@@ -47,8 +56,10 @@ class PosController extends Controller
                     'price' => $item['price']
                 ]);
 
-                // Redução de stock
-                Product::find($item['id'])->decrement('stock', $item['qty']);
+                $product = Product::find($item['id']);
+                if ($product) {
+                    $product->decrement('stock', $item['qty']);
+                }
             }
 
             DB::commit();
@@ -60,31 +71,15 @@ class PosController extends Controller
         }
     }
 
-    public function openTable($id)
+    // Adicionado o método que faltava para ler o código de barras
+    public function findProductByBarcode(Request $request)
     {
-        $table = RestaurantTable::findOrFail($id);
+        $product = Product::where('barcode', $request->barcode)->where('status', true)->first();
 
-        if (!$table->current_order_id) {
-            $order = RestaurantOrder::create(['table_id' => $table->id, 'status' => 'open', 'total' => 0]);
-            $table->update(['status' => 'occupied', 'current_order_id' => $order->id]);
+        if (!$product) {
+            return response()->json(['success' => false, 'message' => 'Produto não encontrado.'], 404);
         }
 
-        $order = $table->currentOrder()->with('items')->first();
-
-        return response()->json([
-            'order' => $order,
-            'items' => $order->items
-        ]);
+        return response()->json(['success' => true, 'data' => $product]);
     }
-
-    public function closeOrder($orderId)
-    {
-        $order = RestaurantOrder::findOrFail($orderId);
-
-        $order->update(['status' => 'closed', 'closed_at' => now()]);
-        $order->table()->update(['status' => 'waiting_payment']);
-
-        return response()->json(['success' => true]);
-    }
-
 }

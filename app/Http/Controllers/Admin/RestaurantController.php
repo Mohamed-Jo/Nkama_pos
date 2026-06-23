@@ -1,182 +1,280 @@
 <?php
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\RestaurantTable;
-use App\Models\RestaurantOrder;
-use App\Models\Sale;
-use App\Models\SaleItem;
-use DB;
+use App\Models\{RestaurantTable, RestaurantOrder, Product, RestaurantOrderItem};
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class RestaurantController extends Controller
 {
     public function index()
     {
-        $tables = RestaurantTable::all();
-        return view('admin.pos.index', compact('tables'));
-    }
-
-    public function table($id)
-    {
-        $table = RestaurantTable::with('orders.items.product')->findOrFail($id);
-
-        return response()->json([
-            'table' => $table,
-            'items' => $table->orders()->where('status', 'open')->with('items')->first()?->items ?? []
+        return view('admin.pos.index', [
+            'tables' => RestaurantTable::all(),
+            'products' => Product::where('status', true)->get()
         ]);
     }
 
-    public function openTable($id)
+    public function openTable($tableId)
     {
-        $table = RestaurantTable::findOrFail($id);
+        try {
+            $table = RestaurantTable::findOrFail($tableId);
 
-        $order = $table->orders()->firstOrCreate([
-            'status' => 'open'
-        ]);
+            if (!$table->current_order_id) {
+                $order = RestaurantOrder::create([
+                    'table_id' => $table->id,
+                    'status' => 'open',
+                    'total' => 0
+                ]);
 
-        return response()->json([
-            'order_id' => $order->id,
-            'items' => $order->items()->get()
-        ]);
+                $table->update([
+                    'current_order_id' => $order->id
+                ]);
+
+                $table->current_order_id = $order->id;
+            }
+
+            $order = RestaurantOrder::with('items.product')->find($table->current_order_id);
+
+            return response()->json([
+                'success' => true,
+                'table_status' => $table->status,
+                'order' => $order,
+                'items' => $order ? $order->items : []
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao carregar mesa: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function closeOrder($tableId)
+    {
+        try {
+            $table = RestaurantTable::findOrFail($tableId);
+
+            if ($table->current_order_id) {
+                $order = RestaurantOrder::find($table->current_order_id);
+                if ($order) {
+                    $order->update([
+                        'status' => 'closed',
+                        'closed_at' => now()
+                    ]);
+                }
+            }
+
+            $table->update([
+                'status' => 'free',
+                'current_order_id' => null
+            ]);
+
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao fechar mesa: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function addItem(Request $request)
     {
-        $order = RestaurantOrder::where('table_id', $request->table_id)
-            ->where('status', 'open')
-            ->first();
-
-        if (!$order) {
-            return response()->json(['error' => 'Mesa sem pedido aberto'], 400);
-        }
-
-        $item = $order->items()->where('product_id', $request->product_id)->first();
-
-        if ($item) {
-            $item->qty += $request->qty;
-            $item->save();
-        } else {
-            $order->items()->create([
-                'product_id' => $request->product_id,
-                'qty' => $request->qty,
-                'price' => $request->price
-            ]);
-        }
-
-        return response()->json(['success' => true]);
-    }
-    public function closeTable($id)
-    {
-        DB::beginTransaction();
-
         try {
-
-            $table = RestaurantTable::findOrFail($id);
-
-            $orders = RestaurantOrder::where('table_id', $id)
-                ->where('status', 'open')
-                ->get();
-
-            if ($orders->isEmpty()) {
-                return response()->json([
-                    'message' => 'Mesa sem pedidos'
-                ], 400);
-            }
-
-            $total = 0;
-
-            foreach ($orders as $order) {
-                $total += $order->price * $order->qty;
-            }
-
-            // 🔥 CRIAR VENDA (INTEGRAÇÃO COM POS)
-            $sale = Sale::create([
-                'customer_id' => null,
-                'user_id' => auth()->id(),
-                'invoice_number' => 'REST-' . time(),
-                'subtotal' => $total,
-                'discount' => 0,
-                'tax' => 0,
-                'total' => $total,
-                'payment_method' => 'cash',
-                'payment_status' => 'paid'
+            $request->validate([
+                'order_id' => 'required|exists:restaurant_orders,id',
+                'product_id' => 'required|exists:products,id',
+                'quantity' => 'required|integer|min:1',
+                'price' => 'required|numeric'
             ]);
 
-            foreach ($orders as $order) {
+            // Procura se o item já existe na sessão/pedido atual
+            $item = RestaurantOrderItem::where('order_id', $request->order_id)
+                ->where('product_id', $request->product_id)
+                ->first();
 
-                SaleItem::create([
-                    'sale_id' => $sale->id,
-                    'product_id' => $order->product_id,
-                    'quantity' => $order->qty,
-                    'unit_price' => $order->price,
-                    'subtotal' => $order->price * $order->qty
+            if ($item) {
+                $item->increment('qty', $request->quantity);
+                $item->update([
+                    'subtotal' => $item->qty * $item->price
+                ]);
+            } else {
+                RestaurantOrderItem::create([
+                    'order_id' => $request->order_id,
+                    'product_id' => $request->product_id,
+                    'qty' => $request->quantity,
+                    'price' => $request->price,
+                    'subtotal' => $request->quantity * $request->price
+                ]);
+            }
+
+            $order = RestaurantOrder::find($request->order_id);
+
+            if ($order) {
+                // Atualiza os totais do pedido pai
+                $novoTotal = $order->items()->sum('subtotal');
+                $order->update([
+                    'subtotal' => $novoTotal,
+                    'total' => $novoTotal
                 ]);
 
-                // fechar pedido
-                $order->update(['status' => 'closed']);
+                // Atualiza o estado da mesa para ocupada
+                $table = RestaurantTable::find($order->table_id);
+                if ($table && $table->status !== 'occupied') {
+                    $table->update(['status' => 'occupied']);
+                }
             }
-
-            // fechar mesa
-            $table->update(['status' => 'free']);
-
-            DB::commit();
 
             return response()->json([
                 'success' => true,
-                'sale_id' => $sale->id
+                'message' => 'Item adicionado com sucesso!'
             ]);
 
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return response()->json([
-                'message' => $e->getMessage()
+                'success' => false,
+                'message' => 'Erro ao adicionar item: ' . $e->getMessage()
             ], 500);
         }
     }
-    public function closeOrder($id)
+
+    public function getTablesState(): JsonResponse
     {
-        $order = RestaurantOrder::findOrFail($id);
+        try {
+            $tables = RestaurantTable::with(['currentOrder.items.product'])->get();
+            $formattedStates = [];
 
-        $order->status = 'closed';
-        $order->save();
+            foreach ($tables as $table) {
+                $activeOrder = $table->currentOrder;
 
-        return response()->json(['success' => true]);
+                if ($activeOrder && $table->status === 'occupied') {
+                    $formattedStates[$table->id] = [
+                        'status' => 'busy',
+                        'order_id' => $activeOrder->id,
+                        'itens' => $activeOrder->items->map(function ($item) {
+                            return [
+                                'id' => $item->id,
+                                'product_id' => $item->product_id,
+                                'name' => $item->product ? $item->product->name : 'Produto Desconhecido',
+                                'price' => (float) $item->price,
+                                'quantity' => (int) $item->qty,
+                                'total' => (float) $item->subtotal
+                            ];
+                        })->toArray()
+                    ];
+                } else {
+                    $formattedStates[$table->id] = [
+                        'status' => 'free',
+                        'order_id' => null,
+                        'itens' => []
+                    ];
+                }
+            }
+
+            return response()->json($formattedStates, 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao carregar o estado das mesas: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    /**
- * Localiza um produto instantaneamente pelo código de barras para o Supermercado
- */
-public function findProductByBarcode(Request $request)
-{
-    $request->validate([
-        'barcode' => 'required|string'
-    ]);
+    public function removeItem(Request $request)
+    {
+        try {
+            $request->validate([
+                'order_id' => 'required|exists:restaurant_orders,id',
+                'product_id' => 'required|exists:products,id'
+            ]);
 
-    // Procura na coluna de código de barras do teu banco (ex: barcode, ean, sku)
-    $product = \App\Models\Product::where('barcode', $request->barcode)
-        ->orWhere('name', 'like', "%{$request->barcode}%")
-        ->first();
+            $order = RestaurantOrder::findOrFail($request->order_id);
+            $table = RestaurantTable::find($order->table_id);
 
-    if (!$product) {
-        return response()->json(['success' => false, 'message' => 'Artigo não localizado.'], 404);
+            $item = $order->items()->where('product_id', $request->product_id)->first();
+
+            if ($item) {
+                if ($item->qty > 1) {
+                    $item->decrement('qty');
+                    $item->update(['subtotal' => $item->qty * $item->price]);
+                } else {
+                    $item->delete();
+                }
+
+                // Recalcula o total do pedido
+                $novoTotal = $order->items()->sum('subtotal');
+                $order->update([
+                    'subtotal' => $novoTotal,
+                    'total' => $novoTotal
+                ]);
+            }
+
+            // --- LÓGICA DE LIBERTAÇÃO DA MESA ---
+            // Se o pedido ficar vazio após a remoção, limpa a mesa e o pedido na BD
+            if ($order->items()->count() === 0) {
+                if ($table) {
+                    $table->update([
+                        'status' => 'free',
+                        'current_order_id' => null
+                    ]);
+                }
+                $order->update(['status' => 'canceled']);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Item removido e mesa verificada com sucesso!'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao remover item: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    // Verifica se há stock antes de retornar para o leitor
-    if ($product->stock_quantity <= 0) {
-        return response()->json(['success' => false, 'message' => 'Artigo sem stock disponível.'], 400);
+    public function clearCart(Request $request)
+    {
+        try {
+            $request->validate([
+                'order_id' => 'required|exists:restaurant_orders,id'
+            ]);
+
+            $order = RestaurantOrder::findOrFail($request->order_id);
+
+            $order->items()->delete();
+
+            $order->update([
+                'subtotal' => 0,
+                'total' => 0,
+                'status' => 'canceled'
+            ]);
+
+            $table = RestaurantTable::find($order->table_id);
+            if ($table) {
+                $table->update([
+                    'status' => 'free',
+                    'current_order_id' => null
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Carrinho limpo e mesa libertada!'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao limpar carrinho: ' . $e->getMessage()
+            ], 500);
+        }
     }
-
-    return response()->json([
-        'success' => true,
-        'product' => [
-            'id' => $product->id,
-            'name' => $product->name,
-            'price' => $product->selling_price
-        ]
-    ]);
-}
-
-
 }

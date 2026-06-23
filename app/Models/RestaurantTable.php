@@ -17,4 +17,9 @@ class RestaurantTable extends Model
     {
         return $this->hasMany(RestaurantOrder::class, 'table_id');
     }
+
+    public function currentOrder()
+{
+    return $this->belongsTo(RestaurantOrder::class, 'current_order_id');
+}
 }

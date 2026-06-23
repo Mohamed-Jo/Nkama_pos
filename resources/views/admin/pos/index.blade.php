@@ -3,850 +3,764 @@
 @section('page-title', 'Nkama ERP • POS Multi-Módulos')
 
 @section('content')
-    <!-- ESTILOS EXCLUSIVOS DO DESIGN INTEGRADO (RESTAURANTE & SUPERMERCADO) -->
     <style>
-        /* Reset e Fundo Base Claro do ERP */
-        .pos-restaurant-body {
-            background-color: #f3f4f6;
-            color: #1f2937;
-            font-family: system-ui, -apple-system, sans-serif;
+        .bg-slate-950 {
+            background-color: #020617 !important;
         }
 
-        /* Topbar com as métricas do ERP */
-        .topbar-erp {
-            background-color: #1e2530;
-            color: #ffffff;
-            padding: 10px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 13px;
-            border-radius: 4px;
-            margin-bottom: 10px;
+        .bg-slate-900 {
+            background-color: #0f172a !important;
         }
 
-        .metrics-group {
-            display: flex;
-            gap: 20px;
-            color: #9ca3af;
+        .border-slate-800 {
+            border-color: #1e293b !important;
         }
 
-        .metrics-group strong {
-            color: #ffffff;
+        .text-slate-200 {
+            color: #e2e8f0 !important;
         }
 
-        /* Selector de Módulo (Salão vs Supermercado) */
-        .mode-selector {
-            display: flex;
-            background: #2d3748;
-            padding: 2px;
-            border-radius: 6px;
-            border: 1px solid #4a5568;
+        .text-slate-400 {
+            color: #94a3b8 !important;
         }
 
         .mode-tab {
-            background: transparent;
-            border: none;
-            color: #a0aec0;
-            padding: 6px 14px;
-            font-size: 12px;
-            font-weight: 600;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-
-        .mode-tab.active {
-            background: #38bdf8;
-            color: #1e2530;
-        }
-
-        /* Container Principal */
-        .shell-restaurant {
-            display: flex;
-            gap: 16px;
-            height: calc(100vh - 140px);
-        }
-
-        /* Área Esquerda */
-        .left-zone {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        /* Grid do Salão Principal */
-        .salao-grid-bg {
-            background-color: #ffffff;
-            background-image: linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
-            background-size: 20px 20px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            padding: 24px;
-            flex: 1;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-            grid-auto-rows: max-content;
-            gap: 20px;
-            overflow-y: auto;
-        }
-
-        /* View do Módulo Supermercado */
-        .supermercado-view-bg {
-            background-color: #ffffff;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            padding: 20px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        /* Caixa de Input de Código de Barras */
-        .barcode-scanner-box {
-            display: flex;
-            gap: 10px;
-            background: #f9fafb;
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px dashed #cbd5e1;
-        }
-
-        .barcode-input {
-            flex: 1;
-            padding: 10px 14px;
-            font-size: 14px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            outline: none;
-        }
-
-        .barcode-input:focus {
-            border-color: #38bdf8;
-            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
-        }
-
-        /* Card de Mesa (Restaurante) */
-        .mesa-card {
-            border-radius: 8px;
-            color: #ffffff;
-            padding: 12px 8px;
-            text-align: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-
-        .mesa-card:active {
-            transform: scale(0.96);
-        }
-
-        .mesa-card.mesa-ativa {
-            outline: 3px solid #3b82f6;
-            outline-offset: 2px;
-        }
-
-        .mesa-card .num {
-            font-size: 16px;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-        }
-
-        .mesa-card .status-title {
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            margin-top: 2px;
-        }
-
-        /* Cores de Estado das Mesas */
-        .mesa-livre {
-            background-color: #15803d;
-        }
-
-        .mesa-conta {
-            background-color: #b91c1c;
-        }
-
-        .mesa-busy {
-            background-color: #eab308;
-        }
-
-        .mesa-reserva {
-            background-color: #1d4ed8;
-        }
-
-        /* Abas de Categorias */
-        .cat-tabs {
-            display: flex;
-            gap: 8px;
-            background: #e5e7eb;
-            padding: 6px;
-            border-radius: 8px;
-            border: 1px solid #d1d5db;
-        }
-
-        .cat-btn {
-            background: #ffffff;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            padding: 8px 16px;
-            font-size: 13px;
-            font-weight: 600;
-            color: #374151;
-            cursor: pointer;
-        }
-
-        .cat-btn.active {
-            background: #374151;
-            color: #ffffff;
-            border-color: #374151;
-        }
-
-        /* Faixa de Atalhos de Artigos */
-        .products-strip {
-            background: #ffffff;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            padding: 12px;
-            display: flex;
-            gap: 10px;
-            overflow-x: auto;
-        }
-
-        .prod-btn {
-            min-width: 120px;
-            color: #ffffff;
-            font-weight: bold;
-            font-size: 13px;
-            padding: 10px;
-            border-radius: 6px;
             border: none;
             cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 2px;
-            box-shadow: inset 0 -3px 0px rgba(0, 0, 0, 0.2);
-            transition: transform 0.05s;
         }
 
-        .prod-btn:active {
-            transform: scale(0.95);
+        .hidden {
+            display: none !important;
         }
 
-        .prod-btn .prod-price {
-            font-size: 10px;
-            opacity: 0.9;
-            font-weight: normal;
-        }
-
-        .p-cor-0 {
-            background-color: #dc2626;
-        }
-
-        .p-cor-1 {
-            background-color: #2563eb;
-        }
-
-        .p-cor-2 {
-            background-color: #f97316;
-        }
-
-        .p-cor-3 {
-            background-color: #16a34a;
-        }
-
-        .p-cor-4 {
-            background-color: #8b5cf6;
-        }
-
-        /* Painel Lateral Direito da Conta */
-        .right-panel-conta {
-            width: 340px;
-            background: #ffffff;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .panel-header-mesa {
-            padding: 14px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f9fafb;
-        }
-
-        .panel-header-mesa h3 {
-            font-size: 16px;
-            font-weight: 700;
-            margin: 0;
-        }
-
-        .items-list-pedido {
-            flex: 1;
-            overflow-y: auto;
-            padding: 14px;
-        }
-
-        .pedido-item-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
-            margin-bottom: 10px;
-            color: #374151;
-            padding-bottom: 6px;
-            border-bottom: 1px dashed #f3f4f6;
-        }
-
-        .btn-remove-item {
-            background: none;
-            border: none;
-            color: #ef4444;
-            cursor: pointer;
-            font-weight: bold;
-            margin-left: 6px;
-        }
-
-        .totais-fatura-box {
-            padding: 14px;
-            border-top: 1px solid #e5e7eb;
-            background: #f9fafb;
-            font-size: 14px;
-        }
-
-        .total-row-highlight {
-            font-size: 16px;
-            font-weight: 800;
-            border-top: 1px solid #d1d5db;
-            padding-top: 8px;
-            margin-top: 8px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        /* Botões de Ação */
-        .actions-box-vertical {
-            padding: 14px;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .btn-action-gray {
-            background-color: #4b5563;
-            color: #ffffff;
-            font-weight: 600;
-            font-size: 13px;
-            padding: 10px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            text-align: center;
-        }
-
-        .btn-action-gray:hover {
-            background-color: #374151;
-        }
-
-        .btn-action-emitir {
-            background-color: #16a34a;
-            color: #ffffff;
-            font-weight: 700;
-            font-size: 14px;
-            padding: 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(22, 163, 74, 0.2);
-        }
-
-        .btn-action-emitir:hover {
-            background-color: #15803d;
+        .modal-backdrop {
+            background-color: rgba(2, 6, 23, 0.85);
+            backdrop-filter: blur(4px);
         }
     </style>
 
-    <div class="pos-restaurant-body">
+    <div class="space-y-4 max-w-[1600px] mx-auto px-2 text-slate-200"
+        style="background-color: #020617; min-height: 100vh; padding: 20px; font-family: sans-serif;">
 
-        <!-- METRICAS E ALTERNADOR DE MÓDULOS -->
-        <div class="topbar-erp">
-            <div style="font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 12px;">
-                <div><span style="color: #38bdf8;">●</span> Nkama ERP</div>
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-slate-950 border border-slate-800 p-4 rounded-2xl shadow-lg"
+            style="display: flex; justify-content: space-between; align-items: center; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; margin-bottom: 20px; background: #0f172a;">
+            <div class="flex items-center gap-4" style="display: flex; align-items: center; gap: 15px;">
+                <div class="font-bold text-base tracking-tight text-white" style="font-weight: bold; color: #fff;">
+                    <span style="color: #38bdf8; margin-right: 5px;">●</span> Nkama ERP
+                </div>
 
-                <!-- ABAS PRINCIPAIS: SALÃO VS SUPERMERCADO -->
-                <div class="mode-selector">
-                    <button class="mode-tab active" id="tab-salao" onclick="mudarModoOperacao('salao')">
-                        🏨 GESTÃO DE SALÃO
+                <div
+                    style="background: #020617; padding: 4px; border-radius: 8px; border: 1px solid #1e293b; display: flex; gap: 5px;">
+                    <button id="tab-salao" onclick="mudarModoOperacao('salao')"
+                        style="background: #38bdf8; color: #020617; font-weight: bold; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer;">
+                        🏨 Gestão de Salão
                     </button>
-                    <button class="mode-tab" id="tab-supermercado" onclick="mudarModoOperacao('supermercado')">
-                        🛒 SUPERMERCADO / RETALHO
+                    <button id="tab-supermercado" onclick="mudarModoOperacao('supermercado')"
+                        style="background: transparent; color: #94a3b8; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer;">
+                        🛒 Supermercado / Retalho
                     </button>
                 </div>
             </div>
 
-            <div class="metrics-group">
-                <div id="metric-livres">Mesas Livres: <strong>{{ $tables->where('status', 'free')->count() }}</strong></div>
-                <div id="metric-ocupadas">Mesas Ocupadas: <strong>{{ $tables->where('status', 'busy')->count() }}</strong>
-                </div>
-                <div>Vendas Hoje: <strong>1.250.000,00 Kz</strong></div>
-                <div>Clientes Atendidos: <strong>145</strong></div>
+            <div style="display: flex; align-items: center; gap: 20px; font-size: 13px;">
+                <div id="metric-livres" style="color: #94a3b8;">Mesas Livres: <strong
+                        style="color: #34d399;">{{ $tables->where('status', 'free')->count() }}</strong></div>
+                <div id="metric-ocupadas" style="color: #94a3b8;">Mesas Ocupadas: <strong
+                        style="color: #fbbf24;">{{ $tables->where('status', 'occupied')->count() }}</strong></div>
+                <div style="color: #fff;">Vendas Hoje: <strong style="color: #34d399;">1.250.000,00 Kz</strong></div>
+
+                <button onclick="abrirModalFecho()"
+                    style="background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                    🔒 Fecho de Caixa
+                </button>
             </div>
         </div>
 
-        <!-- CORPO DA APLICAÇÃO -->
-        <div class="shell-restaurant">
+        <div style="display: flex; gap: 20px; align-items: flex-start;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 15px;">
+                <div style="font-size: 18px; font-weight: bold; color: #fff;" id="txt-titulo-modulo">Salão Principal</div>
 
-            <!-- ZONA ESQUERDA (DINÂMICA) -->
-            <div class="left-zone">
-
-                <div style="display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 16px;">
-                    <span id="txt-titulo-modulo">Salão Principal</span>
-                </div>
-
-                <!-- VIEW 1: MAPA DE MESAS (RESTAURANTE) -->
-                <div class="salao-grid-bg" id="view-salao-mesas">
+                <div id="view-salao-mesas"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px;">
                     @foreach ($tables as $table)
                         @php
-                            $statusClass = 'mesa-livre';
-                            if ($table->status === 'busy') {
-                                $statusClass = 'mesa-busy';
+                            $styleMesa =
+                                'background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.2); color: #34d399;';
+                            if ($table->status === 'occupied') {
+                                $styleMesa =
+                                    'background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3); color: #fbbf24;';
                             }
-                            if ($table->status === 'conta') {
-                                $statusClass = 'mesa-conta';
-                            }
-                            if ($table->status === 'reserva') {
-                                $statusClass = 'mesa-reserva';
+                            if ($table->status === 'waiting_payment') {
+                                $styleMesa =
+                                    'background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3); color: #f43f5e;';
                             }
                         @endphp
 
-                        <div class="mesa-card {{ $statusClass }}" id="card-mesa-{{ $table->id }}"
+                        <button class="p-4 rounded-xl border transition text-center gap-1 group relative"
+                            style="{{ $styleMesa }} padding: 15px; border-radius: 10px; cursor: pointer;"
+                            id="card-mesa-{{ $table->id }}"
                             onclick="selecionarMesa({{ $table->id }}, '{{ $table->name }}')">
-                            <div class="num">🪑 {{ $table->name }}</div>
-                            <div class="status-title" id="status-text-{{ $table->id }}">
-                                {{ $table->status === 'free' ? 'LIVRE' : 'OCUPADA' }}
+                            <div style="font-weight: bold; color: #fff;">🪑 {{ $table->name }}</div>
+                            <div style="font-size: 10px; text-transform: uppercase; margin-top: 5px;"
+                                id="status-text-{{ $table->id }}">
+                                {{ $table->status === 'free' ? 'Livre' : 'Ocupada' }}
                             </div>
-                        </div>
-                    @endforeach
-                </div>
-
-                <!-- VIEW 2: INTERFACE DE SUPERMERCADO (NOVO) -->
-                <div class="supermercado-view-bg" id="view-supermercado" style="display: none;">
-                    <!-- Caixa de Pesquisa / Código de barras -->
-                    <div class="barcode-scanner-box">
-                        <div style="font-size: 24px; align-self: center;">█║▌│█│║▌║</div>
-                        <input type="text" class="barcode-input" id="inputBarcode"
-                            placeholder="Passe o leitor de código de barras ou digite o nome do produto..."
-                            onkeypress="verificarInputBarcode(event)">
-                    </div>
-
-                    <!-- Tabela rápida de ajuda para o operador do caixa -->
-                    <div
-                        style="flex: 1; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; background: #fafafa;">
-                        <span
-                            style="font-size: 12px; font-weight: bold; color: #6b7280; text-transform: uppercase;">Produtos
-                            Recentes no Sistema</span>
-                        <div
-                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; font-size: 13px;">
-                            @foreach ($products->take(4) as $p)
-                                <div
-                                    style="background: #fff; padding: 8px; border: 1px solid #e5e7eb; border-radius: 4px; display: flex; justify-content: space-between;">
-                                    <span>{{ $p->name }}</span>
-                                    <span
-                                        style="color:#16a34a; font-weight:bold;">{{ number_format($p->selling_price, 2) }}
-                                        Kz</span>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FILTRO DE CATEGORIAS (COMUM) -->
-                <div class="cat-tabs">
-                    <button class="cat-btn active">Todos os Artigos</button>
-                    <button class="cat-btn">Alimentação</button>
-                    <button class="cat-btn">Bebidas</button>
-                    <button class="cat-btn">Higiene</button>
-                    <button class="cat-btn">Outros</button>
-                </div>
-
-                <!-- ATALHOS RÁPIDOS DE PRODUTOS (DINÂMICOS DO BANCO) -->
-                <div class="products-strip">
-                    @foreach ($products as $index => $p)
-                        <button class="prod-btn p-cor-{{ $index % 5 }}"
-                            onclick="adicionarItemNoPedido({{ $p->id }}, '{{ $p->name }}', {{ $p->selling_price }})">
-                            <span>{{ $p->name }}</span>
-                            <span class="prod-price">{{ number_format($p->selling_price, 2) }} Kz</span>
                         </button>
                     @endforeach
                 </div>
 
+                <div id="view-supermercado" class="hidden"
+                    style="background: #020617; border: 1px solid #1e293b; padding: 20px; border-radius: 12px; flex-direction: column; gap: 15px;">
+                    <div
+                        style="background: #0f172a; border: 1px dashed #334155; padding: 15px; border-radius: 10px; display: flex; gap: 15px; align-items: center;">
+                        <div style="font-family: monospace; color: #475569; font-size: 20px; letter-spacing: -2px;">█║▌│█│║▌
+                        </div>
+                        <input type="text" id="inputBarcode" onkeypress="verificarInputBarcode(event)"
+                            style="flex: 1; background: #020617; border: 1px solid #1e293b; color: #fff; padding: 10px; border-radius: 8px; font-size: 14px;"
+                            placeholder="Passe o leitor de código de barras ou digite o nome do produto...">
+                    </div>
+                </div>
+
+                <div id="restaurant-categories"
+                    style="background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; display: flex; gap: 10px; overflow-x: auto;">
+                    @forelse ($restaurantCategories as $category)
+                        <button
+                            style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 10px 15px; border-radius: 10px; cursor: pointer; min-width: 120px;"
+                            onclick="mostrarCategoriaRestaurante({{ $category->id }})">
+                            <div style="font-size: 12px; font-weight: bold; color: #fff;">{{ $category->name }}</div>
+                            <div style="font-size: 11px; margin-top: 2px;">{{ $category->products->count() }} artigos</div>
+                        </button>
+                    @empty
+                        <div style="color: #64748b; font-size: 13px;">Nenhuma categoria com artigos de restaurante.</div>
+                    @endforelse
+                </div>
+
+                <div id="restaurant-products"
+                    style="background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; display: none; gap: 10px; overflow-x: auto;">
+                    @foreach ($restaurantCategories as $category)
+                        @foreach ($category->products as $p)
+                            <button class="restaurant-product category-{{ $category->id }}"
+                                style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); color: #34d399; padding: 10px 15px; border-radius: 10px; cursor: pointer; min-width: 110px; display: none;"
+                                onclick="adicionarItemNoPedido({{ $p->id }}, @js($p->name), {{ $p->selling_price }})">
+                                <div style="font-size: 12px; font-weight: bold; color: #fff;">{{ $p->name }}</div>
+                                <div style="font-size: 11px; margin-top: 2px;">
+                                    {{ number_format($p->selling_price, 0, ',', '.') }} Kz</div>
+                            </button>
+                        @endforeach
+                    @endforeach
+                </div>
+
+                <div id="supermarket-products"
+                    style="background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; display: none; gap: 10px; overflow-x: auto;">
+                    @foreach ($products as $p)
+                        <button
+                            style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 10px 15px; border-radius: 10px; cursor: pointer; min-width: 110px;"
+                            onclick="adicionarItemNoPedido({{ $p->id }}, @js($p->name), {{ $p->selling_price }})">
+                            <div style="font-size: 12px; font-weight: bold; color: #fff;">{{ $p->name }}</div>
+                            <div style="font-size: 11px; margin-top: 2px;">
+                                {{ number_format($p->selling_price, 0, ',', '.') }} Kz</div>
+                        </button>
+                    @endforeach
+                </div>
             </div>
 
-            <!-- PAINEL DIREITO (CARRINHO DE COMPRAS / CONTA) -->
-            <div class="right-panel-conta">
-                <div class="panel-header-mesa">
-                    <div>
-                        <h3 id="lbl-mesa-ativa">Nenhuma Selecionada</h3>
-                        <div style="font-size: 11px; color:#6b7280; margin-top:2px;" id="lbl-cliente-tipo">Selecione uma
-                            mesa no salão</div>
-                    </div>
-                    <button
-                        style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer;">•••</button>
+            <div
+                style="width: 360px; background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;">
+                <div style="padding: 15px; border-bottom: 1px solid #1e293b; background: rgba(2, 6, 23, 0.4);">
+                    <h3 id="lbl-mesa-ativa" style="margin: 0; color: #fff; font-size: 15px;">Nenhuma Selecionada</h3>
+                    <div id="lbl-cliente-tipo" style="font-size: 11px; color: #94a3b8; margin-top: 3px;">Selecione uma mesa
+                        no salão</div>
                 </div>
 
-                <!-- Lista de Artigos da Venda -->
-                <div class="items-list-pedido" id="lista-itens-pedido">
-                    <div style="text-align: center; color: #9ca3af; font-size: 13px; margin-top: 40px;">
-                        O carrinho está vazio.
-                    </div>
+                <div id="lista-itens-pedido"
+                    style="flex: 1; min-height: 200px; padding: 15px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="text-align: center; color: #64748b; font-size: 13px; margin-top: 40px;">O carrinho está
+                        vazio.</div>
                 </div>
 
-                <!-- Caixa de Cálculos -->
-                <div class="totais-fatura-box">
-                    <div style="display: flex; justify-content: space-between; color:#4b5563;">
+                <div
+                    style="padding: 15px; background: rgba(2, 6, 23, 0.2); border-top: 1px solid #1e293b; font-size: 13px;">
+                    <div style="display: flex; justify-content: space-between; color: #94a3b8; margin-bottom: 5px;">
                         <span>Subtotal:</span>
-                        <strong id="txt-subtotal">0,00 Kz</strong>
+                        <strong id="txt-subtotal" style="color: #fff;">0,00 Kz</strong>
                     </div>
-                    <div style="display: flex; justify-content: space-between; color:#4b5563; margin-top: 4px;">
-                        <span>IVA (14%):</span>
-                        <strong id="txt-iva">0,00 Kz</strong>
-                    </div>
-                    <div class="total-row-highlight">
-                        <span>Total:</span>
-                        <span style="color: #1f2937;" id="txt-total">0,00 Kz</span>
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; color: #fff; border-top: 1px solid #1e293b; padding-top: 10px;">
+                        <span>Total (com IVA 14%):</span>
+                        <span id="txt-total" style="color: #38bdf8;">0,00 Kz</span>
                     </div>
                 </div>
 
-                <!-- Botões de Comandos Operacionais -->
-                <div class="actions-box-vertical">
-                    <button class="btn-action-gray" id="btn-transf"
-                        onclick="alert('Funcionalidade de transferência em desenvolvimento.')">Transferir Mesa</button>
-                    <button class="btn-action-gray" id="btn-dividir" onclick="alert('Dividindo conta por igual...')">Dividir
-                        Conta</button>
-                    <button class="btn-action-emitir" id="btn-finalizar-venda">Emitir Fatura (F3)</button>
+                <div style="padding: 15px; background: #020617; display: flex; flex-direction: column; gap: 10px;">
+                    <button id="btn-finalizar-venda" onclick="processarFechamentoVenda()"
+                        style="width: 100%; background: #10b981; color: #020617; font-weight: bold; padding: 12px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer;">
+                        Processar Pagamento (F3)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-pagamento" class="hidden"
+        style="position: fixed; inset: 0; background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;">
+        <div
+            style="background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; width: 100%; max-width: 400px; padding: 20px; margin: 10% auto;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 10px; margin-bottom: 15px;">
+                <h3 style="color: #fff; margin: 0; font-size: 16px;">Finalizar Venda • Forma de Pagamento</h3>
+                <button onclick="fecharModalPagamento()"
+                    style="background: transparent; border: none; color: #94a3b8; font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+
+            <div
+                style="background: #020617; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #1e293b; margin-bottom: 15px;">
+                <span style="font-size: 12px; color: #94a3b8; display: block; text-transform: uppercase;">Total a
+                    Pagar</span>
+                <span id="modal-txt-total" style="font-size: 22px; font-weight: bold; color: #38bdf8;">0,00 Kz</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                    <label
+                        style="display: block; font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">Forma
+                        de Pagamento</label>
+                    <select id="select-metodo-pagamento" onchange="ajustarCamposTroco()"
+                        style="width: 100%; background: #020617; border: 1px solid #1e293b; color: #fff; padding: 10px; border-radius: 8px;">
+                        <option value="cash">💵 Numerário (Dinheiro)</option>
+                        <option value="card">💳 Multicaixa (TPA)</option>
+                        <option value="transf">🏦 Transferência Bancária</option>
+                        <option value="multi">🔀 Pagamento Misto</option>
+                    </select>
+                </div>
+
+                <div id="wrapper-valores-recebidos" style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label
+                            style="display: block; font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">Valor
+                            Recebido</label>
+                        <input type="number" id="input-valor-pago" oninput="calcularTroco()"
+                            style="width: 100%; background: #020617; border: 1px solid #1e293b; color: #fff; padding: 10px; border-radius: 8px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label
+                            style="display: block; font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">Troco</label>
+                        <div id="txt-troco-calculado"
+                            style="background: #020617; border: 1px solid #1e293b; color: #34d399; font-weight: bold; padding: 10px; border-radius: 8px; text-align: center;">
+                            0,00 Kz</div>
+                    </div>
                 </div>
             </div>
 
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button onclick="fecharModalPagamento()"
+                    style="flex: 1; background: #020617; border: 1px solid #1e293b; color: #94a3b8; padding: 10px; border-radius: 8px; cursor: pointer;">Cancelar</button>
+                <button onclick="submeterVendaFinal()"
+                    style="flex: 1; background: #10b981; color: #020617; font-weight: bold; padding: 10px; border-radius: 8px; border: none; cursor: pointer;">Emitir
+                    Fatura</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-fecho" class="hidden"
+        style="position: fixed; inset: 0; background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;">
+        <div
+            style="background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; width: 100%; max-width: 360px; padding: 20px; margin: 10% auto;">
+            <h3 style="color: #fff; margin: 0 0 10px 0; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">Relatório
+                de Fecho de Turno</h3>
+            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; margin: 15px 0;">
+                <div style="display: flex; justify-content: space-between;"><span style="color:#94a3b8;">Faturamento
+                        Total:</span><strong style="color:#fff;">1.250.000,00 Kz</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color:#94a3b8;">Caixa
+                        (Dinheiro):</span><strong style="color:#34d399;">450.000,00 Kz</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color:#94a3b8;">TPA
+                        (Multicaixa):</span><strong style="color:#38bdf8;">800.000,00 Kz</strong></div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="document.getElementById('modal-fecho').style.display = 'none'"
+                    style="flex: 1; background: #020617; border: 1px solid #1e293b; color: #94a3b8; padding: 8px; border-radius: 8px; cursor: pointer;">Voltar</button>
+                <button onclick="alert('Caixa Fechado com Sucesso! Imprimindo Relatório Z...'); window.location.reload();"
+                    style="flex: 1; background: #ef4444; color: #fff; font-weight: bold; padding: 8px; border-radius: 8px; border: none; cursor: pointer;">Confirmar
+                    Fecho (Z)</button>
+            </div>
         </div>
     </div>
 
     <script>
-        // Memória local para guardar o estado de consumo (Id 9999 reservado para o Caixa do Supermercado)
+        // Estado global das mesas
         const estadosMesas = {
             9999: {
                 itens: [],
-                subtotal: 0
+                subtotal: 0,
+                status: 'free',
+                order_id: null
             }
         };
+
+        // Inicialização via Blade (Laravel)
+        @foreach ($tables as $table)
+            estadosMesas[{{ $table->id }}] = {
+                itens: [],
+                subtotal: 0,
+                status: '{{ $table->status }}',
+                order_id: {{ $table->current_order_id ?? 'null' }}
+            };
+        @endforeach
+
         let mesaSelecionadaId = null;
         let modoAtual = 'salao';
+        let totalGeralVendaActual = 0;
 
-        /**
-         * Alterna a interface entre Restaurante (Salão) e Caixa de Supermercado
-         */
+        // Atalhos de Teclado
+        window.addEventListener('keydown', function(event) {
+            if (event.key === 'F3') {
+                event.preventDefault();
+                processarFechamentoVenda();
+            }
+        });
+
         function mudarModoOperacao(modo) {
             modoAtual = modo;
+            const tabSalao = document.getElementById('tab-salao');
+            const tabSupermercado = document.getElementById('tab-supermercado');
 
-            document.getElementById('tab-salao').classList.remove('active');
-            document.getElementById('tab-supermercado').classList.remove('active');
+            if (!tabSalao || !tabSupermercado) return;
+
+            tabSalao.style.background = "transparent";
+            tabSalao.style.color = "#94a3b8";
+            tabSupermercado.style.background = "transparent";
+            tabSupermercado.style.color = "#94a3b8";
 
             if (modo === 'salao') {
-                document.getElementById('tab-salao').classList.add('active');
+                tabSalao.style.background = "#38bdf8";
+                tabSalao.style.color = "#020617";
                 document.getElementById('view-salao-mesas').style.display = 'grid';
                 document.getElementById('view-supermercado').style.display = 'none';
+                document.getElementById('restaurant-categories').style.display = 'flex';
+                document.getElementById('restaurant-products').style.display = 'none';
+                document.getElementById('supermarket-products').style.display = 'none';
                 document.getElementById('txt-titulo-modulo').innerText = 'Salão Principal';
                 document.getElementById('lbl-cliente-tipo').innerText = 'Selecione uma mesa no salão';
-
-                // Exibe métricas de mesa
-                document.getElementById('metric-livres').style.display = 'block';
-                document.getElementById('metric-ocupadas').style.display = 'block';
-                document.getElementById('btn-transf').style.display = 'block';
-                document.getElementById('btn-dividir').style.display = 'block';
-
-                // Reseta foco
                 mesaSelecionadaId = null;
-                document.querySelectorAll('.mesa-card').forEach(card => card.classList.remove('mesa-ativa'));
                 document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
+                document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
             } else {
-                document.getElementById('tab-supermercado').classList.add('active');
+                tabSupermercado.style.background = "#38bdf8";
+                tabSupermercado.style.color = "#020617";
                 document.getElementById('view-salao-mesas').style.display = 'none';
                 document.getElementById('view-supermercado').style.display = 'flex';
+                document.getElementById('restaurant-categories').style.display = 'none';
+                document.getElementById('restaurant-products').style.display = 'none';
+                document.getElementById('supermarket-products').style.display = 'flex';
                 document.getElementById('txt-titulo-modulo').innerText = 'Caixa Registadora • Supermercado';
-                document.getElementById('lbl-cliente-tipo').innerText = 'Cliente Geral • Venda a Dinheiro';
-
-                // Oculta métricas de restaurante irrelevantes no supermercado
-                document.getElementById('metric-livres').style.display = 'none';
-                document.getElementById('metric-ocupadas').style.display = 'none';
-                document.getElementById('btn-transf').style.display = 'none';
-                document.getElementById('btn-dividir').style.display = 'none';
-
-                // Aloca automaticamente para o Caixa de Supermercado (ID 9999)
+                document.getElementById('lbl-cliente-tipo').innerText = 'Cliente Geral • Venda Activa';
                 mesaSelecionadaId = 9999;
                 document.getElementById('lbl-mesa-ativa').innerText = 'Caixa Aberto 🛒';
 
-                // Joga o foco do teclado direto para o input do código de barras
-                setTimeout(() => document.getElementById('inputBarcode').focus(), 100);
+                setTimeout(() => {
+                    const inputBc = document.getElementById('inputBarcode');
+                    if (inputBc) {
+                        inputBc.value = '';
+                        inputBc.focus();
+                    }
+                }, 100);
             }
-
             renderizarCarrinho();
         }
 
-        /**
-         * Define a mesa ativa no painel direito (apenas modo salão)
-         */
+        function mostrarCategoriaRestaurante(categoryId) {
+            const productsContainer = document.getElementById('restaurant-products');
+            if (!productsContainer) return;
+
+            productsContainer.style.display = 'flex';
+            document.querySelectorAll('.restaurant-product').forEach(productButton => {
+                productButton.style.display = productButton.classList.contains(`category-${categoryId}`) ? 'block' : 'none';
+            });
+        }
+
         function selecionarMesa(id, nome) {
             mesaSelecionadaId = id;
+            document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
 
-            document.querySelectorAll('.mesa-card').forEach(card => card.classList.remove('mesa-ativa'));
-            document.getElementById(`card-mesa-${id}`).classList.add('mesa-ativa');
+            const cardMesa = document.getElementById(`card-mesa-${id}`);
+            if (cardMesa) {
+                cardMesa.style.outline = '2px solid #38bdf8';
+            }
 
             document.getElementById('lbl-mesa-ativa').innerText = nome;
-            document.getElementById('lbl-cliente-tipo').innerText = 'Cliente: Mesa Activa';
+            document.getElementById('lbl-cliente-tipo').innerText = 'Mesa Ativa • Conta Operacional';
 
-            if (!estadosMesas[id]) {
-                estadosMesas[id] = {
-                    itens: [],
-                    subtotal: 0
-                };
-            }
-
-            renderizarCarrinho();
+            abrirOuCarregarMesaNaBD(id);
         }
 
-        /**
-         * Simulação de entrada de código de barras
-         */
-        function verificarInputBarcode(e) {
-            if (e.key === 'Enter') {
-                const input = document.getElementById('inputBarcode');
-                if (input.value.trim() !== '') {
-                    // Aqui simula que encontrou o primeiro produto da lista enviada pelo Laravel
-                    // Numa integração real, faria uma busca rápida ou usaria os dados de $products injetados no JS
-                    adicionarItemNoPedido(1, "Artigo Lido via Scanner", 2500);
-                    input.value = '';
+        function abrirOuCarregarMesaNaBD(tableId) {
+            fetch(`/admin/restaurant/order/${tableId}/open`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': '{{ csrf_token() }}'
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        estadosMesas[tableId].status = data.table_status;
+                        estadosMesas[tableId].order_id = data.order ? data.order.id : null;
+
+                        if (data.items && data.items.length > 0) {
+                            estadosMesas[tableId].itens = data.items.map(item => ({
+                                id: item.product_id,
+                                name: item.product ? item.product.name : 'Produto',
+                                price: parseFloat(item.price || 0),
+                                qty: parseInt(item.quantity || 1)
+                            }));
+                        } else {
+                            estadosMesas[tableId].itens = [];
+                        }
+
+                        atualizarVisualMesaCard(tableId, data.table_status);
+                        atualizarContadoresTop();
+                        renderizarCarrinho();
+                    } else {
+                        alert("Erro ao carregar mesa: " + data.message);
+                    }
+                })
+                .catch(err => console.error("Erro ao carregar dados do servidor:", err));
+        }
+
+        function atualizarVisualMesaCard(tableId, status) {
+            const cardMesa = document.getElementById(`card-mesa-${tableId}`);
+            const txtStatus = document.getElementById(`status-text-${tableId}`);
+
+            if (cardMesa && txtStatus) {
+                if (status === 'occupied' || status === 'busy') {
+                    cardMesa.style.background = "rgba(251, 191, 36, 0.1)";
+                    cardMesa.style.border = "1px solid rgba(251, 191, 36, 0.3)";
+                    cardMesa.style.color = "#fbbf24";
+                    txtStatus.innerText = 'Ocupada';
+                } else {
+                    cardMesa.style.background = "rgba(16, 185, 129, 0.1)";
+                    cardMesa.style.border = "1px solid rgba(16, 185, 129, 0.3)";
+                    cardMesa.style.color = "#10b981";
+                    txtStatus.innerText = 'Livre';
                 }
             }
         }
 
-        /**
-         * Insere um produto clicado ou lido no carrinho ativo
-         */
+        function atualizarContadoresTop() {
+            let livres = 0;
+            let ocupadas = 0;
+            Object.keys(estadosMesas).forEach(id => {
+                if (id != 9999) {
+                    if (estadosMesas[id].status === 'free') livres++;
+                    else ocupadas++;
+                }
+            });
+            const mLivres = document.getElementById('metric-livres');
+            const mOcupadas = document.getElementById('metric-ocupadas');
+            if (mLivres) mLivres.innerHTML = `Mesas Livres: <strong style="color: #34d399;">${livres}</strong>`;
+            if (mOcupadas) mOcupadas.innerHTML = `Mesas Ocupadas: <strong style="color: #fbbf24;">${ocupadas}</strong>`;
+        }
+
         function adicionarItemNoPedido(idProduto, nomeProduto, preco) {
             if (!mesaSelecionadaId && modoAtual === 'salao') {
-                alert("Por favor, selecione uma mesa antes de lançar produtos.");
+                alert("Por favor, selecione uma mesa no mapa primeiro.");
                 return;
             }
 
             const mesaCorrente = estadosMesas[mesaSelecionadaId];
-            const itemExistente = mesaCorrente.itens.find(item => item.id === idProduto);
 
-            if (itemExistente) {
-                itemExistente.qtd++;
-            } else {
-                mesaCorrente.itens.push({
-                    id: idProduto,
-                    name: nomeProduto,
-                    price: parseFloat(preco),
-                    qtd: 1
-                });
-            }
-
-            // Atualização visual do card da mesa do restaurante
             if (modoAtual === 'salao') {
-                const cardMesa = document.getElementById(`card-mesa-${mesaSelecionadaId}`);
-                if (cardMesa.classList.contains('mesa-livre')) {
-                    cardMesa.classList.remove('mesa-livre');
-                    cardMesa.classList.add('mesa-busy');
-                    document.getElementById(`status-text-${mesaSelecionadaId}`).innerText = 'OCUPADA';
-                }
-            }
-
-            renderizarCarrinho();
-        }
-
-        /**
-         * Remove ou diminui a quantidade de um item do pedido
-         */
-        function removerItemPedido(index) {
-            const mesaCorrente = estadosMesas[mesaSelecionadaId];
-            mesaCorrente.itens.splice(index, 1);
-
-            if (modoAtual === 'salao' && mesaCorrente.itens.length === 0) {
-                const cardMesa = document.getElementById(`card-mesa-${mesaSelecionadaId}`);
-                cardMesa.classList.remove('mesa-busy', 'mesa-conta');
-                cardMesa.classList.add('mesa-livre');
-                document.getElementById(`status-text-${mesaSelecionadaId}`).innerText = 'LIVRE';
-            }
-
-            renderizarCarrinho();
-        }
-
-        /**
-         * Atualiza e faz a somatória dos preços e impostos na tela
-         */
-        function renderizarCarrinho() {
-            const containerItens = document.getElementById('lista-itens-pedido');
-
-            if (!mesaSelecionadaId || estadosMesas[mesaSelecionadaId].itens.length === 0) {
-                containerItens.innerHTML = `
-                <div style="text-align: center; color: #9ca3af; font-size: 13px; margin-top: 40px;">
-                    O carrinho está vazio.
-                </div>`;
-                document.getElementById('txt-subtotal').innerText = '0,00 Kz';
-                document.getElementById('txt-iva').innerText = '0,00 Kz';
-                document.getElementById('txt-total').innerText = '0,00 Kz';
-                return;
-            }
-
-            const mesaCorrente = estadosMesas[mesaSelecionadaId];
-            let htmlGerado = '';
-            let subtotalCalculado = 0;
-
-            mesaCorrente.itens.forEach((item, index) => {
-                const valorLinha = item.price * item.qtd;
-                subtotalCalculado += valorLinha;
-
-                htmlGerado += `
-                <div class="pedido-item-row">
-                    <span>▶ ${item.qtd}x ${item.name}</span>
-                    <div>
-                        <strong>${valorLinha.toLocaleString('pt-PT', {minimumFractionDigits: 2})} Kz</strong>
-                        <button class="btn-remove-item" onclick="removerItemPedido(${index})">×</button>
-                    </div>
-                </div>
-            `;
-            });
-
-            containerItens.innerHTML = htmlGerado;
-
-            const valorIva = subtotalCalculado * 0.14;
-            const totalGeral = subtotalCalculado + valorIva;
-
-            document.getElementById('txt-subtotal').innerText = subtotalCalculado.toLocaleString('pt-PT', {
-                minimumFractionDigits: 2
-            }) + ' Kz';
-            document.getElementById('txt-iva').innerText = valorIva.toLocaleString('pt-PT', {
-                minimumFractionDigits: 2
-            }) + ' Kz';
-            document.getElementById('txt-total').innerText = totalGeral.toLocaleString('pt-PT', {
-                minimumFractionDigits: 2
-            }) + ' Kz';
-        }
-
-        // Ação do Botão Principal de Fechamento de Venda
-        // Substitua o listener do clique de finalização na View por este estruturado para o ERP:
-        document.getElementById('btn-finalizar-venda').addEventListener('click', () => {
-            if (!mesaSelecionadaId || estadosMesas[mesaSelecionadaId].itens.length === 0) {
-                alert("Não há produtos no carrinho para faturar.");
-                return;
-            }
-
-            if (modoAtual === 'supermercado') {
-                // Formata os dados exatamente como o SaleController@store exige
-                const payload = {
-                    total: calcularTotalGeral(estadosMesas[9999].itens), // Função auxiliar de soma
-                    items: estadosMesas[9999].itens.map(item => ({
-                        id: item.id,
-                        qty: item.qtd,
-                        price: item.price
-                    })),
-                    payments: {
-                        cash: calcularTotalGeral(estadosMesas[9999]
-                        .itens), // Simulação: tudo em Cash. Pode ligar a um modal se desejar.
-                        card: 0,
-                        transf: 0,
-                        multi: 0
-                    }
-                };
-
-                // Rota oficial de vendas do ERP
-                fetch('/admin/sales', {
+                fetch('/admin/restaurant/add-item', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSR-Token': document.querySelector('meta[name="csrf-token"]').getAttribute(
-                                'content')
+                            'X-CSRF-Token': '{{ csrf_token() }}'
                         },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify({
+                            order_id: mesaCorrente.order_id,
+                            product_id: idProduto,
+                            quantity: 1,
+                            price: preco
+                        })
                     })
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
-                            alert(
-                                `Venda nº ${data.invoice} registada no Supermercado com sucesso! Troco: ${data.change} Kz`);
-                            estadosMesas[9999] = {
-                                itens: [],
-                                subtotal: 0
-                            };
+                            mesaCorrente.status = 'occupied';
+                            atualizarVisualMesaCard(mesaSelecionadaId, 'occupied');
+                            atualizarContadoresTop();
+
+                            // Atualização local controlada
+                            const itemExistente = mesaCorrente.itens.find(i => i.id === idProduto);
+                            if (itemExistente) {
+                                itemExistente.qty++;
+                            } else {
+                                mesaCorrente.itens.push({
+                                    id: idProduto,
+                                    name: nomeProduto,
+                                    price: parseFloat(preco),
+                                    qty: 1
+                                });
+                            }
                             renderizarCarrinho();
-                            document.getElementById('inputBarcode').focus();
                         } else {
-                            alert("Erro no validador do ERP: " + data.error);
+                            alert("Erro ao adicionar item no servidor: " + (data.message || "Motivo desconhecido"));
                         }
                     })
-                    .catch(err => alert("Erro ao processar comunicação com o servidor principal."));
-
+                    .catch(err => console.error("Erro ao processar item no servidor:", err));
             } else {
-                // Lógica normal de fecho de mesa de restaurante (RestaurantController@closeTable)
-                fetch(`/admin/restaurant/table/${mesaSelecionadaId}/close`, {
-                    method: 'POST'
-                })
-                // ... restante do fecho da mesa
+                // Modo supermercado (Apenas local)
+                const itemExistente = mesaCorrente.itens.find(i => i.id === idProduto);
+                if (itemExistente) {
+                    itemExistente.qty++;
+                } else {
+                    mesaCorrente.itens.push({
+                        id: idProduto,
+                        name: nomeProduto,
+                        price: parseFloat(preco),
+                        qty: 1
+                    });
+                }
+                renderizarCarrinho();
             }
+        }
+
+        function verificarInputBarcode(event) {
+            if (event.key === 'Enter') {
+                const barcode = event.target.value.trim();
+                if (!barcode) return;
+
+                fetch('/admin/pos/supermercado/find-product', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            barcode: barcode
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(product => {
+                        if (product.success && product.data) {
+                            adicionarItemNoPedido(product.data.id, product.data.name, product.data.selling_price);
+                            event.target.value = '';
+                        } else {
+                            alert("Produto não localizado.");
+                        }
+                    })
+                    .catch(err => console.error("Erro na leitura:", err));
+            }
+        }
+
+        function renderizarCarrinho() {
+            const container = document.getElementById('lista-itens-pedido');
+            if (!container) return;
+
+            if (!mesaSelecionadaId || !estadosMesas[mesaSelecionadaId] || estadosMesas[mesaSelecionadaId].itens.length ===
+                0) {
+                container.innerHTML =
+                    `<div style="text-align: center; color: #64748b; font-size: 13px; margin-top: 40px;">O carrinho está vazio.</div>`;
+                document.getElementById('txt-subtotal').innerText = '0,00 Kz';
+                document.getElementById('txt-total').innerText = '0,00 Kz';
+                totalGeralVendaActual = 0;
+                return;
+            }
+
+            let html = '';
+            let subtotal = 0;
+
+            estadosMesas[mesaSelecionadaId].itens.forEach((item, index) => {
+                let totalItem = item.price * item.qty;
+                subtotal += totalItem;
+                html += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(2,6,23,0.3); border: 1px solid #1e293b; padding: 8px; border-radius: 8px; font-size: 13px; margin-bottom: 4px;">
+                <span><span style="color:#64748b;">${item.qty}x</span> ${item.name}</span>
+                <div style="display: flex; align-items: center;">
+                    <strong style="color:#fff; margin-right: 10px;">${totalItem.toLocaleString('pt-PT')} Kz</strong>
+                    <button style="color:#ef4444; background:none; border:none; font-weight:bold; cursor:pointer; font-size: 16px;" onclick="removerItem(${index})">×</button>
+                </div>
+            </div>`;
+            });
+
+            container.innerHTML = html;
+            totalGeralVendaActual = subtotal * 1.14; // IVA 14%
+            document.getElementById('txt-subtotal').innerText = subtotal.toLocaleString('pt-PT') + ' Kz';
+            document.getElementById('txt-total').innerText = totalGeralVendaActual.toLocaleString('pt-PT') + ' Kz';
+        }
+
+        function removerItem(index) {
+            if (!mesaSelecionadaId || !estadosMesas[mesaSelecionadaId]) return;
+
+            const mesaCorrente = estadosMesas[mesaSelecionadaId];
+            const itemRemovido = mesaCorrente.itens[index];
+
+            // 1. Otimização: Remove do array local imediatamente (Feedback Visual)
+            mesaCorrente.itens.splice(index, 1);
+            renderizarCarrinho(); // Atualiza a UI imediatamente
+
+            if (modoAtual === 'salao') {
+                // 2. Sincronização com o Backend
+                fetch(`/admin/restaurant/remove-item`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            order_id: mesaCorrente.order_id,
+                            product_id: itemRemovido.id
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Se o backend indicou que a mesa ficou vazia (count === 0),
+                            // o servidor já a libertou. Atualizamos o estado local para bater certo.
+                            if (mesaCorrente.itens.length === 0) {
+                                mesaCorrente.status = 'free';
+                                mesaCorrente.order_id = null;
+                                atualizarVisualMesaCard(mesaSelecionadaId, 'free');
+                                atualizarContadoresTop();
+
+                                // Notificação opcional
+                                console.log("Mesa libertada na BD com sucesso.");
+                            }
+                        } else {
+                            alert("Erro ao sincronizar remoção: " + data.message);
+                            // Opcional: recarregar estado da mesa se ocorrer erro para evitar dessincronização
+                            abrirOuCarregarMesaNaBD(mesaSelecionadaId);
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Erro de rede ao remover item:", err);
+                        alert("Erro de conexão. Verifique se a mesa ainda existe.");
+                    });
+            }
+        }
+
+        function processarFechamentoVenda() {
+            if (!mesaSelecionadaId || !estadosMesas[mesaSelecionadaId] || estadosMesas[mesaSelecionadaId].itens.length ===
+                0) {
+                alert("O carrinho está vazio!");
+                return;
+            }
+            document.getElementById('modal-txt-total').innerText = totalGeralVendaActual.toLocaleString('pt-PT') + ' Kz';
+
+            // Conversão limpa para o input numérico
+            document.getElementById('input-valor-pago').value = Math.ceil(totalGeralVendaActual);
+            document.getElementById('modal-pagamento').style.display = 'flex';
+            calcularTroco();
+        }
+
+        function fecharModalPagamento() {
+            document.getElementById('modal-pagamento').style.display = 'none';
+        }
+
+        function ajustarCamposTroco() {
+            const metodo = document.getElementById('select-metodo-pagamento').value;
+            const wrapper = document.getElementById('wrapper-valores-recebidos');
+            if (metodo !== 'cash') {
+                wrapper.style.opacity = '0.3';
+                wrapper.style.pointerEvents = 'none';
+                document.getElementById('txt-troco-calculado').innerText = '0,00 Kz';
+            } else {
+                wrapper.style.opacity = '1';
+                wrapper.style.pointerEvents = 'auto';
+                calcularTroco();
+            }
+        }
+
+        function calcularTroco() {
+            let valorDigitado = document.getElementById('input-valor-pago').value;
+
+            // Substitui eventuais vírgulas de digitação por pontos antes do parse
+            if (typeof valorDigitado === 'string') {
+                valorDigitado = valorDigitado.replace(',', '.');
+            }
+
+            const entregue = parseFloat(valorDigitado) || 0;
+            const troco = entregue - totalGeralVendaActual;
+            document.getElementById('txt-troco-calculado').innerText = (troco > 0 ? troco.toLocaleString('pt-PT') :
+                '0,00') + ' Kz';
+        }
+
+        function submeterVendaFinal() {
+            const metodo = document.getElementById('select-metodo-pagamento').value;
+            const payload = {
+                total: totalGeralVendaActual,
+                items: estadosMesas[mesaSelecionadaId].itens,
+                method: metodo,
+                table_id: modoAtual === 'salao' ? mesaSelecionadaId : null
+            };
+
+            fetch('/admin/pos/checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        alert("Erro interno: " + data.message);
+                        return;
+                    }
+
+                    alert(`Fatura emitida com sucesso!`);
+                    fecharModalPagamento();
+
+                    if (modoAtual === 'salao' && mesaSelecionadaId && mesaSelecionadaId !== 9999) {
+                        fetch(`/admin/restaurant/order/${mesaSelecionadaId}/close`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-Token': '{{ csrf_token() }}'
+                                }
+                            })
+                            .then(() => {
+                                atualizarVisualMesaCard(mesaSelecionadaId, 'free');
+                                estadosMesas[mesaSelecionadaId] = {
+                                    itens: [],
+                                    subtotal: 0,
+                                    status: 'free',
+                                    order_id: null
+                                };
+                                atualizarContadoresTop();
+                                mesaSelecionadaId = null;
+                                document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
+                                renderizarCarrinho();
+                            });
+                    } else {
+                        estadosMesas[9999].itens = [];
+                        renderizarCarrinho();
+                    }
+                })
+                .catch(err => console.error("Erro ao finalizar venda:", err));
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            carregarEstadoInicialMesas();
         });
 
-        function calcularTotalGeral(itens) {
-            let sub = itens.reduce((acc, item) => acc + (item.price * item.qtd), 0);
-            return sub * 1.07; // Incluindo a taxa de 14% de IVA mapeada no teu ERP
+        function carregarEstadoInicialMesas() {
+            fetch('/admin/restaurant/tables-state')
+                .then(res => res.json())
+                .then(data => {
+                    Object.keys(data).forEach(mesaId => {
+                        const infoMesa = data[mesaId];
+                        estadosMesas[mesaId] = {
+                            status: infoMesa.status,
+                            order_id: infoMesa.order_id,
+                            itens: infoMesa.itens || []
+                        };
+                        atualizarVisualMesaCard(mesaId, infoMesa.status);
+                    });
+                    atualizarContadoresTop();
+                })
+                .catch(err => console.error("Erro ao sincronizar o salão com a Base de Dados:", err));
         }
-
-
-        function verificarInputBarcode(e) {
-    if (e.key === 'Enter') {
-        const input = document.getElementById('inputBarcode');
-        const barcodeValue = input.value.trim();
-
-        if (barcodeValue !== '') {
-            fetch('/pos/supermercado/find-product', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSR-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({ barcode: barcodeValue })
-            })
-            .then(res => {
-                if(!res.ok) throw new Error('Produto não encontrado ou sem stock');
-                return res.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    // Adiciona o produto real retornado do banco de dados ao carrinho do supermercado (ID 9999)
-                    adicionarItemNoPedido(data.product.id, data.product.name, data.product.price);
-                    input.value = '';
-                }
-            })
-            .catch(err => {
-                alert(err.message);
-                input.value = '';
-            });
-        }
-    }
-}
     </script>
-
-
 @endsection

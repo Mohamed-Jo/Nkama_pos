@@ -29,4 +29,6 @@ class RestaurantOrder extends Model
     {
         return $this->hasMany(RestaurantOrderItem::class, 'order_id');
     }
+
+    
 }
