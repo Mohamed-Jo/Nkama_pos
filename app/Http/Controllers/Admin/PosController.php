@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Operator, Product, Customer, RestaurantTable, Sale, SaleItem, Shift, Category};
+use App\Models\{Operator, Product, Customer, RestaurantTable, Sale, Shift, Category, Payments};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class PosController extends Controller
 {

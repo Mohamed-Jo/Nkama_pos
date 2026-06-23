@@ -37,6 +37,18 @@
             background-color: rgba(2, 6, 23, 0.85);
             backdrop-filter: blur(4px);
         }
+
+        @media (max-width: 1100px) {
+            #view-salao-mesas {
+                grid-template-columns: repeat(3, minmax(120px, 1fr)) !important;
+            }
+        }
+
+        @media (max-width: 860px) {
+            #view-salao-mesas {
+                grid-template-columns: repeat(2, minmax(120px, 1fr)) !important;
+            }
+        }
     </style>
 
     <div class="space-y-4 max-w-[1600px] mx-auto px-2 text-slate-200"
@@ -99,7 +111,7 @@
                     </div>
 
                     <div id="view-salao-mesas"
-                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; max-height: 430px; overflow-y: auto; align-content: start;">
+                    style="display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 10px; background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; max-height: 430px; overflow-y: auto; align-content: start;">
                     @foreach ($tables as $table)
                         @php
                             $styleMesa =
@@ -117,7 +129,7 @@
 
                         <button class="p-4 rounded-xl border transition text-center gap-1 group relative mesa-card"
                             data-status="{{ $mesaStatusFiltro }}"
-                            style="{{ $styleMesa }} padding: 15px; border-radius: 10px; cursor: pointer;"
+                            style="{{ $styleMesa }} padding: 15px; border-radius: 10px; cursor: pointer; height: 72px; overflow: hidden;"
                             id="card-mesa-{{ $table->id }}"
                             onclick="selecionarMesa({{ $table->id }}, '{{ $table->name }}')">
                             <div style="font-weight: bold; color: #fff;">🪑 {{ $table->name }}</div>
@@ -459,7 +471,7 @@
             document.getElementById('lbl-cliente-tipo').innerText = 'Mesa Ativa • Conta Operacional';
 
             document.getElementById('txt-titulo-modulo').innerText = `Mesa ${nome} - Categorias`;
-            document.getElementById('view-salao-mesas').style.display = 'none';
+            document.getElementById('view-salao-wrapper').style.display = 'none';
             document.getElementById('restaurant-categories').style.display = 'grid';
             document.getElementById('restaurant-products').style.display = 'none';
             document.querySelectorAll('.restaurant-product').forEach(productButton => {
@@ -509,17 +521,20 @@
             const txtStatus = document.getElementById(`status-text-${tableId}`);
 
             if (cardMesa && txtStatus) {
-                if (status === 'occupied' || status === 'busy') {
+                if (status === 'occupied' || status === 'busy' || status === 'waiting_payment') {
+                    cardMesa.dataset.status = 'occupied';
                     cardMesa.style.background = "rgba(251, 191, 36, 0.1)";
                     cardMesa.style.border = "1px solid rgba(251, 191, 36, 0.3)";
                     cardMesa.style.color = "#fbbf24";
                     txtStatus.innerText = 'Ocupada';
                 } else {
+                    cardMesa.dataset.status = 'free';
                     cardMesa.style.background = "rgba(16, 185, 129, 0.1)";
                     cardMesa.style.border = "1px solid rgba(16, 185, 129, 0.3)";
                     cardMesa.style.color = "#10b981";
                     txtStatus.innerText = 'Livre';
                 }
+                filtrarMesas(filtroMesasAtual);
             }
         }
 
@@ -808,10 +823,11 @@
                                 atualizarContadoresTop();
                                 mesaSelecionadaId = null;
                                 document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
-                                document.getElementById('view-salao-mesas').style.display = 'grid';
+                                document.getElementById('view-salao-wrapper').style.display = 'flex';
                                 document.getElementById('restaurant-categories').style.display = 'none';
                                 document.getElementById('restaurant-products').style.display = 'none';
                                 document.getElementById('txt-titulo-modulo').innerText = 'Salao Principal';
+                                filtrarMesas(filtroMesasAtual);
                                 renderizarCarrinho();
                             });
                     } else {
