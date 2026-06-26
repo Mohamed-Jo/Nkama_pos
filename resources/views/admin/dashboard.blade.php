@@ -3,7 +3,6 @@
 @section('page-title', 'Dashboard')
 
 @section('content')
-<!-- ================= SISTEMA DE CORES E ESTILOS MODERNOS ================= -->
 <style>
     :root {
         --bg-dashboard: #0b0f19;
@@ -26,7 +25,6 @@
         font-family: system-ui, -apple-system, sans-serif;
     }
 
-    /* GRID DE MÉTRICAS */
     .metrics-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -34,12 +32,11 @@
         margin-bottom: 24px;
     }
 
-    /* CARDS PERSONALIZADOS */
     .custom-card {
         background: var(--card-bg);
         backdrop-filter: blur(12px);
         border: 1px solid var(--card-border);
-        border-radius: 16px;
+        border-radius: 8px;
         padding: 20px;
         transition: all 0.2s ease-in-out;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -64,25 +61,16 @@
     .card-value {
         font-size: 28px;
         font-weight: 700;
-        letter-spacing: -0.02em;
         color: #ffffff;
         line-height: 1.2;
     }
 
-    /* SECÇÃO INFERIOR DUPLEX */
     .dashboard-layout-bottom {
         display: grid;
         grid-template-columns: 2fr 1fr;
         gap: 24px;
     }
 
-    @media (max-width: 1024px) {
-        .dashboard-layout-bottom {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    /* LISTA DE INSIGHTS */
     .insight-list {
         list-style: none;
         padding: 0;
@@ -113,32 +101,31 @@
         font-size: 14px;
         flex-shrink: 0;
     }
+
+    @media (max-width: 1024px) {
+        .dashboard-layout-bottom {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="dashboard-container">
-
-    <!-- ================= METRICS GRID ================= -->
     <div class="metrics-grid">
-
-        <!-- Vendas Hoje -->
         <div class="custom-card">
             <span class="card-label">Vendas Hoje</span>
             <div class="card-value">{{ number_format($todaySales, 2) }} <span class="text-xs font-normal text-gray-500">Kz</span></div>
         </div>
 
-        <!-- Receita Total -->
         <div class="custom-card">
             <span class="card-label">Receita Total</span>
             <div class="card-value" style="color: var(--accent-green);">{{ number_format($totalSales, 2) }} <span class="text-xs font-normal text-gray-500">Kz</span></div>
         </div>
 
-        <!-- Transações -->
         <div class="custom-card">
             <span class="card-label">Transações</span>
             <div class="card-value">{{ $totalTransactions }}</div>
         </div>
 
-        <!-- Estado do Caixa -->
         <div class="custom-card">
             <span class="card-label">Estado do Caixa</span>
             <div class="card-value flex items-center gap-2" style="color: {{ $shiftOpen ? 'var(--accent-green)' : 'var(--accent-red)' }}">
@@ -147,13 +134,11 @@
             </div>
         </div>
 
-        <!-- Total Produtos -->
         <div class="custom-card">
             <span class="card-label">Produtos em Catálogo</span>
             <div class="card-value">{{ $productsCount }}</div>
         </div>
 
-        <!-- Stock Baixo -->
         <div class="custom-card">
             <span class="card-label">Stock Crítico</span>
             <div class="card-value" style="color: {{ $lowStock > 5 ? 'var(--accent-red)' : '#ffffff' }}">
@@ -161,24 +146,18 @@
             </div>
         </div>
 
-        <!-- Clientes -->
         <div class="custom-card">
             <span class="card-label">Clientes Registados</span>
             <div class="card-value">{{ $customers }}</div>
         </div>
 
-        <!-- Crescimento Fornecedores -->
         <div class="custom-card">
             <span class="card-label">Crescimento Fornecedores</span>
             <div class="card-value" style="color: var(--accent-orange);">+{{ number_format($growth, 1) }}%</div>
         </div>
-
     </div>
 
-    <!-- ================= CONTÉUDO DINÂMICO INTERMEDIÁRIO ================= -->
     <div class="dashboard-layout-bottom">
-        
-        <!-- 📊 GRÁFICO (Evolução de Vendas) -->
         <div class="custom-card">
             <span class="card-label" style="margin-bottom: 20px;">Evolução de Vendas (Últimos 7 Dias)</span>
             <div style="position: relative; width: 100%; height: 340px;">
@@ -186,7 +165,6 @@
             </div>
         </div>
 
-        <!-- 🧠 INSIGHTS INTELIGENTES -->
         <div class="custom-card flex flex-col">
             <span class="card-label" style="margin-bottom: 16px;">Insights do Sistema</span>
             <div class="flex-1 overflow-y-auto pr-1">
@@ -200,24 +178,17 @@
                 </ul>
             </div>
         </div>
-
     </div>
-
 </div>
 
-<!-- ================= SCRIPTS & CONFIGURAÇÃO GRÁFICA ================= -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const labels = @json($salesChart->pluck('date'));
         const data = @json($salesChart->pluck('total'));
-
-        // Configuração customizada do Chart.js para combinar com o tema escuro
         const ctx = document.getElementById('salesChart').getContext('2d');
-        
-        // Criar um efeito de gradiente suave abaixo da linha do gráfico
         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+
         gradient.addColorStop(0, 'rgba(249, 115, 22, 0.25)');
         gradient.addColorStop(1, 'rgba(249, 115, 22, 0.0)');
 
@@ -245,7 +216,7 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: false // Oculta a legenda redundante para um look mais clean
+                        display: false
                     },
                     tooltip: {
                         backgroundColor: '#111827',

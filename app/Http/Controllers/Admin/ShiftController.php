@@ -7,6 +7,7 @@ use App\Models\Payments;
 use App\Models\Shift;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class ShiftController extends Controller
 {
@@ -68,12 +69,19 @@ class ShiftController extends Controller
             ]);
         }
 
-        $shift = Shift::create([
+        $payload = [
             'operator_id'  => $operatorId,
+            'user_id'      => auth()->id(),
             'opening_cash' => $request->opening_cash,
             'status'       => 'open',
             'opened_at'    => now(),
-        ]);
+        ];
+
+        $payload = collect($payload)
+            ->filter(fn ($value, $column) => $value !== null && Schema::hasColumn('shifts', $column))
+            ->all();
+
+        $shift = Shift::create($payload);
 
         return response()->json([
             'success'      => true,
@@ -161,7 +169,7 @@ class ShiftController extends Controller
         $countedCash          = (float) $request->counted_cash;
         $difference           = $countedCash - $expectedCashPhysical;
 
-        $shift->update([
+        $payload = [
             'status'             => 'closed',
             'closed_at'          => now(),
             'cash_sales_total'   => $cashTotal,
@@ -171,7 +179,13 @@ class ShiftController extends Controller
             'expected_cash'      => $expectedCashPhysical,
             'closing_cash'       => $countedCash,
             'difference'         => $difference
-        ]);
+        ];
+
+        if (Schema::hasColumn('shifts', 'notes')) {
+            $payload['notes'] = $request->input('notes');
+        }
+
+        $shift->update($payload);
 
         return response()->json([
             'success'            => true,

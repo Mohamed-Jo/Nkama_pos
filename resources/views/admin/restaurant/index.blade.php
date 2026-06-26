@@ -45,7 +45,9 @@
                         <td class="text-white font-medium">{{ $table->name }}</td>
                         <td>{{ $table->capacity }}</td>
                         <td>
-                            <span class="status-badge {{ $table->status }}">{{ ucfirst($table->status) }}</span>
+                            <span class="status-badge {{ $table->status }}">
+                                {{ $table->status === 'free' ? 'Livre' : 'Ocupada' }}
+                            </span>
                         </td>
                     </tr>
                     @endforeach
@@ -73,7 +75,8 @@
     th { text-align: left; padding: 15px; color: #64748b; font-size: 0.75rem; border-bottom: 1px solid #1e293b; }
     td { padding: 15px; border-bottom: 1px solid #1e293b; color: #cbd5e1; font-size: 0.9rem; }
     .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; }
-    .livre { background: #064e3b; color: #34d399; }
-    .ocupada { background: #7f1d1d; color: #f87171; }
+    .free { background: #064e3b; color: #34d399; }
+    .occupied { background: #7f1d1d; color: #f87171; }
+    .reserved { background: #78350f; color: #fbbf24; }
 </style>
 @endsection

@@ -1,85 +1,167 @@
-function getPaid(){
-    return payments.cash + payments.card + payments.transf + payments.multi;
-}
+(function (window) {
+    const Payment = {
+        parse(value) {
+            if (typeof value === "number") {
+                return Number.isFinite(value) ? value : 0;
+            }
 
-function openPayModal(){
+            return parseFloat(String(value || "0").replace(",", ".")) || 0;
+        },
 
-    if(!cart.length){
-        alert("Carrinho vazio");
-        return;
+        format(value) {
+            return this.parse(value).toLocaleString("pt-PT") + " Kz";
+        },
+
+        roundUp(value, increment) {
+            const step = this.parse(increment) || 1;
+            return Math.ceil(this.parse(value) / step) * step;
+        },
+
+        sumBreakdown(breakdown) {
+            return Object.values(breakdown || {}).reduce((sum, value) => {
+                return sum + this.parse(value);
+            }, 0);
+        },
+
+        missing(total, paid) {
+            return Math.max(this.parse(total) - this.parse(paid), 0);
+        },
+
+        change(total, paid, cashPart) {
+            const excess = this.parse(paid) - this.parse(total);
+            const maxCashChange = cashPart === undefined ? excess : this.parse(cashPart);
+
+            return Math.min(Math.max(excess, 0), Math.max(maxCashChange, 0));
+        },
+
+        buildBreakdown(cash, card, transfer) {
+            return {
+                cash: this.parse(cash),
+                card: this.parse(card),
+                transfer: this.parse(transfer)
+            };
+        }
+    };
+
+    window.NkamaPOSPayment = Payment;
+
+    // Compatibility for older POS screens that still load this file directly.
+    function legacyPayments() {
+        if (typeof payments !== "undefined") return payments;
+        return window.payments || {};
     }
 
-    document.getElementById("payModal").classList.remove("hidden");
+    function legacyCart() {
+        if (typeof cart !== "undefined") return cart;
+        return window.cart || [];
+    }
 
-    setMethod("cash");
-    clearInput();
-    updatePaymentUI();
-}
+    window.getPaid = window.getPaid || function () {
+        const payments = legacyPayments();
+        return Payment.sumBreakdown({
+            cash: payments.cash,
+            card: payments.card,
+            transf: payments.transf,
+            multi: payments.multi
+        });
+    };
 
-function closePayModal(){
-    document.getElementById("payModal").classList.add("hidden");
-}
+    window.clearInput = window.clearInput || function () {
+        const input = document.getElementById("input");
+        if (input) input.value = "";
+    };
 
-function setMethod(method){
+    window.key = window.key || function (value) {
+        const input = document.getElementById("input");
+        if (input) input.value += value;
+    };
 
-    selectedMethod = method;
+    window.openPayModal = window.openPayModal || function () {
+        if (!legacyCart().length) {
+            alert("Carrinho vazio");
+            return;
+        }
 
-    document.querySelectorAll(".payBtn").forEach(b=>{
-        b.classList.remove("bg-orange-500","text-black");
-    });
+        const modal = document.getElementById("payModal");
+        if (modal) modal.classList.remove("hidden");
 
-    const btn = document.getElementById("btn-"+method);
-    if(btn) btn.classList.add("bg-orange-500","text-black");
-}
+        if (typeof window.setMethod === "function") window.setMethod("cash");
+        if (typeof window.clearInput === "function") window.clearInput();
+        if (typeof window.updatePaymentUI === "function") window.updatePaymentUI();
+    };
 
-function key(v){
-    document.getElementById("input").value += v;
-}
+    window.closePayModal = window.closePayModal || function () {
+        const modal = document.getElementById("payModal");
+        if (modal) modal.classList.add("hidden");
+    };
 
-function clearInput(){
-    document.getElementById("input").value = "";
-}
+    window.setMethod = window.setMethod || function (method) {
+        if (typeof selectedMethod !== "undefined") {
+            selectedMethod = method;
+        } else {
+            window.selectedMethod = method;
+        }
 
-function addPay(){
+        document.querySelectorAll(".payBtn").forEach(button => {
+            button.classList.remove("bg-orange-500", "text-black");
+        });
 
-    let amount = parseFloat(document.getElementById("input").value || 0);
-    if(amount <= 0) return;
+        const button = document.getElementById("btn-" + method);
+        if (button) button.classList.add("bg-orange-500", "text-black");
+    };
 
-    payments[selectedMethod] += amount;
+    window.addPay = window.addPay || function () {
+        const amount = Payment.parse(document.getElementById("input")?.value);
+        const payments = legacyPayments();
+        const method = typeof selectedMethod !== "undefined" ? selectedMethod : window.selectedMethod;
 
-    clearInput();
-    updatePaymentUI();
-}
+        if (amount <= 0 || !method) return;
 
-function updatePaymentUI(){
+        payments[method] = Payment.parse(payments[method]) + amount;
 
-    const total = getTotal();
-    const paid = getPaid();
-    const diff = paid - total;
+        if (typeof window.clearInput === "function") window.clearInput();
+        if (typeof window.updatePaymentUI === "function") window.updatePaymentUI();
+    };
 
-    document.getElementById("mTotal").innerText = total.toFixed(2);
-    document.getElementById("paidAmount").innerText = paid.toFixed(2);
+    window.updatePaymentUI = window.updatePaymentUI || function () {
+        if (typeof getTotal !== "function") return;
 
-    document.getElementById("missingAmount").innerText =
-        diff >= 0 ? "0.00" : Math.abs(diff).toFixed(2);
+        const total = getTotal();
+        const paid = window.getPaid();
+        const diff = paid - total;
+        const fields = {
+            mTotal: total,
+            paidAmount: paid,
+            missingAmount: diff >= 0 ? 0 : Math.abs(diff),
+            changeAmount: diff >= 0 ? diff : 0,
+            cash: legacyPayments().cash,
+            card: legacyPayments().card,
+            transf: legacyPayments().transf,
+            multi: legacyPayments().multi
+        };
 
-    document.getElementById("changeAmount").innerText =
-        diff >= 0 ? diff.toFixed(2) : "0.00";
+        Object.entries(fields).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) element.innerText = Payment.parse(value).toFixed(2);
+        });
+    };
 
-    document.getElementById("cash").innerText = payments.cash.toFixed(2);
-    document.getElementById("card").innerText = payments.card.toFixed(2);
-    document.getElementById("transf").innerText = payments.transf.toFixed(2);
-    document.getElementById("multi").innerText = payments.multi.toFixed(2);
-}
+    window.resetSale = window.resetSale || function () {
+        if (typeof cart !== "undefined") {
+            cart = [];
+        } else {
+            window.cart = [];
+        }
 
-function resetSale(){
+        const currentPayments = legacyPayments();
+        currentPayments.cash = 0;
+        currentPayments.card = 0;
+        currentPayments.transf = 0;
+        currentPayments.multi = 0;
 
-    cart = [];
-
-    payments = { cash:0, card:0, transf:0, multi:0 };
-
-    clearInput();
-    renderCart();
-    updatePaymentUI();
-    closePayModal();
-}
+        if (typeof window.clearInput === "function") window.clearInput();
+        if (typeof renderCart === "function") renderCart();
+        if (typeof window.updatePaymentUI === "function") window.updatePaymentUI();
+        if (typeof window.closePayModal === "function") window.closePayModal();
+    };
+})(window);

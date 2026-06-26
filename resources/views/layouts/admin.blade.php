@@ -73,6 +73,15 @@
             overflow-y: auto;
         }
 
+        .menu-section {
+            padding: 14px 16px 6px;
+            color: #6b7280;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
         .menu a {
             display: flex;
             align-items: center;
@@ -86,7 +95,8 @@
             margin-bottom: 4px;
         }
 
-        .menu a:hover {
+        .menu a:hover,
+        .menu a.active {
             background: rgba(249, 115, 22, 0.08);
             color: var(--primary);
             padding-left: 20px;
@@ -107,6 +117,78 @@
             justify-content: space-between;
             align-items: center;
             padding: 0 24px;
+        }
+
+        .topbar-actions {
+            align-items: center;
+            display: flex;
+            gap: 12px;
+        }
+
+        .system-date {
+            align-items: center;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            font-size: 11px;
+            gap: 2px;
+            line-height: 1.2;
+            min-width: 132px;
+            padding: 7px 10px;
+            text-align: right;
+        }
+
+        .system-date strong {
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .operator-chip {
+            align-items: center;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            font-size: 11px;
+            gap: 2px;
+            line-height: 1.2;
+            min-width: 132px;
+            padding: 7px 10px;
+            text-align: right;
+        }
+
+        .operator-chip strong {
+            color: var(--text);
+            font-size: 13px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .btn-audit {
+            align-items: center;
+            background: rgba(249, 115, 22, 0.1);
+            border: 1px solid rgba(249, 115, 22, 0.32);
+            border-radius: 8px;
+            color: var(--primary);
+            display: inline-flex;
+            font-size: 13px;
+            font-weight: 800;
+            gap: 8px;
+            min-height: 36px;
+            padding: 0 12px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .btn-audit:hover {
+            background: rgba(249, 115, 22, 0.16);
         }
 
         @keyframes fadeIn {
@@ -198,6 +280,18 @@
             .sidebar {
                 position: absolute;
             }
+
+            .system-date {
+                display: none;
+            }
+
+            .operator-chip {
+                display: none;
+            }
+
+            .btn-audit span:last-child {
+                display: none;
+            }
         }
     </style>
 
@@ -209,14 +303,46 @@
     <div id="toast-container"></div>
 
     <div class="app">
+        @php
+            $operatorRole = session('operator_role', 'cashier');
+            $canManage = in_array($operatorRole, ['super_user', 'admin', 'manager'], true);
+            $isSuperUser = $operatorRole === 'super_user';
+            $activeModules = \App\Services\ModuleSettings::all();
+        @endphp
+
         <aside class="sidebar" id="sidebar">
             <div class="logo">NKAMA ERP</div>
             <nav class="menu">
-                <a href="{{ route('admin.dashboard') }}">📊 Dashboard</a>
-                <a href="#" onclick="goToPOS(event)">⌗ POS / Caixa</a>
-                <a href="{{ route('admin.restaurantMesa.index') }}">🍽️ Gerir Mesas</a>
-                <a href="{{ route('admin.sales.index') }}">💰 Vendas</a>
-                <a href="{{ route('admin.products.index') }}">📦 Inventário</a>
+                <a class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">📊 Dashboard</a>
+
+                <div class="menu-section">Operações</div>
+                <a class="{{ request()->routeIs('admin.pos.*') ? 'active' : '' }}" href="{{ route('admin.pos.index') }}">⌗ POS / Caixa</a>
+                <a class="{{ request()->routeIs('admin.sales.*') ? 'active' : '' }}" href="{{ route('admin.sales.index') }}">💰 Vendas</a>
+                @if($canManage)
+                    <a class="{{ request()->routeIs('admin.audit.*') ? 'active' : '' }}" href="{{ route('admin.audit.index') }}">🛡 Auditoria</a>
+                @endif
+
+                <div class="menu-section">Caixa</div>
+                @if($canManage)
+                    <a class="{{ request()->routeIs('admin.shifts.*') ? 'active' : '' }}" href="{{ route('admin.shifts.history') }}">🧾 Histórico de Fechos</a>
+                @endif
+
+                @if($canManage)
+                    <div class="menu-section">Cadastros</div>
+                    <a class="{{ request()->routeIs('admin.products.*') ? 'active' : '' }}" href="{{ route('admin.products.index') }}">📦 Produtos</a>
+                    <a class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}" href="{{ route('admin.categories.index') }}">🏷️ Categorias</a>
+                    @if($activeModules['restaurant'] ?? true)
+                        <a class="{{ request()->routeIs('admin.restaurantMesa.*') ? 'active' : '' }}" href="{{ route('admin.restaurantMesa.index') }}">🪑 Mesas</a>
+                    @endif
+                    <a class="{{ request()->routeIs('admin.customers.*') ? 'active' : '' }}" href="{{ route('admin.customers.index') }}">👥 Clientes</a>
+                    <a class="{{ request()->routeIs('admin.suppliers.*') ? 'active' : '' }}" href="{{ route('admin.suppliers.index') }}">🚚 Fornecedores</a>
+                @endif
+
+                @if($isSuperUser)
+                    <div class="menu-section">Segurança</div>
+                    <a class="{{ request()->routeIs('admin.modules.*') ? 'active' : '' }}" href="{{ route('admin.modules.index') }}">🧩 Módulos</a>
+                    <a class="{{ request()->routeIs('admin.operators.*') ? 'active' : '' }}" href="{{ route('admin.operators.index') }}">🔐 Operadores</a>
+                @endif
             </nav>
         </aside>
 
@@ -226,28 +352,45 @@
                     <button class="btn-toggle" onclick="toggleSidebar()">☰</button>
                     <strong>@yield('page-title', 'Dashboard')</strong>
                 </div>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button class="btn-primary" type="submit">Sair</button>
-                </form>
+                <div class="topbar-actions">
+                    @php
+                        $cachedSystemDate = \Illuminate\Support\Facades\Cache::get('system_date');
+                        $systemDate = $cachedSystemDate
+                            ? \Carbon\Carbon::parse($cachedSystemDate)
+                            : now();
+                    @endphp
+
+                    <div class="system-date" title="Data operacional do sistema">
+                        <span>Data do sistema</span>
+                        <strong>{{ $systemDate->format('d/m/Y') }}</strong>
+                    </div>
+
+                    <div class="operator-chip" title="Operador autenticado">
+                        <span>Operador</span>
+                        <strong>{{ session('operator_name', 'Operador') }}</strong>
+                    </div>
+
+                    @if($isSuperUser)
+                        <form method="POST" action="{{ route('admin.system-date.next') }}">
+                            @csrf
+                            <button class="btn-audit" type="submit" title="Avançar data do sistema para o próximo dia">
+                                <span>🛡</span>
+                                <span>Próxima data</span>
+                            </button>
+                        </form>
+                    @endif
+
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button class="btn-primary" type="submit">Sair</button>
+                    </form>
+                </div>
             </header>
 
             <section class="content">
                 @yield('content')
             </section>
         </main>
-    </div>
-
-    <div id="cashModal" class="modal hidden">
-        <div class="modal-box">
-            <h3 style="color:var(--primary); margin-top:0;">ABRIR CAIXA</h3>
-            <label>Valor Inicial</label>
-            <input id="openingCash" type="number" step="0.01" placeholder="0.00">
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
-                <button class="btn-toggle" onclick="closeCash()">Cancelar</button>
-                <button id="btnOpenCash" class="btn-primary" onclick="openCashSubmit()">Confirmar</button>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -264,42 +407,6 @@
             const sb = document.getElementById("sidebar");
             sb.classList.toggle("collapsed");
             localStorage.setItem("nkama_sidebar", sb.classList.contains("collapsed"));
-        }
-
-        async function goToPOS(e) {
-            e.preventDefault();
-            const res = await fetch("{{ route('admin.shift.current') }}");
-            const data = await res.json();
-            if (data?.open) window.location.href = "{{ route('admin.pos.index') }}";
-            else document.getElementById("cashModal").classList.remove("hidden");
-        }
-
-        function closeCash() {
-            document.getElementById("cashModal").classList.add("hidden");
-        }
-
-        async function openCashSubmit() {
-            const btn = document.getElementById('btnOpenCash');
-            btn.disabled = true;
-
-            const res = await fetch("{{ route('admin.shift.open') }}", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": "{{ csrf_token() }}"
-                },
-                body: JSON.stringify({
-                    opening_cash: document.getElementById("openingCash").value
-                })
-            });
-
-            const data = await res.json();
-            if (data.success) {
-                window.location.href = "{{ route('admin.pos.index') }}";
-            } else {
-                showToast(data.message || "Erro ao abrir caixa");
-                btn.disabled = false;
-            }
         }
     </script>
 </body>

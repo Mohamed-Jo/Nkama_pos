@@ -31,6 +31,11 @@ return new class extends Migration {
                 ->constrained()
                 ->nullOnDelete();
 
+            $table->foreignId('operator_id')
+                ->nullable()
+                ->constrained('operators')
+                ->nullOnDelete();
+
             $table->timestamps();
         });
     }

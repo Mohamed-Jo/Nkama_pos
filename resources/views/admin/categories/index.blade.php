@@ -8,7 +8,7 @@
         📁 Categorias
     </h1>
 
-    <a href="{{ route('categories.create') }}"
+    <a href="{{ route('admin.categories.create') }}"
        class="accent-bg text-black px-4 py-2 rounded-lg font-semibold">
 
         + Nova Categoria

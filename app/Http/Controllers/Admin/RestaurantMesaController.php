@@ -11,7 +11,7 @@ class RestaurantMesaController extends Controller
     // Listar todas as mesas
     public function index()
     {
-        $tables = RestaurantTable::all();
+        $tables = RestaurantTable::orderByRaw('LENGTH(name), name')->get();
         return view('admin.restaurant.index', compact('tables'));
     }
 
@@ -30,18 +30,23 @@ class RestaurantMesaController extends Controller
             // 'name' => 'required|string|max:10',
         ]);
 
-        RestaurantTable::create($validated);
+        RestaurantTable::create(array_merge($validated, [
+            'status' => 'free',
+        ]));
 
-        return redirect()->route('admin.restaurant.index')
+        return redirect()->route('admin.restaurantMesa.index')
                          ->with('success', 'Mesa criada com sucesso!');
     }
 
     // Alternar estado (Livre <-> Ocupada)
     public function toggleStatus(RestaurantTable $table)
     {
-        $table->status = ($table->status === 'livre') ? 'ocupada' : 'livre';
+        $table->status = ($table->status === 'free') ? 'occupied' : 'free';
+        if ($table->status === 'free') {
+            $table->current_order_id = null;
+        }
         $table->save();
 
-        return back()->with('success', 'Estado da mesa ' . $table->number . ' atualizado!');
+        return back()->with('success', 'Estado da mesa ' . $table->name . ' atualizado!');
     }
 }

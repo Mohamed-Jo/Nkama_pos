@@ -48,5 +48,10 @@ class Payments extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function operator()
+    {
+        return $this->belongsTo(Operator::class);
+    }
     
 }

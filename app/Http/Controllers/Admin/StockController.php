@@ -27,6 +27,7 @@ class StockController extends Controller
             'stock_after' => $product->stock_quantity,
             'notes' => $request->notes,
             'user_id' => auth()->id(),
+            'operator_id' => session('operator_id'),
         ]);
 
         return back()->with('success', 'Stock atualizado (ENTRADA)');
@@ -63,6 +64,7 @@ class StockController extends Controller
             'stock_after' => $product->fresh()->stock_quantity,
             'notes' => $request->notes ?? 'Ajuste manual',
             'user_id' => auth()->id(),
+            'operator_id' => session('operator_id'),
         ]);
 
         return back()->with(

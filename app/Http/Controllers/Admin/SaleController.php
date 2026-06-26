@@ -21,7 +21,15 @@ class SaleController extends Controller
 
     public function index(Request $request)
     {
-        $query = Sale::with('customer');
+        $operatorId = session('operator_id');
+        $isCashier = session('operator_role') === 'cashier';
+        $baseSalesQuery = Sale::query();
+
+        if ($isCashier) {
+            $baseSalesQuery->where('operator_id', $operatorId);
+        }
+
+        $query = (clone $baseSalesQuery)->with('customer');
 
         // ================= FILTER =================
         if ($request->search) {
@@ -44,29 +52,35 @@ class SaleController extends Controller
         $sales = $query->latest()->paginate(15)->withQueryString();
 
         // ================= KPIs =================
-        $totalSales = Sale::sum('total');
-        $todaySales = Sale::whereDate('created_at', today())->sum('total');
+        $totalSales = (clone $baseSalesQuery)->sum('total');
+        $todaySales = (clone $baseSalesQuery)->whereDate('created_at', today())->sum('total');
 
-        $monthSales = Sale::whereMonth('created_at', now()->month)->sum('total');
+        $monthSales = (clone $baseSalesQuery)->whereMonth('created_at', now()->month)->sum('total');
 
-        $lastMonthSales = Sale::whereMonth('created_at', now()->subMonth()->month)->sum('total');
+        $lastMonthSales = (clone $baseSalesQuery)->whereMonth('created_at', now()->subMonth()->month)->sum('total');
 
 
         $growth = $lastMonthSales > 0
             ? (($monthSales - $lastMonthSales) / $lastMonthSales) * 100
             : 100;
 
-        $avgTicket = Sale::avg('total') ?? 0;
-        $totalInvoices = Sale::count();
+        $avgTicket = (clone $baseSalesQuery)->avg('total') ?? 0;
+        $totalInvoices = (clone $baseSalesQuery)->count();
 
         // ================= PAYMENT =================
-        $paymentCash = Payments::where('method', 'cash')->sum('amount');
-        $paymentCard = Payments::where('method', 'card')->sum('amount');
-        $paymentMulti = Payments::where('method', 'multi')->sum('amount');
-        $paymentTransf = Payments::where('method', 'transf')->sum('amount');
+        $paymentQuery = Payments::query();
+
+        if ($isCashier) {
+            $paymentQuery->where('operator_id', $operatorId);
+        }
+
+        $paymentCash = (clone $paymentQuery)->where('method', 'cash')->sum('amount');
+        $paymentCard = (clone $paymentQuery)->where('method', 'card')->sum('amount');
+        $paymentMulti = (clone $paymentQuery)->where('method', 'multi')->sum('amount');
+        $paymentTransf = (clone $paymentQuery)->where('method', 'transf')->sum('amount');
 
         // ================= CHART (SEGURO) =================
-        $chart = Sale::selectRaw('DATE(created_at) as date, SUM(total) as total')
+        $chart = (clone $baseSalesQuery)->selectRaw('DATE(created_at) as date, SUM(total) as total')
             ->whereDate('created_at', '>=', now()->subDays(6))
             ->groupBy('date')
             ->orderBy('date')
@@ -92,7 +106,7 @@ class SaleController extends Controller
         }
 
         // ================= CHART (SEGURO) =================
-        $chart = Sale::selectRaw('DATE(created_at) as date, SUM(total) as total')
+        $chart = (clone $baseSalesQuery)->selectRaw('DATE(created_at) as date, SUM(total) as total')
             ->whereDate('created_at', '>=', now()->subDays(6))
             ->groupBy('date')
             ->orderBy('date')
@@ -106,6 +120,7 @@ class SaleController extends Controller
         $topProducts = StockMovement::select('product_id', DB::raw('SUM(quantity) as total_qty'))
             ->where('type', 'OUT')
             ->where('notes', 'like', 'Venda%')
+            ->when($isCashier, fn ($query) => $query->where('operator_id', $operatorId))
             ->with('product')
             ->groupBy('product_id')
             ->orderByDesc('total_qty')
@@ -151,6 +166,10 @@ class SaleController extends Controller
     {
         $sale = Sale::with('operator', 'items.product', 'payments')
             ->findOrFail($id);
+
+        if (session('operator_role') === 'cashier' && (int) $sale->operator_id !== (int) session('operator_id')) {
+            abort(403, 'Sem permissão para ver esta venda.');
+        }
 
         return view('admin.sales.show', compact('sale'));
     }
@@ -264,7 +283,7 @@ class SaleController extends Controller
                     'total' => $total,
                     'paid' => $totalPaid,
                     'change' => $change,
-                    'status' => 'paid'
+                    'payment_status' => 'paid'
                 ]);
 
                 foreach ($request->items as $item) {

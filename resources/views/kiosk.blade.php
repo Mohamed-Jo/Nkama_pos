@@ -207,6 +207,20 @@
             font-weight: 500;
         }
 
+        .forgot-link {
+            color: #f97316;
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            margin-top: 14px;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
+        }
+
         /* SHAKE ANIMATION ON ERROR */
         .shake {
             animation: shake 0.4s ease-in-out;
@@ -256,6 +270,12 @@
         </div>
 
         <div id="status" class="status"></div>
+
+        @if(session('status'))
+            <div class="status" style="color: #10b981;">{{ session('status') }}</div>
+        @endif
+
+        <a class="forgot-link" href="{{ route('operator.password.request') }}">Esqueci o PIN</a>
 
     </div>
 

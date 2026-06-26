@@ -31,7 +31,7 @@ class CustomerController extends Controller
         ]);
 
         return redirect()
-            ->route('customers.index')
+            ->route('admin.customers.index')
             ->with('success', 'Cliente criado com sucesso');
     }
 }

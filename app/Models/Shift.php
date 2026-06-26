@@ -8,10 +8,12 @@ class Shift extends Model
 {
     protected $fillable = [
         'operator_id',
+        'user_id',
         'opening_cash',
         'closing_cash',
         'expected_cash',
         'difference',
+        'notes',
         'status',
         'cash_sales_total',
         'card_sales_total',

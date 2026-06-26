@@ -7,7 +7,7 @@
             👥 Clientes
         </h1>
 
-        <a href="{{ route('customers.create') }}" class="accent-bg text-black px-4 py-2 rounded-lg font-semibold">
+        <a href="{{ route('admin.customers.create') }}" class="accent-bg text-black px-4 py-2 rounded-lg font-semibold">
 
             + Novo Cliente
 

@@ -8,6 +8,7 @@ class Sale extends Model
 {
     protected $fillable = [
         'operator_id',
+        'user_id',
         'customer_id',
         'shift_id',
 
@@ -21,6 +22,7 @@ class Sale extends Model
         'paid',
         'change',
         'payment_method',
+        'payment_status',
         'status'
     ];
 

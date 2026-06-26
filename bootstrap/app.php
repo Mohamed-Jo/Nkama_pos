@@ -13,6 +13,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
     'operator' => \App\Http\Middleware\OperatorAuth::class,
+    'operator.role' => \App\Http\Middleware\EnsureOperatorRole::class,
+    'module.enabled' => \App\Http\Middleware\EnsureModuleEnabled::class,
 ]);
         //
     })

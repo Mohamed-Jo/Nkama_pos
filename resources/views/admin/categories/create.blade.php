@@ -7,7 +7,7 @@
 </h1>
 
 <form method="POST"
-      action="{{ route('categories.store') }}"
+      action="{{ route('admin.categories.store') }}"
       class="card p-6 rounded-xl space-y-4">
 
     @csrf

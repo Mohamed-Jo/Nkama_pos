@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Shift;
 use Closure;
+use Illuminate\Support\Facades\Schema;
 
 class EnsureShiftOpen
 {
@@ -15,9 +16,15 @@ class EnsureShiftOpen
             return redirect('/kiosk');
         }
 
-        $shift = Shift::where('operator_id', $operatorId)
-            ->where('status', 'open')
-            ->first();
+        $query = Shift::where('status', 'open');
+
+        if (Schema::hasColumn('shifts', 'operator_id')) {
+            $query->where('operator_id', $operatorId);
+        } elseif (Schema::hasColumn('shifts', 'user_id') && auth()->id()) {
+            $query->where('user_id', auth()->id());
+        }
+
+        $shift = $query->first();
 
         if (!$shift) {
             return response()->json([

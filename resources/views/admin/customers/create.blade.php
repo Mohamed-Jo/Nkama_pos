@@ -5,7 +5,7 @@
         ➕ Novo Cliente
     </h1>
 
-    <form method="POST" action="{{ route('customers.store') }}" class="card p-6 rounded-xl space-y-4">
+    <form method="POST" action="{{ route('admin.customers.store') }}" class="card p-6 rounded-xl space-y-4">
 
         @csrf
 

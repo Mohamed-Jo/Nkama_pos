@@ -13,7 +13,8 @@ class StockMovement extends Model
         'stock_before',
         'stock_after',
         'notes',
-        'user_id'
+        'user_id',
+        'operator_id'
     ];
 
     public function product()
@@ -24,5 +25,10 @@ class StockMovement extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function operator()
+    {
+        return $this->belongsTo(Operator::class);
     }
 }

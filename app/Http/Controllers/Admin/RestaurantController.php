@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{RestaurantTable, RestaurantOrder, Product, RestaurantOrderItem};
+use App\Models\{Category, Customer, Operator, Product, RestaurantOrder, RestaurantOrderItem, RestaurantTable, Shift};
+use App\Services\ModuleSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -11,9 +12,31 @@ class RestaurantController extends Controller
 {
     public function index()
     {
+        $modules = ModuleSettings::all();
+
         return view('admin.pos.index', [
-            'tables' => RestaurantTable::all(),
-            'products' => Product::where('status', true)->get()
+            'modules' => $modules,
+            'products' => Product::with('category')
+                ->where('status', true)
+                ->where('available_supermarket', true)
+                ->orderBy('category_id')
+                ->orderBy('name')
+                ->get(),
+            'restaurantCategories' => Category::where('status', true)
+                ->whereHas('products', function ($query) {
+                    $query->where('status', true)->where('available_restaurant', true);
+                })
+                ->with(['products' => function ($query) {
+                    $query->where('status', true)
+                        ->where('available_restaurant', true)
+                        ->orderBy('name');
+                }])
+                ->orderBy('name')
+                ->get(),
+            'customers' => Customer::where('status', true)->get(),
+            'operatorName' => Operator::find(session('operator_id'))?->name ?? 'Operador',
+            'shift' => Shift::where('operator_id', session('operator_id'))->where('status', 'open')->first(),
+            'tables' => RestaurantTable::orderByRaw('LENGTH(name), name')->get(),
         ]);
     }
 
@@ -21,26 +44,40 @@ class RestaurantController extends Controller
     {
         try {
             $table = RestaurantTable::findOrFail($tableId);
+            $operatorId = session('operator_id');
+            $order = $table->current_order_id
+                ? RestaurantOrder::with('items.product')->find($table->current_order_id)
+                : null;
 
-            if (!$table->current_order_id) {
+            if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled'], true)) {
                 $order = RestaurantOrder::create([
                     'table_id' => $table->id,
+                    'operator_id' => $operatorId,
                     'status' => 'open',
+                    'subtotal' => 0,
                     'total' => 0
                 ]);
 
                 $table->update([
+                    'status' => 'free',
                     'current_order_id' => $order->id
                 ]);
 
                 $table->current_order_id = $order->id;
+                $table->status = 'free';
             }
 
-            $order = RestaurantOrder::with('items.product')->find($table->current_order_id);
+            $order = $order->load('items.product');
+            $hasItems = $order->items->isNotEmpty();
+
+            if ($hasItems && $table->status !== 'occupied') {
+                $table->update(['status' => 'occupied']);
+                $table->status = 'occupied';
+            }
 
             return response()->json([
                 'success' => true,
-                'table_status' => $table->status,
+                'table_status' => $hasItems ? 'occupied' : 'free',
                 'order' => $order,
                 'items' => $order ? $order->items : []
             ]);
@@ -132,7 +169,13 @@ class RestaurantController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item adicionado com sucesso!'
+                'message' => 'Item adicionado com sucesso!',
+                'order_id' => $order?->id,
+                'item' => [
+                    'product_id' => $request->product_id,
+                    'quantity' => $item ? $item->qty : $request->quantity,
+                    'price' => $request->price,
+                ],
             ]);
 
         } catch (\Exception $e) {
@@ -152,11 +195,13 @@ class RestaurantController extends Controller
             foreach ($tables as $table) {
                 $activeOrder = $table->currentOrder;
 
-                if ($activeOrder && $table->status === 'occupied') {
+                $hasItems = $activeOrder && $activeOrder->items->isNotEmpty();
+
+                if ($hasItems || in_array($table->status, ['occupied', 'waiting_payment'], true)) {
                     $formattedStates[$table->id] = [
-                        'status' => 'busy',
-                        'order_id' => $activeOrder->id,
-                        'itens' => $activeOrder->items->map(function ($item) {
+                        'status' => 'occupied',
+                        'order_id' => $activeOrder?->id,
+                        'itens' => $activeOrder ? $activeOrder->items->map(function ($item) {
                             return [
                                 'id' => $item->id,
                                 'product_id' => $item->product_id,
@@ -165,7 +210,7 @@ class RestaurantController extends Controller
                                 'quantity' => (int) $item->qty,
                                 'total' => (float) $item->subtotal
                             ];
-                        })->toArray()
+                        })->toArray() : []
                     ];
                 } else {
                     $formattedStates[$table->id] = [
