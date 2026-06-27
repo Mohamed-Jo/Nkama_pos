@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\CurrentAccountEntry;
 use App\Models\Customer;
 use App\Models\Operator;
 use App\Models\Payments;
@@ -11,6 +12,8 @@ use App\Models\Product;
 use App\Models\RestaurantTable;
 use App\Models\Sale;
 use App\Models\Shift;
+use App\Services\BusinessSettings;
+use App\Services\DocumentNumbering;
 use App\Services\ModuleSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +60,7 @@ class PosController extends Controller
             'amount_paid' => 'nullable|numeric|min:0',
             'payment_breakdown' => 'nullable|array',
             'table_id' => 'nullable|integer',
+            'customer_id' => 'nullable|exists:customers,id',
         ]);
 
         $isRestaurantSale = $request->filled('table_id');
@@ -92,51 +96,72 @@ class PosController extends Controller
                     throw new \Exception('Abra o caixa antes de vender');
                 }
 
-                $total = round((float) $request->total, 2);
                 $paymentMethod = $request->input('payment_method', 'cash');
-                $breakdown = $this->normalizePaymentBreakdown($paymentMethod, $request);
+                $calculated = $this->calculateSaleItems($request->items);
+                $total = $calculated['total'];
+                $breakdown = $this->normalizePaymentBreakdown($paymentMethod, $request, $total);
                 $paid = round(array_sum($breakdown), 2);
                 $cashPaid = round((float) ($breakdown['cash'] ?? 0), 2);
                 $change = round(min(max($paid - $total, 0), max($cashPaid, 0)), 2);
+                $outstanding = round(max($total - $paid, 0), 2);
+                $customerId = $request->integer('customer_id') ?: null;
 
-                if ($paid < $total) {
+                if ($outstanding > 0 && !$customerId) {
                     throw new \Exception('Pagamento insuficiente');
                 }
 
+                if ($paymentMethod === 'credit' && !$customerId) {
+                    throw new \Exception('Selecione o cliente para vender em conta corrente');
+                }
+
+                $paymentStatus = $outstanding > 0
+                    ? ($paid > 0 ? 'partial' : 'unpaid')
+                    : 'paid';
+
+                $documentType = $outstanding > 0 ? 'FT' : 'FR';
+                $document = DocumentNumbering::next($documentType);
+
                 $sale = Sale::create($this->salePayload([
-                    'invoice_number' => $this->nextInvoiceNumber(),
+                    'invoice_number' => $document['invoice_number'],
+                    'document_type_code' => $document['document_type_code'],
+                    'document_series_id' => $document['document_series_id'],
+                    'document_number' => $document['document_number'],
+                    'customer_id' => $customerId,
                     'operator_id' => $operator?->id,
                     'shift_id' => $shift?->id,
                     'user_id' => auth()->id(),
-                    'subtotal' => $total,
+                    'subtotal' => $calculated['subtotal'],
                     'discount' => 0,
-                    'tax' => 0,
-                    'total' => $total,
+                    'tax' => $calculated['tax'],
+                    'tax_rate' => $calculated['tax_rate'],
+                    'total' => $calculated['total'],
                     'paid' => $paid,
                     'change' => $change,
-                    'payment_method' => $paymentMethod === 'multi' ? 'mixed' : $paymentMethod,
-                    'payment_status' => 'paid',
-                    'status' => 'paid',
+                    'payment_method' => $outstanding > 0 && $paid > 0 ? 'mixed_credit' : ($paymentMethod === 'multi' ? 'mixed' : $paymentMethod),
+                    'payment_status' => $paymentStatus,
+                    'status' => $paymentStatus,
                 ]));
 
-                foreach ($request->items as $item) {
-                    $product = Product::lockForUpdate()->findOrFail($item['id']);
-                    $qty = (int) max(1, (float) ($item['qty'] ?? 1));
-                    $price = round((float) ($item['price'] ?? $product->selling_price), 2);
-
+                foreach ($calculated['items'] as $item) {
+                    $product = $item['product'];
                     $sale->items()->create([
                         'product_id' => $product->id,
-                        'quantity' => $qty,
-                        'unit_price' => $price,
-                        'subtotal' => $qty * $price,
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'subtotal' => $item['subtotal'],
+                        'net_subtotal' => $item['net_subtotal'],
+                        'tax_rate' => $item['tax_rate'],
+                        'tax_amount' => $item['tax_amount'],
                     ]);
 
                     if (Schema::hasColumn('products', 'stock_quantity')) {
-                        $product->decrement('stock_quantity', $qty);
+                        $product->decrement('stock_quantity', $item['quantity']);
                     }
                 }
 
-                foreach ($breakdown as $method => $amount) {
+                $paymentAmounts = $this->netPaymentAmounts($breakdown, $change);
+
+                foreach ($paymentAmounts as $method => $amount) {
                     if ($amount <= 0) {
                         continue;
                     }
@@ -151,6 +176,21 @@ class PosController extends Controller
                     ]));
                 }
 
+                if ($outstanding > 0) {
+                    CurrentAccountEntry::create([
+                        'entity_type' => 'customer',
+                        'entity_id' => $customerId,
+                        'entry_date' => now()->toDateString(),
+                        'movement_type' => 'debit',
+                        'debit' => $outstanding,
+                        'credit' => 0,
+                        'document_type' => 'sale',
+                        'document_id' => $sale->id,
+                        'description' => 'Venda a credito ' . $sale->invoice_number,
+                        'operator_id' => $operator?->id,
+                    ]);
+                }
+
                 return $sale;
             });
 
@@ -158,6 +198,9 @@ class PosController extends Controller
                 'success' => true,
                 'sale_id' => $sale->id,
                 'invoice' => $sale->invoice_number,
+                'payment_method' => $sale->payment_method,
+                'payment_status' => $sale->payment_status,
+                'outstanding' => round(max((float) $sale->total - (float) $sale->paid, 0), 2),
                 'message' => 'Fatura emitida com sucesso',
             ]);
         } catch (\Throwable $e) {
@@ -185,15 +228,14 @@ class PosController extends Controller
         return response()->json(['success' => true, 'data' => $product]);
     }
 
-    private function nextInvoiceNumber(): string
+    private function normalizePaymentBreakdown(string $paymentMethod, Request $request, float $total): array
     {
-        $nextId = (Sale::lockForUpdate()->max('id') ?? 0) + 1;
+        if ($paymentMethod === 'credit') {
+            return [
+                'credit' => 0,
+            ];
+        }
 
-        return 'INV-' . date('Y') . '-' . str_pad($nextId, 6, '0', STR_PAD_LEFT);
-    }
-
-    private function normalizePaymentBreakdown(string $paymentMethod, Request $request): array
-    {
         if ($paymentMethod === 'multi') {
             $breakdown = $request->input('payment_breakdown', []);
 
@@ -205,8 +247,65 @@ class PosController extends Controller
         }
 
         return [
-            $paymentMethod => round((float) $request->input('amount_paid', $request->total), 2),
+            $paymentMethod => round((float) $request->input('amount_paid', $total), 2),
         ];
+    }
+
+    private function calculateSaleItems(array $items): array
+    {
+        $calculatedItems = [];
+        $grossTotal = 0.0;
+        $netTotal = 0.0;
+        $taxTotal = 0.0;
+        $rates = [];
+
+        foreach ($items as $item) {
+            $product = Product::lockForUpdate()->findOrFail($item['id']);
+            $qty = (int) max(1, (float) ($item['qty'] ?? 1));
+
+            if (Schema::hasColumn('products', 'stock_quantity') && $product->stock_quantity < $qty) {
+                throw new \Exception("Stock insuficiente {$product->name}");
+            }
+
+            $price = round((float) $product->selling_price, 2);
+            $gross = round($qty * $price, 2);
+            $taxRate = round((float) ($product->tax_rate ?? 0), 2);
+            $split = BusinessSettings::splitGrossTotal($gross, $taxRate);
+
+            $grossTotal += $split['total'];
+            $netTotal += $split['subtotal'];
+            $taxTotal += $split['tax'];
+            $rates[(string) $taxRate] = true;
+
+            $calculatedItems[] = [
+                'product' => $product,
+                'quantity' => $qty,
+                'unit_price' => $price,
+                'subtotal' => $split['total'],
+                'net_subtotal' => $split['subtotal'],
+                'tax_rate' => $taxRate,
+                'tax_amount' => $split['tax'],
+            ];
+        }
+
+        return [
+            'items' => $calculatedItems,
+            'subtotal' => round($netTotal, 2),
+            'tax' => round($taxTotal, 2),
+            'tax_rate' => count($rates) === 1 ? (float) array_key_first($rates) : 0.0,
+            'total' => round($grossTotal, 2),
+        ];
+    }
+
+    private function netPaymentAmounts(array $breakdown, float $change): array
+    {
+        $amounts = $breakdown;
+
+        if ($change > 0 && isset($amounts['cash'])) {
+            $amounts['cash'] = round(max(0, (float) $amounts['cash'] - $change), 2);
+        }
+
+        return $amounts;
     }
 
     private function salePayload(array $values): array

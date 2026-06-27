@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Operator;
+use App\Models\CurrentAccountEntry;
 use App\Models\Payments;
 use App\Models\Shift;
 use App\Models\Sale;
 use App\Models\Product;
 use App\Models\Payment;
 use App\Models\StockMovement;
+use App\Services\BusinessSettings;
+use App\Services\DocumentNumbering;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -171,14 +174,33 @@ class SaleController extends Controller
             abort(403, 'Sem permissão para ver esta venda.');
         }
 
-        return view('admin.sales.show', compact('sale'));
+        $company = BusinessSettings::company();
+        $logoUrl = BusinessSettings::logoUrl($company);
+
+        return view('admin.sales.ticket', compact('sale', 'company', 'logoUrl'));
+    }
+
+    public function ticket($id)
+    {
+        $sale = Sale::with('operator', 'items.product', 'payments')
+            ->findOrFail($id);
+
+        if (session('operator_role') === 'cashier' && (int) $sale->operator_id !== (int) session('operator_id')) {
+            abort(403, 'Sem permissao para ver esta venda.');
+        }
+
+        $company = BusinessSettings::company();
+        $logoUrl = BusinessSettings::logoUrl($company);
+
+        return view('admin.sales.ticket', compact('sale', 'company', 'logoUrl'));
     }
     public function store(Request $request)
     {
         $request->validate([
             'items' => 'required|array|min:1',
             'payments' => 'required|array',
-            'total' => 'required|numeric|min:0'
+            'total' => 'required|numeric|min:0',
+            'customer_id' => 'nullable|exists:customers,id',
         ]);
 
         try {
@@ -216,23 +238,27 @@ class SaleController extends Controller
 
             $total = round((float) $request->total, 2);
             $totalPaid = $cash + $card + $transf + $multi;
+            $calculated = $this->calculateSaleItems($request->items);
+            $total = $calculated['total'];
+            $outstanding = round(max($total - $totalPaid, 0), 2);
+            $customerId = $request->integer('customer_id') ?: null;
 
             // ==============================
             // VALIDATION
             // ==============================
-            if ($totalPaid < $total) {
+            if ($outstanding > 0 && !$customerId) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Pagamento insuficiente'
+                    'error' => 'Pagamento insuficiente. Se for venda a credito, selecione o cliente.'
                 ], 422);
             }
 
-            $change = round(max(0, $totalPaid - $total), 2);
+            $change = round(min(max($totalPaid - $total, 0), max($cash, 0)), 2);
 
             // ==============================
             // TRANSACTION
             // ==============================
-            $sale = DB::transaction(function () use ($request, $operator, $operatorId, $total, $totalPaid, $change, $cash, $card, $transf, $multi) {
+            $sale = DB::transaction(function () use ($calculated, $operator, $operatorId, $totalPaid, $change, $cash, $card, $transf, $multi, $outstanding, $customerId) {
 
                 // SHIFT
                 $shift = Shift::where('operator_id', $operatorId)
@@ -264,34 +290,45 @@ class SaleController extends Controller
                     ? 'mixed'
                     : ($methodsUsed[0] ?? 'cash');
 
-                // ==============================
-                // INVOICE NUMBER SAFE
-                // ==============================
-                $lastId = (Sale::lockForUpdate()->max('id') ?? 0) + 1;
+                if ($outstanding > 0) {
+                    $paymentMethod = $totalPaid > 0 ? 'mixed_credit' : 'credit';
+                }
 
-                $invoiceNumber = 'INV-' . date('Y') . '-' . str_pad($lastId, 6, '0', STR_PAD_LEFT);
+                $paymentStatus = $outstanding > 0
+                    ? ($totalPaid > 0 ? 'partial' : 'unpaid')
+                    : 'paid';
+
+                $documentType = $outstanding > 0 ? 'FT' : 'FR';
+                $document = DocumentNumbering::next($documentType);
+                $invoiceNumber = $document['invoice_number'];
 
                 // ==============================
                 // CREATE SALE
                 // ==============================
                 $sale = Sale::create([
+                    'customer_id' => $customerId,
                     'operator_id' => $operator->id,
                     'shift_id' => $shift->id,
                     'invoice_number' => $invoiceNumber,
+                    'document_type_code' => $document['document_type_code'],
+                    'document_series_id' => $document['document_series_id'],
+                    'document_number' => $document['document_number'],
                     'payment_method' => $paymentMethod,
-                    'subtotal' => $total,
-                    'total' => $total,
+                    'subtotal' => $calculated['subtotal'],
+                    'tax' => $calculated['tax'],
+                    'tax_rate' => $calculated['tax_rate'],
+                    'total' => $calculated['total'],
                     'paid' => $totalPaid,
                     'change' => $change,
-                    'payment_status' => 'paid'
+                    'payment_status' => $paymentStatus,
                 ]);
 
-                foreach ($request->items as $item) {
+                foreach ($calculated['items'] as $item) {
 
-                    $product = Product::lockForUpdate()->findOrFail($item['id']);
+                    $product = $item['product'];
 
-                    $qty = round((float) $item['qty'], 2);
-                    $price = round((float) $item['price'], 2);
+                    $qty = $item['quantity'];
+                    $price = $item['unit_price'];
 
                     if ($qty <= 0) {
                         throw new \Exception("Quantidade inválida {$product->name}");
@@ -307,7 +344,10 @@ class SaleController extends Controller
                         'product_id' => $product->id,
                         'quantity' => $qty,
                         'unit_price' => $price,
-                        'subtotal' => $qty * $price
+                        'subtotal' => $item['subtotal'],
+                        'net_subtotal' => $item['net_subtotal'],
+                        'tax_rate' => $item['tax_rate'],
+                        'tax_amount' => $item['tax_amount'],
                     ]);
 
                     $product->decrement('stock_quantity', $qty);
@@ -326,12 +366,14 @@ class SaleController extends Controller
                 // ==============================
                 // PAYMENTS SAVE
                 // ==============================
-                foreach ([
+                $paymentAmounts = $this->netPaymentAmounts([
                     'cash' => $cash,
                     'card' => $card,
                     'transf' => $transf,
                     'multi' => $multi
-                ] as $method => $amount) {
+                ], $change);
+
+                foreach ($paymentAmounts as $method => $amount) {
 
                     if ($amount <= 0)
                         continue;
@@ -342,6 +384,21 @@ class SaleController extends Controller
                         'operator_id' => $operator->id,
                         'method' => $method,
                         'amount' => $amount
+                    ]);
+                }
+
+                if ($outstanding > 0) {
+                    CurrentAccountEntry::create([
+                        'entity_type' => 'customer',
+                        'entity_id' => $customerId,
+                        'entry_date' => now()->toDateString(),
+                        'movement_type' => 'debit',
+                        'debit' => $outstanding,
+                        'credit' => 0,
+                        'document_type' => 'sale',
+                        'document_id' => $sale->id,
+                        'description' => 'Venda a credito ' . $sale->invoice_number,
+                        'operator_id' => $operator->id,
                     ]);
                 }
 
@@ -360,6 +417,8 @@ class SaleController extends Controller
                 'success' => true,
                 'sale_id' => $sale->id,
                 'invoice' => $sale->invoice_number,
+                'payment_method' => $sale->payment_method,
+                'document_type_code' => $sale->document_type_code,
                 'total' => $sale->total,
                 'paid' => $sale->paid,
                 'change' => $sale->change,
@@ -375,5 +434,66 @@ class SaleController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    private function calculateSaleItems(array $items): array
+    {
+        $calculatedItems = [];
+        $grossTotal = 0.0;
+        $netTotal = 0.0;
+        $taxTotal = 0.0;
+        $rates = [];
+
+        foreach ($items as $item) {
+            $product = Product::lockForUpdate()->findOrFail($item['id']);
+            $qty = round((float) ($item['qty'] ?? 1), 2);
+
+            if ($qty <= 0) {
+                throw new \Exception("Quantidade invalida {$product->name}");
+            }
+
+            if ($product->stock_quantity < $qty) {
+                throw new \Exception("Stock insuficiente {$product->name}");
+            }
+
+            $price = round((float) $product->selling_price, 2);
+            $gross = round($qty * $price, 2);
+            $taxRate = round((float) ($product->tax_rate ?? 0), 2);
+            $split = BusinessSettings::splitGrossTotal($gross, $taxRate);
+
+            $grossTotal += $split['total'];
+            $netTotal += $split['subtotal'];
+            $taxTotal += $split['tax'];
+            $rates[(string) $taxRate] = true;
+
+            $calculatedItems[] = [
+                'product' => $product,
+                'quantity' => $qty,
+                'unit_price' => $price,
+                'subtotal' => $split['total'],
+                'net_subtotal' => $split['subtotal'],
+                'tax_rate' => $taxRate,
+                'tax_amount' => $split['tax'],
+            ];
+        }
+
+        return [
+            'items' => $calculatedItems,
+            'subtotal' => round($netTotal, 2),
+            'tax' => round($taxTotal, 2),
+            'tax_rate' => count($rates) === 1 ? (float) array_key_first($rates) : 0.0,
+            'total' => round($grossTotal, 2),
+        ];
+    }
+
+    private function netPaymentAmounts(array $breakdown, float $change): array
+    {
+        $amounts = $breakdown;
+
+        if ($change > 0 && isset($amounts['cash'])) {
+            $amounts['cash'] = round(max(0, (float) $amounts['cash'] - $change), 2);
+        }
+
+        return $amounts;
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Category;
+use App\Services\BusinessSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -24,8 +25,10 @@ class ProductController extends Controller
     public function create(): View
     {
         $categories = Category::orderBy('name')->get();
+        $defaultTax = BusinessSettings::tax();
+        $defaultTaxRate = ($defaultTax['active'] ?? false) ? ($defaultTax['value'] ?? 0) : 0;
 
-        return view('admin.products.create', compact('categories'));
+        return view('admin.products.create', compact('categories', 'defaultTaxRate'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -35,6 +38,7 @@ class ProductController extends Controller
             'category_id' => 'required|exists:categories,id',
             'barcode' => 'nullable|string|max:100|unique:products,barcode',
             'price' => 'required|numeric|min:0',
+            'tax_rate' => 'required|numeric|min:0|max:100',
             'stock' => 'required|integer|min:0',
             'description' => 'nullable|string',
             'available_restaurant' => 'sometimes|boolean',
@@ -46,6 +50,7 @@ class ProductController extends Controller
             'category_id' => $validated['category_id'],
             'barcode' => $validated['barcode'] ?? null,
             'selling_price' => $validated['price'],
+            'tax_rate' => $validated['tax_rate'],
             'stock_quantity' => $validated['stock'],
             'description' => $validated['description'] ?? null,
             'available_restaurant' => $request->has('available_restaurant'),
@@ -76,6 +81,7 @@ class ProductController extends Controller
             'category_id' => 'required|exists:categories,id',
             'barcode' => ['nullable', 'string', 'max:100', Rule::unique('products', 'barcode')->ignore($product->id)],
             'price' => 'required|numeric|min:0',
+            'tax_rate' => 'required|numeric|min:0|max:100',
             'stock' => 'required|integer|min:0',
             'description' => 'nullable|string',
             'available_restaurant' => 'sometimes|boolean',
@@ -87,6 +93,7 @@ class ProductController extends Controller
             'category_id' => $validated['category_id'],
             'barcode' => $validated['barcode'] ?? null,
             'selling_price' => $validated['price'],
+            'tax_rate' => $validated['tax_rate'],
             'stock_quantity' => $validated['stock'],
             'description' => $validated['description'] ?? null,
             'available_restaurant' => $request->has('available_restaurant'),

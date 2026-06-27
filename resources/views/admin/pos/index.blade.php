@@ -625,7 +625,7 @@
                         @foreach ($category->products as $p)
                             <button class="restaurant-product category-{{ $category->id }}"
                                 style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); color: #34d399; padding: 10px 15px; border-radius: 10px; cursor: pointer; min-width: 110px; display: none;"
-                                onclick="adicionarItemNoPedido({{ $p->id }}, @js($p->name), {{ $p->selling_price }})">
+                                onclick="adicionarItemNoPedido({{ $p->id }}, @js($p->name), {{ $p->selling_price }}, {{ $p->tax_rate ?? 0 }})">
                                 <div style="font-size: 12px; font-weight: bold; color: #fff;">{{ $p->name }}</div>
                                 <div style="font-size: 11px; margin-top: 2px;">
                                     {{ number_format($p->selling_price, 0, ',', '.') }} Kz</div>
@@ -643,7 +643,7 @@
                         <button class="supermarket-product"
                             data-category="{{ $supermarketCategory }}"
                             data-search="{{ \Illuminate\Support\Str::lower($p->name . ' ' . ($p->barcode ?? '') . ' ' . ($p->category?->name ?? '')) }}"
-                            onclick="adicionarItemNoPedido({{ $p->id }}, @js($p->name), {{ $p->selling_price }})">
+                            onclick="adicionarItemNoPedido({{ $p->id }}, @js($p->name), {{ $p->selling_price }}, {{ $p->tax_rate ?? 0 }})">
                             <span class="supermarket-product-name">{{ $p->name }}</span>
                             <span class="supermarket-product-meta">
                                 <span>{{ number_format($p->selling_price, 0, ',', '.') }} Kz</span>
@@ -659,6 +659,16 @@
                     <h3 id="lbl-mesa-ativa" style="margin: 0; color: #fff; font-size: 15px;">Nenhuma Selecionada</h3>
                     <div id="lbl-cliente-tipo" style="font-size: 11px; color: #94a3b8; margin-top: 3px;">Selecione uma mesa
                         no salão</div>
+                    <div id="mesa-acoes" style="display:flex; gap:8px; margin-top:10px;">
+                        <button type="button" onclick="consultarMesaAtual()"
+                            style="flex:1; background:#1e293b; border:1px solid #334155; color:#e2e8f0; padding:8px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer;">
+                            Consultar
+                        </button>
+                        <button type="button" onclick="abrirTransferenciaMesa()"
+                            style="flex:1; background:#0f766e; border:1px solid rgba(45,212,191,.35); color:#ccfbf1; padding:8px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer;">
+                            Transferir
+                        </button>
+                    </div>
                 </div>
 
                 <div id="lista-itens-pedido" class="pos-cart-list">
@@ -674,7 +684,7 @@
                     </div>
                     <div
                         style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; color: #fff; border-top: 1px solid #1e293b; padding-top: 10px;">
-                        <span>Total (com IVA 14%):</span>
+                        <span>Total:</span>
                         <span id="txt-total" style="color: #38bdf8;">0,00 Kz</span>
                     </div>
                 </div>
@@ -695,6 +705,7 @@
         <option value="card">Multicaixa</option>
         <option value="transf">Transferência</option>
         <option value="multi">Pagamento Misto</option>
+        <option value="credit">Conta Corrente</option>
     </select>
 
     <div id="modal-pagamento"
@@ -719,7 +730,7 @@
                         <strong id="modal-subtotal-preview" style="color: #fff;">0,00 Kz</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8; margin-bottom: 8px;">
-                        <span>IVA (7%):</span>
+                        <span>IVA incluído:</span>
                         <strong id="modal-iva-preview" style="color: #38bdf8;">0,00 Kz</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; color: #fff; border-top: 1px solid #1e293b; padding-top: 8px;">
@@ -764,6 +775,22 @@
                             </button>
                         </div>
                     </div>
+
+                    <div id="wrapper-cliente-conta" style="display: none; background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.25); border-radius: 8px; padding: 10px;">
+                        <label style="display: block; font-size: 11px; color: #fecdd3; text-transform: uppercase; margin-bottom: 6px; font-weight: bold;">Cliente da conta corrente</label>
+                        <select id="select-cliente-conta" style="width: 100%; background: #020617; border: 1px solid #7f1d1d; color: #fff; padding: 11px; border-radius: 8px;">
+                            <option value="">Selecionar cliente</option>
+                            @foreach($customers as $customer)
+                                <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}</option>
+                            @endforeach
+                        </select>
+                        <div id="txt-valor-pendente-conta" style="color:#fecdd3; font-size:12px; margin-top:7px;">Pendente: 0,00 Kz</div>
+                    </div>
+
+                    <button type="button" onclick="selecionarMetodoPagamento('credit')" class="metodo-pagamento" data-metodo="credit" data-cor="#f43f5e" data-label="Conta Corrente" data-desc="Lanca o valor em aberto para o cliente"
+                        style="background: transparent; color: #f43f5e; padding: 12px; border: 2px solid #f43f5e; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
+                        Conta Corrente
+                    </button>
 
                     <div id="wrapper-valores-recebidos" style="display: flex; flex-direction: column; gap: 7px;">
                         <div style="flex: 1;">
@@ -845,7 +872,7 @@
             <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16,185,129,0.16); color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; margin-bottom: 14px;">
                 OK
             </div>
-            <h3 style="color: #fff; margin: 0; font-size: 18px;">Fatura emitida</h3>
+            <h3 style="color: #fff; margin: 0; font-size: 18px;">Ticket emitido</h3>
             <div id="sucesso-invoice" style="color: #38bdf8; font-size: 14px; font-weight: bold; margin-top: 4px;">-</div>
 
             <div style="background: #020617; border: 1px solid #1e293b; border-radius: 10px; padding: 12px; margin-top: 16px; display: grid; gap: 8px;">
@@ -863,10 +890,64 @@
                 </div>
             </div>
 
+            <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 16px;">
+                <button type="button" onclick="abrirTicketVenda()"
+                    style="background: #38bdf8; color: #020617; font-weight: bold; padding: 11px; border-radius: 8px; border: none; cursor: pointer;">
+                    Imprimir Ticket
+                </button>
+            </div>
+
             <button type="button" onclick="fecharModalSucessoVenda()"
-                style="width: 100%; background: #10b981; color: #020617; font-weight: bold; padding: 12px; border-radius: 8px; border: none; cursor: pointer; margin-top: 16px;">
+                style="width: 100%; background: #10b981; color: #020617; font-weight: bold; padding: 12px; border-radius: 8px; border: none; cursor: pointer; margin-top: 8px;">
                 OK
             </button>
+        </div>
+    </div>
+
+    <div id="modal-consulta-mesa"
+        style="position: fixed; inset: 0; background: rgba(2, 6, 23, 0.86); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 65;">
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; width:100%; max-width:420px; max-height:calc(100vh - 32px); overflow:hidden; display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid #1e293b;">
+                <div>
+                    <h3 id="consulta-mesa-titulo" style="color:#fff; margin:0; font-size:16px;">Consulta de Mesa</h3>
+                    <div id="consulta-mesa-info" style="color:#94a3b8; font-size:12px; margin-top:3px;">-</div>
+                </div>
+                <button type="button" onclick="fecharConsultaMesa()" style="background:transparent; border:none; color:#94a3b8; font-size:24px; cursor:pointer;">&times;</button>
+            </div>
+            <div id="consulta-mesa-itens" style="padding:14px 16px; overflow-y:auto; display:grid; gap:8px;"></div>
+            <div style="padding:14px 16px; border-top:1px solid #1e293b; display:grid; gap:6px;">
+                <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:12px;"><span>Subtotal</span><strong id="consulta-subtotal" style="color:#fff;">0,00 Kz</strong></div>
+                <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:12px;"><span>IVA incluído</span><strong id="consulta-iva" style="color:#38bdf8;">0,00 Kz</strong></div>
+                <div style="display:flex; justify-content:space-between; color:#fff; font-size:15px; font-weight:bold; border-top:1px solid #1e293b; padding-top:8px;"><span>Total</span><strong id="consulta-total" style="color:#34d399;">0,00 Kz</strong></div>
+                <button type="button" onclick="imprimirConsultaMesa()"
+                    style="width:100%; background:#38bdf8; border:none; color:#020617; padding:10px; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer; margin-top:8px;">
+                    Imprimir Consulta
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-transferencia-mesa"
+        style="position: fixed; inset: 0; background: rgba(2, 6, 23, 0.86); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 66;">
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; width:100%; max-width:360px; padding:18px;">
+            <h3 style="color:#fff; margin:0; font-size:17px;">Transferir Conta</h3>
+            <div id="transferencia-origem" style="color:#94a3b8; font-size:12px; margin-top:5px;">Origem: -</div>
+
+            <label style="display:block; color:#94a3b8; font-size:11px; font-weight:bold; text-transform:uppercase; margin:16px 0 6px;">Mesa de destino</label>
+            <select id="transferencia-destino"
+                style="width:100%; background:#020617; border:1px solid #334155; color:#fff; border-radius:8px; padding:10px;">
+                <option value="">Selecione a mesa livre</option>
+                @foreach($tables as $table)
+                    <option value="{{ $table->id }}">{{ $table->name }}</option>
+                @endforeach
+            </select>
+
+            <div style="display:flex; gap:8px; margin-top:16px;">
+                <button type="button" onclick="fecharTransferenciaMesa()"
+                    style="flex:1; background:#020617; border:1px solid #334155; color:#94a3b8; padding:10px; border-radius:8px; cursor:pointer;">Cancelar</button>
+                <button type="button" onclick="confirmarTransferenciaMesa()"
+                    style="flex:1; background:#0f766e; border:none; color:#ccfbf1; font-weight:bold; padding:10px; border-radius:8px; cursor:pointer;">Transferir</button>
+            </div>
         </div>
     </div>
 
@@ -887,7 +968,7 @@
             <div style="display: flex; gap: 10px;">
                 <button onclick="document.getElementById('modal-fecho').style.display = 'none'"
                     style="flex: 1; background: #020617; border: 1px solid #1e293b; color: #94a3b8; padding: 8px; border-radius: 8px; cursor: pointer;">Voltar</button>
-                <button onclick="alert('Caixa Fechado com Sucesso! Imprimindo Relatório Z...'); window.location.reload();"
+                <button onclick="nkamaAlert('Caixa fechado com sucesso. Imprimindo relatório Z...', 'success').then(() => window.location.reload());"
                     style="flex: 1; background: #ef4444; color: #fff; font-weight: bold; padding: 8px; border-radius: 8px; border: none; cursor: pointer;">Confirmar
                     Fecho (Z)</button>
             </div>
@@ -984,11 +1065,12 @@
         @endforeach
 
         const modulosAtivos = @json($modules ?? ['restaurant' => true, 'supermarket' => true]);
-        let mesaSelecionadaId = null;
         let modoAtual = modulosAtivos.restaurant ? 'salao' : 'supermercado';
+        let mesaSelecionadaId = modoAtual === 'supermercado' && modulosAtivos.supermarket ? 9999 : null;
         let filtroMesasAtual = 'all';
         let categoriaSupermercadoAtual = 'all';
         let totalGeralVendaActual = 0;
+        let ultimaVendaId = null;
         let campoPagamentoAtivo = 'main';
         let caixaAberto = false;
 
@@ -1004,12 +1086,12 @@
             if (!garantirCaixaAberto()) return;
 
             if (modo === 'salao' && !modulosAtivos.restaurant) {
-                alert('Módulo Restaurante desativado pelo super-user.');
+                nkamaAlert('Módulo Restaurante desativado pelo super-user.', 'warning');
                 return;
             }
 
             if (modo === 'supermercado' && !modulosAtivos.supermarket) {
-                alert('Módulo Supermercado desativado pelo super-user.');
+                nkamaAlert('Módulo Supermercado desativado pelo super-user.', 'warning');
                 return;
             }
 
@@ -1046,6 +1128,7 @@
                 document.getElementById('lbl-cliente-tipo').innerText = 'Selecione uma mesa no salão';
                 mesaSelecionadaId = null;
                 document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
+                document.getElementById('mesa-acoes').style.display = 'flex';
                 document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
                 filtrarMesas(filtroMesasAtual);
             } else {
@@ -1067,6 +1150,7 @@
                 document.getElementById('lbl-cliente-tipo').innerText = 'Cliente Geral • Venda Activa';
                 mesaSelecionadaId = 9999;
                 document.getElementById('lbl-mesa-ativa').innerText = 'Caixa Aberto 🛒';
+                document.getElementById('mesa-acoes').style.display = 'none';
 
                 setTimeout(() => {
                     const inputBc = document.getElementById('inputBarcode');
@@ -1133,6 +1217,7 @@
             document.getElementById('txt-titulo-modulo').innerText = 'Salao Principal';
             document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
             document.getElementById('lbl-cliente-tipo').innerText = 'Selecione uma mesa no salao';
+            document.getElementById('mesa-acoes').style.display = 'flex';
             document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
             document.querySelectorAll('.restaurant-product').forEach(productButton => {
                 productButton.style.display = 'none';
@@ -1164,6 +1249,7 @@
 
             document.getElementById('lbl-mesa-ativa').innerText = nome;
             document.getElementById('lbl-cliente-tipo').innerText = 'Mesa Ativa • Conta Operacional';
+            document.getElementById('mesa-acoes').style.display = 'flex';
 
             document.getElementById('txt-titulo-modulo').innerText = `Mesa ${nome} - Categorias`;
             document.getElementById('view-salao-wrapper').style.display = 'none';
@@ -1195,6 +1281,7 @@
                                 id: item.product_id,
                                 name: item.product ? item.product.name : 'Produto',
                                 price: parseFloat(item.price || 0),
+                                taxRate: parseFloat(item.product?.tax_rate || item.taxRate || 0),
                                 qty: parseInt(item.qty || item.quantity || 1)
                             }));
                         } else {
@@ -1206,13 +1293,13 @@
                         renderizarCarrinho();
                         return true;
                     } else {
-                        alert("Erro ao carregar mesa: " + data.message);
+                    nkamaAlert("Erro ao carregar mesa: " + data.message, 'error');
                         return false;
                     }
                 })
                 .catch(err => {
                     console.error("Erro ao carregar dados do servidor:", err);
-                    alert("Erro ao carregar dados da mesa. Verifique se o caixa esta aberto.");
+                nkamaAlert("Erro ao carregar dados da mesa. Verifique se o caixa esta aberto.", 'error');
                     return false;
                 });
         }
@@ -1254,27 +1341,44 @@
             if (mOcupadas) mOcupadas.innerHTML = `Mesas Ocupadas: <strong style="color: #fbbf24;">${ocupadas}</strong>`;
         }
 
-        function adicionarItemNoPedido(idProduto, nomeProduto, preco, tentativaAposAbrirMesa = false) {
+        function adicionarItemNoPedido(idProduto, nomeProduto, preco, taxaIva = 0, tentativaAposAbrirMesa = false) {
             if (!garantirCaixaAberto()) return;
 
             if (!mesaSelecionadaId && modoAtual === 'salao') {
-                alert("Por favor, selecione uma mesa no mapa primeiro.");
+                nkamaAlert("Por favor, selecione uma mesa no mapa primeiro.", 'warning');
                 return;
+            }
+
+            if (modoAtual === 'supermercado') {
+                mesaSelecionadaId = 9999;
+                if (!estadosMesas[9999]) {
+                    estadosMesas[9999] = {
+                        itens: [],
+                        subtotal: 0,
+                        status: 'free',
+                        order_id: null
+                    };
+                }
             }
 
             const mesaCorrente = estadosMesas[mesaSelecionadaId];
 
+            if (!mesaCorrente) {
+                nkamaAlert("Nao foi possivel iniciar o carrinho. Atualize a pagina e tente novamente.", 'error');
+                return;
+            }
+
             if (modoAtual === 'salao') {
                 if (!mesaCorrente.order_id) {
                     if (tentativaAposAbrirMesa) {
-                        alert("Nao foi possivel abrir a conta da mesa. Tente selecionar a mesa novamente.");
+                        nkamaAlert("Nao foi possivel abrir a conta da mesa. Tente selecionar a mesa novamente.", 'error');
                         return;
                     }
 
                     abrirOuCarregarMesaNaBD(mesaSelecionadaId)
                         .then(abriu => {
                             if (abriu && mesaCorrente.order_id) {
-                                adicionarItemNoPedido(idProduto, nomeProduto, preco, true);
+                                adicionarItemNoPedido(idProduto, nomeProduto, preco, taxaIva, true);
                             }
                         });
                     return;
@@ -1309,17 +1413,18 @@
                                     id: idProduto,
                                     name: nomeProduto,
                                     price: parseFloat(preco),
+                                    taxRate: parseFloat(taxaIva) || 0,
                                     qty: 1
                                 });
                             }
                             renderizarCarrinho();
                         } else {
-                            alert("Erro ao adicionar item no servidor: " + (data.message || "Motivo desconhecido"));
+                            nkamaAlert("Erro ao adicionar item no servidor: " + (data.message || "Motivo desconhecido"), 'error');
                         }
                     })
                     .catch(err => {
                         console.error("Erro ao processar item no servidor:", err);
-                        alert("Erro ao adicionar item. Verifique se o caixa esta aberto e tente novamente.");
+                        nkamaAlert("Erro ao adicionar item. Verifique se o caixa esta aberto e tente novamente.", 'error');
                     });
             } else {
                 // Modo supermercado (Apenas local)
@@ -1331,6 +1436,7 @@
                         id: idProduto,
                         name: nomeProduto,
                         price: parseFloat(preco),
+                        taxRate: parseFloat(taxaIva) || 0,
                         qty: 1
                     });
                 }
@@ -1356,10 +1462,10 @@
                     .then(res => res.json())
                     .then(product => {
                         if (product.success && product.data) {
-                            adicionarItemNoPedido(product.data.id, product.data.name, product.data.selling_price);
+                            adicionarItemNoPedido(product.data.id, product.data.name, product.data.selling_price, product.data.tax_rate || 0);
                             event.target.value = '';
                         } else {
-                            alert("Produto não localizado.");
+                            nkamaAlert("Produto não localizado.", 'warning');
                         }
                     })
                     .catch(err => console.error("Erro na leitura:", err));
@@ -1397,7 +1503,7 @@
             });
 
             container.innerHTML = html;
-            totalGeralVendaActual = subtotal * 1.14; // IVA 14%
+            totalGeralVendaActual = subtotal;
             document.getElementById('txt-subtotal').innerText = subtotal.toLocaleString('pt-PT') + ' Kz';
             document.getElementById('txt-total').innerText = totalGeralVendaActual.toLocaleString('pt-PT') + ' Kz';
         }
@@ -1406,6 +1512,22 @@
             const div = document.createElement('div');
             div.textContent = valor ?? '';
             return div.innerHTML;
+        }
+
+        function calcularTotaisCarrinho(itens) {
+            return (itens || []).reduce((totais, item) => {
+                const price = Number(item.price) || 0;
+                const qty = Number(item.qty) || 1;
+                const taxRate = Math.max(0, Number(item.taxRate) || 0);
+                const gross = price * qty;
+                const tax = taxRate > 0 ? gross * taxRate / (100 + taxRate) : 0;
+
+                totais.total += gross;
+                totais.iva += tax;
+                totais.subtotal += gross - tax;
+
+                return totais;
+            }, { subtotal: 0, iva: 0, total: 0 });
         }
 
         function renderizarCarrinho() {
@@ -1443,9 +1565,10 @@
                     </div>`;
             }).join('');
 
+            const totais = calcularTotaisCarrinho(mesaAtual.itens);
             container.innerHTML = html;
-            totalGeralVendaActual = subtotal * 1.14;
-            document.getElementById('txt-subtotal').innerText = subtotal.toLocaleString('pt-PT') + ' Kz';
+            totalGeralVendaActual = totais.total;
+            document.getElementById('txt-subtotal').innerText = totais.subtotal.toLocaleString('pt-PT') + ' Kz';
             document.getElementById('txt-total').innerText = totalGeralVendaActual.toLocaleString('pt-PT') + ' Kz';
         }
 
@@ -1487,14 +1610,14 @@
                                 console.log("Mesa libertada na BD com sucesso.");
                             }
                         } else {
-                            alert("Erro ao sincronizar remoção: " + data.message);
+                            nkamaAlert("Erro ao sincronizar remoção: " + data.message, 'error');
                             // Opcional: recarregar estado da mesa se ocorrer erro para evitar dessincronização
                             abrirOuCarregarMesaNaBD(mesaSelecionadaId);
                         }
                     })
                     .catch(err => {
                         console.error("Erro de rede ao remover item:", err);
-                        alert("Erro de conexão. Verifique se a mesa ainda existe.");
+                        nkamaAlert("Erro de conexão. Verifique se a mesa ainda existe.", 'error');
                     });
             }
         }
@@ -1504,23 +1627,19 @@
 
             if (!mesaSelecionadaId || !estadosMesas[mesaSelecionadaId] || estadosMesas[mesaSelecionadaId].itens.length ===
                 0) {
-                alert("O carrinho está vazio!");
+                nkamaAlert("O carrinho está vazio!", 'warning');
                 return;
             }
             
             // Calcular valores
             const mesaCorrente = estadosMesas[mesaSelecionadaId];
-            let subtotal = 0;
-            mesaCorrente.itens.forEach(item => {
-                subtotal += item.price * item.qty;
-            });
-            const iva = subtotal * 0.14;
-            totalGeralVendaActual = subtotal + iva;
+            const totais = calcularTotaisCarrinho(mesaCorrente.itens);
+            totalGeralVendaActual = totais.total;
             
             // Atualizar modal com preview
             document.getElementById('modal-txt-total').innerText = totalGeralVendaActual.toLocaleString('pt-PT') + ' Kz';
-            document.getElementById('modal-subtotal-preview').innerText = subtotal.toLocaleString('pt-PT') + ' Kz';
-            document.getElementById('modal-iva-preview').innerText = iva.toLocaleString('pt-PT') + ' Kz';
+            document.getElementById('modal-subtotal-preview').innerText = totais.subtotal.toLocaleString('pt-PT') + ' Kz';
+            document.getElementById('modal-iva-preview').innerText = totais.iva.toLocaleString('pt-PT') + ' Kz';
             
             // Preencher preview do carrinho
             preencherPreviewCarrinho();
@@ -1600,7 +1719,8 @@
                 cash: 'Valor recebido em dinheiro',
                 card: 'Valor confirmado no Multicaixa',
                 transf: 'Valor confirmado na transferencia',
-                multi: 'Pagamento misto'
+                multi: 'Pagamento misto',
+                credit: 'Valor recebido agora'
             };
 
             if (labelValorPago) {
@@ -1616,18 +1736,23 @@
             }
 
             if (inputPrincipal) {
-                inputPrincipal.style.display = metodo === 'multi' ? 'none' : 'block';
+                inputPrincipal.style.display = metodo === 'multi' || metodo === 'credit' ? 'none' : 'block';
             }
 
             if (metodo === 'multi') {
                 campoPagamentoAtivo = 'card';
                 preencherPagamentoMistoInicial();
                 selecionarCampoPagamento('card');
+            } else if (metodo === 'credit') {
+                campoPagamentoAtivo = 'main';
+                document.getElementById('input-valor-pago').value = 0;
+                selecionarCampoPagamento('main');
             } else {
                 campoPagamentoAtivo = 'main';
                 selecionarCampoPagamento('main');
             }
 
+            atualizarClienteContaCorrente();
             calcularTroco();
             
             // Guardar o método selecionado
@@ -1647,6 +1772,8 @@
             document.getElementById('txt-troco-calculado').innerText = '0,00 Kz';
             document.getElementById('payment-split-wrapper').style.display = 'none';
             document.getElementById('input-valor-pago').style.display = 'block';
+            document.getElementById('wrapper-cliente-conta').style.display = 'none';
+            document.getElementById('select-cliente-conta').value = '';
             campoPagamentoAtivo = 'main';
             selecionarCampoPagamento('main');
         }
@@ -1657,14 +1784,170 @@
                 card: 'Multicaixa',
                 transf: 'Transferencia',
                 multi: 'Pagamento Misto',
-                mixed: 'Pagamento Misto'
+                mixed: 'Pagamento Misto',
+                credit: 'Conta Corrente',
+                mixed_credit: 'Misto + Conta'
             };
 
             document.getElementById('sucesso-invoice').innerText = data.invoice || `Venda #${data.sale_id || '-'}`;
             document.getElementById('sucesso-total').innerText = NkamaPOSPayment.format(payload.total);
             document.getElementById('sucesso-recebido').innerText = NkamaPOSPayment.format(payload.amount_paid);
-            document.getElementById('sucesso-metodo').innerText = labels[payload.payment_method] || payload.payment_method;
+            document.getElementById('sucesso-metodo').innerText = labels[data.payment_method || payload.payment_method] || payload.payment_method;
+            ultimaVendaId = data.sale_id || null;
             document.getElementById('modal-sucesso-venda').style.display = 'flex';
+        }
+
+        function abrirTicketVenda() {
+            if (!ultimaVendaId) return;
+            window.open(`/admin/sales/${ultimaVendaId}/ticket?print=1`, '_blank');
+        }
+
+        function fecharConsultaMesa() {
+            document.getElementById('modal-consulta-mesa').style.display = 'none';
+        }
+
+        function consultarMesaAtual() {
+            if (modoAtual !== 'salao' || !mesaSelecionadaId || mesaSelecionadaId === 9999) {
+                nkamaAlert('Selecione uma mesa para consultar.', 'warning');
+                return;
+            }
+
+            fetch(`/admin/restaurant/table/${mesaSelecionadaId}/summary`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        nkamaAlert(data.message || 'Nao foi possivel consultar a mesa.', 'error');
+                        return;
+                    }
+
+                    const itens = data.items || [];
+                    const totais = calcularTotaisCarrinho(itens.map(item => ({
+                        price: item.price,
+                        qty: item.qty,
+                        taxRate: item.taxRate
+                    })));
+
+                    document.getElementById('consulta-mesa-titulo').innerText = `Mesa ${data.table?.name || '-'}`;
+                    document.getElementById('consulta-mesa-info').innerText = data.order_id ? `Conta #${data.order_id}` : 'Sem conta aberta';
+                    document.getElementById('consulta-subtotal').innerText = totais.subtotal.toLocaleString('pt-PT') + ' Kz';
+                    document.getElementById('consulta-iva').innerText = totais.iva.toLocaleString('pt-PT') + ' Kz';
+                    document.getElementById('consulta-total').innerText = totais.total.toLocaleString('pt-PT') + ' Kz';
+
+                    const container = document.getElementById('consulta-mesa-itens');
+                    if (itens.length === 0) {
+                        container.innerHTML = '<div style="color:#64748b; text-align:center; padding:20px 0;">Mesa sem itens.</div>';
+                    } else {
+                        container.innerHTML = itens.map(item => {
+                            const total = Number(item.subtotal || 0);
+                            const name = escaparHtml(item.name);
+                            return `
+                                <div style="background:#020617; border:1px solid #1e293b; border-radius:8px; padding:9px;">
+                                    <div style="color:#fff; font-weight:bold;">${name}</div>
+                                    <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:12px; margin-top:4px;">
+                                        <span>${item.qty} x ${(Number(item.price) || 0).toLocaleString('pt-PT')} Kz</span>
+                                        <strong style="color:#e2e8f0;">${total.toLocaleString('pt-PT')} Kz</strong>
+                                    </div>
+                                </div>`;
+                        }).join('');
+                    }
+
+                    document.getElementById('modal-consulta-mesa').style.display = 'flex';
+                })
+                .catch(err => {
+                    console.error('Erro ao consultar mesa:', err);
+                    nkamaAlert('Erro de conexão ao consultar a mesa.', 'error');
+                });
+        }
+
+        function imprimirConsultaMesa() {
+            if (modoAtual !== 'salao' || !mesaSelecionadaId || mesaSelecionadaId === 9999) {
+                nkamaAlert('Selecione uma mesa para imprimir a consulta.', 'warning');
+                return;
+            }
+
+            window.open(`/admin/restaurant/table/${mesaSelecionadaId}/ticket?print=1`, '_blank');
+        }
+
+        function abrirTransferenciaMesa() {
+            if (modoAtual !== 'salao' || !mesaSelecionadaId || mesaSelecionadaId === 9999) {
+                nkamaAlert('Selecione uma mesa com conta para transferir.', 'warning');
+                return;
+            }
+
+            const mesaAtual = estadosMesas[mesaSelecionadaId];
+            if (!mesaAtual || !mesaAtual.order_id || !mesaAtual.itens || mesaAtual.itens.length === 0) {
+                nkamaAlert('Esta mesa nao tem conta com itens para transferir.', 'warning');
+                return;
+            }
+
+            document.getElementById('transferencia-origem').innerText = `Origem: ${document.getElementById('lbl-mesa-ativa').innerText}`;
+            const select = document.getElementById('transferencia-destino');
+            select.value = '';
+
+            Array.from(select.options).forEach(option => {
+                if (!option.value) return;
+                const estado = estadosMesas[option.value];
+                const ocupada = Number(option.value) === Number(mesaSelecionadaId) || (estado && (estado.order_id || estado.status === 'occupied'));
+                option.disabled = ocupada;
+                option.hidden = ocupada;
+            });
+
+            document.getElementById('modal-transferencia-mesa').style.display = 'flex';
+        }
+
+        function fecharTransferenciaMesa() {
+            document.getElementById('modal-transferencia-mesa').style.display = 'none';
+        }
+
+        function confirmarTransferenciaMesa() {
+            const destino = document.getElementById('transferencia-destino').value;
+            if (!destino) {
+                nkamaAlert('Selecione a mesa de destino.', 'warning');
+                return;
+            }
+
+            fetch('/admin/restaurant/transfer-order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    from_table_id: mesaSelecionadaId,
+                    to_table_id: destino
+                })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        nkamaAlert(data.message || 'Nao foi possivel transferir a conta.', 'error');
+                        return;
+                    }
+
+                    const origem = mesaSelecionadaId;
+                    estadosMesas[destino] = {
+                        ...(estadosMesas[origem] || {}),
+                        status: 'occupied',
+                        order_id: data.order_id
+                    };
+                    estadosMesas[origem] = {
+                        itens: [],
+                        subtotal: 0,
+                        status: 'free',
+                        order_id: null
+                    };
+
+                    atualizarVisualMesaCard(origem, 'free');
+                    atualizarVisualMesaCard(destino, 'occupied');
+                    atualizarContadoresTop();
+                    fecharTransferenciaMesa();
+                    voltarParaMesas();
+                    nkamaAlert(data.message || 'Conta transferida com sucesso.', 'success');
+                })
+                .catch(err => {
+                    console.error('Erro ao transferir conta:', err);
+                    nkamaAlert('Erro de conexão ao transferir a conta.', 'error');
+                });
         }
 
         function fecharModalSucessoVenda() {
@@ -1674,7 +1957,7 @@
         function garantirCaixaAberto() {
             if (caixaAberto) return true;
 
-            alert('Abra o caixa antes de iniciar mesas ou vendas.');
+            nkamaAlert('Abra o caixa antes de iniciar mesas ou vendas.', 'warning');
             mostrarModalAberturaCaixa();
             return false;
         }
@@ -1751,14 +2034,14 @@
                 .then(res => res.json())
                 .then(data => {
                     if (!data.success) {
-                        alert(data.message || 'Erro ao abrir caixa.');
+                        nkamaAlert(data.message || 'Erro ao abrir caixa.', 'error');
                         return;
                     }
 
                     aplicarEstadoCaixaAberto(true);
                     fecharModalAberturaCaixa();
                 })
-                .catch(() => alert('Erro de conexao ao abrir caixa.'))
+                .catch(() => nkamaAlert('Erro de conexão ao abrir caixa.', 'error'))
                 .finally(() => {
                     btn.disabled = false;
                     btn.innerText = 'Abrir Caixa';
@@ -1785,7 +2068,7 @@
                 .then(data => {
                     if (!data.success) {
                         document.getElementById('fecho-shift-id').innerText = 'Nenhum caixa aberto';
-                        alert('Nenhum caixa aberto para fechar.');
+                        nkamaAlert('Nenhum caixa aberto para fechar.', 'warning');
                         fecharModalFecho();
                         return;
                     }
@@ -1803,7 +2086,7 @@
                     calcularDiferencaFecho();
                 })
                 .catch(() => {
-                    alert('Erro ao carregar resumo do caixa.');
+                    nkamaAlert('Erro ao carregar resumo do caixa.', 'error');
                     fecharModalFecho();
                 });
         }
@@ -1822,11 +2105,12 @@
             diffEl.style.color = diff > 0 ? '#34d399' : (diff < 0 ? '#ef4444' : '#fbbf24');
         }
 
-        function confirmarFechoCaixa() {
+        async function confirmarFechoCaixa() {
             const counted = NkamaPOSPayment.parse(document.getElementById('fecho-counted-cash').value);
             const btn = document.getElementById('btn-confirmar-fecho');
 
-            if (!confirm('Confirmar fecho de caixa? Depois disso o turno fica encerrado.')) {
+            const confirmado = await nkamaConfirm('Confirmar fecho de caixa? Depois disso o turno fica encerrado.', 'Fechar caixa');
+            if (!confirmado) {
                 return;
             }
 
@@ -1848,14 +2132,14 @@
                 .then(res => res.json())
                 .then(data => {
                     if (!data.success) {
-                        alert(data.message || 'Erro ao fechar caixa.');
+                        nkamaAlert(data.message || 'Erro ao fechar caixa.', 'error');
                         return;
                     }
 
-                    alert(`Caixa fechado com sucesso.\nDiferenca: ${NkamaPOSPayment.format(data.difference)}`);
-                    window.location.reload();
+                    nkamaAlert(`Diferença: ${NkamaPOSPayment.format(data.difference)}`, 'success', 'Caixa fechado com sucesso')
+                        .then(() => window.location.reload());
                 })
-                .catch(() => alert('Erro de conexao ao fechar caixa.'))
+                .catch(() => nkamaAlert('Erro de conexão ao fechar caixa.', 'error'))
                 .finally(() => {
                     btn.disabled = false;
                     btn.innerText = 'Confirmar Fecho';
@@ -1920,6 +2204,10 @@
         function obterTotalPago() {
             const metodo = document.getElementById('select-metodo-pagamento').value;
 
+            if (metodo === 'credit') {
+                return 0;
+            }
+
             if (metodo !== 'multi') {
                 return lerValorPagamento('input-valor-pago');
             }
@@ -1954,6 +2242,7 @@
             }
 
             calcularTroco();
+            atualizarClienteContaCorrente();
         }
 
         function hexToRgba(hex, alpha) {
@@ -1975,6 +2264,12 @@
             }
 
             const metodo = document.getElementById('select-metodo-pagamento').value;
+            if (metodo === 'credit') {
+                document.getElementById('txt-troco-calculado').innerText = '0,00 Kz';
+                atualizarClienteContaCorrente();
+                return;
+            }
+
             const entregue = metodo === 'multi' ? obterTotalPago() : NkamaPOSPayment.parse(valorDigitado);
             const dinheiro = metodo === 'multi' ? lerValorPagamento('input-pago-cash') : entregue;
             const troco = metodo === 'multi' ?
@@ -1983,14 +2278,35 @@
             document.getElementById('txt-troco-calculado').innerText = troco > 0 ?
                 NkamaPOSPayment.format(troco) :
                 '0,00 Kz';
+            atualizarClienteContaCorrente();
+        }
+
+        function atualizarClienteContaCorrente() {
+            const metodo = document.getElementById('select-metodo-pagamento').value;
+            const totalPago = obterTotalPago();
+            const pendente = Math.max(Number(totalGeralVendaActual || 0) - totalPago, 0);
+            const wrapper = document.getElementById('wrapper-cliente-conta');
+            const pendenteEl = document.getElementById('txt-valor-pendente-conta');
+
+            if (!wrapper) return;
+
+            wrapper.style.display = (metodo === 'credit' || pendente > 0) ? 'block' : 'none';
+
+            if (pendenteEl) {
+                pendenteEl.innerText = `Pendente: ${NkamaPOSPayment.format(pendente)}`;
+            }
         }
 
         function submeterVendaFinal() {
             const metodo = document.getElementById('select-metodo-pagamento').value;
             const valorPago = obterTotalPago();
+            const clienteId = document.getElementById('select-cliente-conta').value;
+            const pendente = Math.max(Number(totalGeralVendaActual || 0) - valorPago, 0);
 
-            if (valorPago < totalGeralVendaActual) {
-                alert('O valor recebido/confirmado não pode ser menor que o total da venda.');
+            if (pendente > 0 && !clienteId) {
+                nkamaAlert('Selecione o cliente para lançar o valor em conta corrente.', 'warning');
+                return;
+                nkamaAlert('O valor recebido/confirmado não pode ser menor que o total da venda.', 'warning');
                 return;
             }
 
@@ -2004,6 +2320,7 @@
                 ) : null,
                 items: estadosMesas[mesaSelecionadaId].itens,
                 payment_method: metodo,
+                customer_id: clienteId || null,
                 table_id: modoAtual === 'salao' ? mesaSelecionadaId : null
             };
 
@@ -2018,7 +2335,7 @@
                 .then(res => res.json())
                 .then(data => {
                     if (!data.success) {
-                        alert("Erro interno: " + data.message);
+                        nkamaAlert("Erro interno: " + data.message, 'error');
                         return;
                     }
 
@@ -2065,7 +2382,12 @@
             if (modulosAtivos.restaurant) {
                 carregarEstadoInicialMesas();
             } else if (modulosAtivos.supermarket) {
+                mesaSelecionadaId = 9999;
+                document.getElementById('lbl-cliente-tipo').innerText = 'Cliente Geral - Venda Activa';
+                document.getElementById('lbl-mesa-ativa').innerText = 'Caixa Aberto';
+                document.getElementById('mesa-acoes').style.display = 'none';
                 selecionarCategoriaSupermercado('all');
+                renderizarCarrinho();
             }
         });
 

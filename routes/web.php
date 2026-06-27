@@ -17,7 +17,11 @@ use App\Http\Controllers\Admin\{
     PosController,
     OperatorController,
     ModuleController,
+    SettingController,
+    DocumentSettingController,
+    CreditNoteController,
     ShiftController,
+    CurrentAccountController,
     RestaurantController
 };
 
@@ -64,12 +68,21 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
 
         Route::resource('operators', OperatorController::class)->only(['index', 'store', 'update']);
         Route::post('operators/{operator}/recovery-code', [OperatorController::class, 'regenerateRecoveryCode'])->name('operators.recovery-code');
+        Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
+        Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
+        Route::get('document-settings', [DocumentSettingController::class, 'index'])->name('document-settings.index');
+        Route::post('document-settings/types', [DocumentSettingController::class, 'storeType'])->name('document-settings.types.store');
+        Route::post('document-settings/series', [DocumentSettingController::class, 'storeSeries'])->name('document-settings.series.store');
+        Route::patch('document-settings/types/{type}/toggle', [DocumentSettingController::class, 'toggleType'])->name('document-settings.types.toggle');
+        Route::patch('document-settings/series/{series}/toggle', [DocumentSettingController::class, 'toggleSeries'])->name('document-settings.series.toggle');
         Route::get('modules', [ModuleController::class, 'index'])->name('modules.index');
         Route::put('modules', [ModuleController::class, 'update'])->name('modules.update');
     });
 
     Route::middleware('operator.role:super_user,admin,manager')->group(function () {
         Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
+        Route::get('current-accounts', [CurrentAccountController::class, 'index'])->name('current-accounts.index');
+        Route::post('current-accounts', [CurrentAccountController::class, 'store'])->name('current-accounts.store');
 
         // Cadastros e Recursos Globais
         Route::resource('categories', CategoryController::class);
@@ -98,6 +111,10 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
     Route::post('pos/supermercado/find-product', [PosController::class, 'findProductByBarcode'])->middleware('module.enabled:supermarket')->name('pos.supermarket.findProduct');
 
     // Vendas e Histórico
+    Route::get('sales/{sale}/credit-note', [CreditNoteController::class, 'create'])->name('sales.credit-notes.create');
+    Route::post('sales/{sale}/credit-note', [CreditNoteController::class, 'store'])->name('sales.credit-notes.store');
+    Route::get('credit-notes/{creditNote}/ticket', [CreditNoteController::class, 'ticket'])->name('credit-notes.ticket');
+    Route::get('sales/{sale}/ticket', [SaleController::class, 'ticket'])->name('sales.ticket');
     Route::resource('sales', SaleController::class)->only(['index', 'show']);
     Route::post('sales', [SaleController::class, 'store'])->name('sales.store');
     // No teu routes/web.php ou api.php
@@ -114,6 +131,9 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
 
         // Rotas de controle de Mesa e Pedidos
         Route::post('order/{tableId}/open', [RestaurantController::class, 'openTable'])->middleware(EnsureShiftOpen::class)->name('openTable');
+        Route::get('table/{tableId}/summary', [RestaurantController::class, 'tableSummary'])->name('tableSummary');
+        Route::get('table/{tableId}/ticket', [RestaurantController::class, 'tableTicket'])->name('tableTicket');
+        Route::post('transfer-order', [RestaurantController::class, 'transferOrder'])->middleware(EnsureShiftOpen::class)->name('transferOrder');
         Route::post('order/{tableId}/close', [RestaurantController::class, 'closeOrder'])->name('closeOrder');
 
         // Gestão de itens na mesa

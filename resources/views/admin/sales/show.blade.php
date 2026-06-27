@@ -13,8 +13,46 @@
         .invoice-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 20px;
+            gap: 20px;
+        }
+
+        .company-header {
+            align-items: center;
+            display: flex;
+            gap: 14px;
+        }
+
+        .company-logo {
+            align-items: center;
+            background: #070a12;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 8px;
+            display: flex;
+            height: 64px;
+            justify-content: center;
+            overflow: hidden;
+            width: 96px;
+        }
+
+        .company-logo img {
+            max-height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+        }
+
+        .company-name {
+            color: #fff;
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .company-meta {
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.5;
         }
 
         .btn-print {
@@ -53,9 +91,17 @@
         .total-box {
             text-align: right;
             margin-top: 20px;
-            font-size: 20px;
+            font-size: 14px;
             font-weight: 700;
             color: #f97316;
+        }
+
+        .total-box div {
+            margin-top: 6px;
+        }
+
+        .total-box strong {
+            font-size: 20px;
         }
     </style>
 
@@ -64,13 +110,49 @@
         <!-- HEADER -->
         <div class="invoice-header">
 
-            <h1 class="text-2xl font-bold">
-                🧾 Fatura #{{ $sale->invoice_number }}
-            </h1>
+            <div>
+                <div class="company-header">
+                    @if($logoUrl)
+                        <div class="company-logo">
+                            <img src="{{ $logoUrl }}" alt="Logotipo da empresa">
+                        </div>
+                    @endif
 
-            <button onclick="window.print()" class="btn-print">
-                🖨 Imprimir
-            </button>
+                    <div>
+                        <div class="company-name">{{ $company['name'] ?: config('app.name', 'Nkama ERP') }}</div>
+                        <div class="company-meta">
+                            @if(!empty($company['location']))
+                                <div>{{ $company['location'] }}</div>
+                            @endif
+                            @if(!empty($company['nif']))
+                                <div>NIF: {{ $company['nif'] }}</div>
+                            @endif
+                            @if(!empty($company['iban']))
+                                <div>IBAN: {{ $company['iban'] }}</div>
+                            @endif
+                            @if(!empty($company['account_number']))
+                                <div>No. conta: {{ $company['account_number'] }}</div>
+                            @endif
+                            @if(!empty($company['swift']))
+                                <div>SWIFT: {{ $company['swift'] }}</div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <h1 class="text-2xl font-bold" style="margin-top:18px;">
+                    🧾 Fatura #{{ $sale->invoice_number }}
+                </h1>
+            </div>
+
+            <div style="display:flex; gap:8px; align-items:center;">
+                <a href="{{ route('admin.sales.ticket', $sale) }}" target="_blank" class="btn-print" style="text-decoration:none;">
+                    Ticket
+                </a>
+                <button onclick="window.print()" class="btn-print">
+                    Imprimir
+                </button>
+            </div>
 
         </div>
 
@@ -101,6 +183,7 @@
                     <th>Produto</th>
                     <th>Qtd</th>
                     <th>Preço</th>
+                    <th>IVA</th>
                     <th>Subtotal</th>
                 </tr>
             </thead>
@@ -123,6 +206,10 @@
                         </td>
 
                         <td>
+                            {{ number_format($item->tax_rate ?? 0, 2) }}%
+                        </td>
+
+                        <td>
                             {{ number_format($item->subtotal, 2) }}
                         </td>
 
@@ -135,7 +222,17 @@
 
         <!-- TOTAL -->
         <div class="total-box">
-            Total: AOA {{ number_format($sale->total, 2) }}
+            <div>Subtotal: AOA {{ number_format($sale->subtotal, 2) }}</div>
+            <div>
+                IVA
+                @if(($sale->items ?? collect())->pluck('tax_rate')->unique()->count() === 1)
+                    ({{ number_format($sale->tax_rate ?? 0, 2) }}%)
+                @else
+                    (taxas varias)
+                @endif:
+                AOA {{ number_format($sale->tax, 2) }}
+            </div>
+            <div><strong>Total: AOA {{ number_format($sale->total, 2) }}</strong></div>
         </div>
 
     </div>

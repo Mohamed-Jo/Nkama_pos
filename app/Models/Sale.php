@@ -13,9 +13,13 @@ class Sale extends Model
         'shift_id',
 
         'invoice_number',
+        'document_type_code',
+        'document_series_id',
+        'document_number',
 
         'subtotal',
         'tax',
+        'tax_rate',
         'discount',
 
         'total',
@@ -28,6 +32,7 @@ class Sale extends Model
 
     protected $casts = [
         'total' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
         'paid' => 'decimal:2',
         'change' => 'decimal:2',
     ];
@@ -56,5 +61,15 @@ class Sale extends Model
     public function shift()
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    public function documentSeries()
+    {
+        return $this->belongsTo(DocumentSeries::class, 'document_series_id');
+    }
+
+    public function creditNotes()
+    {
+        return $this->hasMany(CreditNote::class, 'original_sale_id');
     }
 }

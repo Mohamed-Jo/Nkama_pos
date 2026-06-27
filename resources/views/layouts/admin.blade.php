@@ -8,6 +8,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 
 
@@ -320,6 +321,7 @@
                 <a class="{{ request()->routeIs('admin.sales.*') ? 'active' : '' }}" href="{{ route('admin.sales.index') }}">💰 Vendas</a>
                 @if($canManage)
                     <a class="{{ request()->routeIs('admin.audit.*') ? 'active' : '' }}" href="{{ route('admin.audit.index') }}">🛡 Auditoria</a>
+                    <a class="{{ request()->routeIs('admin.current-accounts.*') ? 'active' : '' }}" href="{{ route('admin.current-accounts.index') }}">Conta Corrente</a>
                 @endif
 
                 <div class="menu-section">Caixa</div>
@@ -340,6 +342,8 @@
 
                 @if($isSuperUser)
                     <div class="menu-section">Segurança</div>
+                    <a class="{{ request()->routeIs('admin.settings.*') ? 'active' : '' }}" href="{{ route('admin.settings.index') }}">Empresa & IVA</a>
+                    <a class="{{ request()->routeIs('admin.document-settings.*') ? 'active' : '' }}" href="{{ route('admin.document-settings.index') }}">Documentos & Séries</a>
                     <a class="{{ request()->routeIs('admin.modules.*') ? 'active' : '' }}" href="{{ route('admin.modules.index') }}">🧩 Módulos</a>
                     <a class="{{ request()->routeIs('admin.operators.*') ? 'active' : '' }}" href="{{ route('admin.operators.index') }}">🔐 Operadores</a>
                 @endif
@@ -394,7 +398,75 @@
     </div>
 
     <script>
+        window.nativeAlert = window.alert.bind(window);
+
+        window.nkamaAlert = function(message, type = 'info', title = null) {
+            if (!window.Swal) {
+                window.nativeAlert(message);
+                return Promise.resolve();
+            }
+
+            const titles = {
+                success: 'Sucesso',
+                error: 'Erro',
+                warning: 'Atenção',
+                info: 'Informação',
+                question: 'Confirmar'
+            };
+
+            return Swal.fire({
+                title: title || titles[type] || titles.info,
+                text: message,
+                icon: type,
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#f97316',
+                background: '#0f172a',
+                color: '#e2e8f0',
+                customClass: {
+                    popup: 'nkama-swal-popup'
+                }
+            });
+        };
+
+        window.nkamaConfirm = function(message, title = 'Confirmar') {
+            if (!window.Swal) {
+                return Promise.resolve(window.confirm(message));
+            }
+
+            return Swal.fire({
+                title,
+                text: message,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sim',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#f97316',
+                cancelButtonColor: '#334155',
+                background: '#0f172a',
+                color: '#e2e8f0',
+            }).then(result => result.isConfirmed);
+        };
+
+        window.alert = function(message) {
+            return window.nkamaAlert(String(message), 'info');
+        };
+
         function showToast(msg) {
+            if (window.Swal) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: msg,
+                    showConfirmButton: false,
+                    timer: 2600,
+                    timerProgressBar: true,
+                    background: '#0f172a',
+                    color: '#e2e8f0',
+                });
+                return;
+            }
+
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = 'toast';

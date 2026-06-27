@@ -12,6 +12,7 @@ class Product extends Model
         'barcode',
         'purchase_price',
         'selling_price',
+        'tax_rate',
         'stock_quantity',
         'minimum_stock',
         'unit',
@@ -20,6 +21,11 @@ class Product extends Model
         'status',
         'available_restaurant',
         'available_supermarket',
+    ];
+
+    protected $casts = [
+        'selling_price' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
     ];
 
     public function category()

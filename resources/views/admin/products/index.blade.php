@@ -29,6 +29,7 @@
                         <th>Produto</th>
                         <th>Categoria</th>
                         <th>Preço</th>
+                        <th>IVA</th>
                         <th>Stock</th>
                         <th class="text-right">Ações</th>
                     </tr>
@@ -42,6 +43,7 @@
                             </td>
                             <td>{{ $product->category->name ?? '—' }}</td>
                             <td class="price">AOA {{ number_format($product->selling_price, 2, ',', '.') }}</td>
+                            <td>{{ number_format($product->tax_rate ?? 0, 2, ',', '.') }}%</td>
                             <td>
                                 <div class="stock-container">
                                     <div class="stock-bar">
@@ -60,7 +62,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" style="text-align:center; padding: 40px;">Nenhum produto.</td></tr>
+                        <tr><td colspan="6" style="text-align:center; padding: 40px;">Nenhum produto.</td></tr>
                     @endforelse
                 </tbody>
             </table>

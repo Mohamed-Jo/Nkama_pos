@@ -28,6 +28,13 @@
                 <p class="mt-2 text-orange-400">AOA {{ number_format($product->selling_price, 2) }}</p>
             </div>
             <div>
+                <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">IVA do Produto</h2>
+                <p class="mt-2 text-slate-300">{{ number_format($product->tax_rate ?? 0, 2) }}%</p>
+            </div>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-2">
+            <div>
                 <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Stock Atual</h2>
                 <p class="mt-2 text-slate-300">{{ $product->stock_quantity }} un</p>
             </div>

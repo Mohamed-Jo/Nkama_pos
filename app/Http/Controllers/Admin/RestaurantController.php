@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\{Category, Customer, Operator, Product, RestaurantOrder, RestaurantOrderItem, RestaurantTable, Shift};
+use App\Services\BusinessSettings;
 use App\Services\ModuleSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RestaurantController extends Controller
 {
@@ -120,6 +122,133 @@ class RestaurantController extends Controller
         }
     }
 
+    public function tableSummary($tableId): JsonResponse
+    {
+        try {
+            $table = RestaurantTable::with(['currentOrder.items.product'])->findOrFail($tableId);
+            $order = $table->currentOrder;
+
+            if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled'], true)) {
+                return response()->json([
+                    'success' => true,
+                    'table' => [
+                        'id' => $table->id,
+                        'name' => $table->name,
+                        'status' => 'free',
+                    ],
+                    'order_id' => null,
+                    'items' => [],
+                    'subtotal' => 0,
+                    'total' => 0,
+                ]);
+            }
+
+            $items = $order->items->map(function ($item) {
+                return [
+                    'product_id' => $item->product_id,
+                    'name' => $item->product?->name ?? 'Produto Desconhecido',
+                    'qty' => (int) $item->qty,
+                    'price' => (float) $item->price,
+                    'taxRate' => (float) ($item->product?->tax_rate ?? 0),
+                    'subtotal' => (float) $item->subtotal,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'table' => [
+                    'id' => $table->id,
+                    'name' => $table->name,
+                    'status' => $table->status,
+                ],
+                'order_id' => $order->id,
+                'items' => $items,
+                'subtotal' => (float) $order->subtotal,
+                'total' => (float) $order->total,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao consultar mesa: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function tableTicket($tableId)
+    {
+        $table = RestaurantTable::with(['currentOrder.items.product'])->findOrFail($tableId);
+        $order = $table->currentOrder;
+
+        if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled'], true)) {
+            abort(404, 'Mesa sem conta aberta.');
+        }
+
+        $company = BusinessSettings::company();
+        $logoUrl = BusinessSettings::logoUrl($company);
+
+        $totals = $this->restaurantOrderTotals($order);
+
+        return view('admin.restaurant.table-ticket', compact('table', 'order', 'company', 'logoUrl', 'totals'));
+    }
+
+    public function transferOrder(Request $request): JsonResponse
+    {
+        $request->validate([
+            'from_table_id' => 'required|exists:restaurant_tables,id',
+            'to_table_id' => 'required|exists:restaurant_tables,id|different:from_table_id',
+        ]);
+
+        try {
+            $result = DB::transaction(function () use ($request) {
+                $fromTable = RestaurantTable::lockForUpdate()->findOrFail($request->from_table_id);
+                $toTable = RestaurantTable::lockForUpdate()->findOrFail($request->to_table_id);
+
+                if (!$fromTable->current_order_id) {
+                    throw new \Exception('A mesa de origem nao tem conta aberta.');
+                }
+
+                if ($toTable->current_order_id || in_array($toTable->status, ['occupied', 'waiting_payment'], true)) {
+                    throw new \Exception('A mesa de destino precisa estar livre.');
+                }
+
+                $order = RestaurantOrder::with('items')->lockForUpdate()->findOrFail($fromTable->current_order_id);
+
+                if ($order->items->isEmpty()) {
+                    throw new \Exception('A conta de origem nao tem itens para transferir.');
+                }
+
+                $order->update(['table_id' => $toTable->id]);
+
+                $fromTable->update([
+                    'status' => 'free',
+                    'current_order_id' => null,
+                ]);
+
+                $toTable->update([
+                    'status' => 'occupied',
+                    'current_order_id' => $order->id,
+                ]);
+
+                return [
+                    'order_id' => $order->id,
+                    'from_table' => $fromTable->name,
+                    'to_table' => $toTable->name,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => "Conta transferida de {$result['from_table']} para {$result['to_table']}.",
+                'order_id' => $result['order_id'],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao transferir conta: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
     public function addItem(Request $request)
     {
         try {
@@ -203,11 +332,13 @@ class RestaurantController extends Controller
                         'order_id' => $activeOrder?->id,
                         'itens' => $activeOrder ? $activeOrder->items->map(function ($item) {
                             return [
-                                'id' => $item->id,
+                                'id' => $item->product_id,
                                 'product_id' => $item->product_id,
                                 'name' => $item->product ? $item->product->name : 'Produto Desconhecido',
                                 'price' => (float) $item->price,
+                                'qty' => (int) $item->qty,
                                 'quantity' => (int) $item->qty,
+                                'taxRate' => (float) ($item->product?->tax_rate ?? 0),
                                 'total' => (float) $item->subtotal
                             ];
                         })->toArray() : []
@@ -321,5 +452,28 @@ class RestaurantController extends Controller
                 'message' => 'Erro ao limpar carrinho: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function restaurantOrderTotals(RestaurantOrder $order): array
+    {
+        $grossTotal = 0.0;
+        $netTotal = 0.0;
+        $taxTotal = 0.0;
+
+        foreach ($order->items as $item) {
+            $gross = round((float) $item->subtotal, 2);
+            $taxRate = round((float) ($item->product?->tax_rate ?? 0), 2);
+            $split = BusinessSettings::splitGrossTotal($gross, $taxRate);
+
+            $grossTotal += $split['total'];
+            $netTotal += $split['subtotal'];
+            $taxTotal += $split['tax'];
+        }
+
+        return [
+            'subtotal' => round($netTotal, 2),
+            'tax' => round($taxTotal, 2),
+            'total' => round($grossTotal, 2),
+        ];
     }
 }

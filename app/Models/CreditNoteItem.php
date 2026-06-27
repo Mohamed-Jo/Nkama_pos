@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class SaleItem extends Model
+class CreditNoteItem extends Model
 {
     protected $fillable = [
-        'sale_id',
+        'credit_note_id',
+        'sale_item_id',
         'product_id',
         'quantity',
         'unit_price',
@@ -18,6 +19,7 @@ class SaleItem extends Model
     ];
 
     protected $casts = [
+        'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'net_subtotal' => 'decimal:2',
@@ -25,9 +27,14 @@ class SaleItem extends Model
         'tax_amount' => 'decimal:2',
     ];
 
-    public function sale()
+    public function creditNote()
     {
-        return $this->belongsTo(Sale::class);
+        return $this->belongsTo(CreditNote::class);
+    }
+
+    public function saleItem()
+    {
+        return $this->belongsTo(SaleItem::class);
     }
 
     public function product()

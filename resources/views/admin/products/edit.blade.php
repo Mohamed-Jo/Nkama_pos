@@ -30,18 +30,24 @@
 
             <div class="row-2">
                 <div class="form-group">
-                    <label>Preço de Venda (AOA)</label>
+                    <label>Preço de Venda com IVA incluído (AOA)</label>
                     <input name="price" type="number" step="0.01" value="{{ old('price', $product->selling_price) }}" required>
                 </div>
+                <div class="form-group">
+                    <label>IVA do Produto (%)</label>
+                    <input name="tax_rate" type="number" min="0" max="100" step="0.01" value="{{ old('tax_rate', $product->tax_rate ?? 0) }}" required>
+                </div>
+            </div>
+
+            <div class="row-2">
                 <div class="form-group">
                     <label>Quantidade em Stock</label>
                     <input name="stock" type="number" value="{{ old('stock', $product->stock_quantity) }}" required>
                 </div>
-            </div>
-
-            <div class="form-group">
-                <label>Código de Barras</label>
-                <input name="barcode" type="text" value="{{ old('barcode', $product->barcode) }}">
+                <div class="form-group">
+                    <label>Código de Barras</label>
+                    <input name="barcode" type="text" value="{{ old('barcode', $product->barcode) }}">
+                </div>
             </div>
 
             <div class="form-group">
