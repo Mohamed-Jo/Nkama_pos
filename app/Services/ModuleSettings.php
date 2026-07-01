@@ -10,6 +10,9 @@ class ModuleSettings
     public const DEFAULTS = [
         'restaurant' => true,
         'supermarket' => true,
+        'current_account' => true,
+        'purchases' => true,
+        'view_ticket' => true,
     ];
 
     public static function all(): array
@@ -33,6 +36,9 @@ class ModuleSettings
         $values = [
             'restaurant' => (bool) ($modules['restaurant'] ?? false),
             'supermarket' => (bool) ($modules['supermarket'] ?? false),
+            'current_account' => (bool) ($modules['current_account'] ?? false),
+            'purchases' => (bool) ($modules['purchases'] ?? false),
+            'view_ticket' => (bool) ($modules['view_ticket'] ?? false),
         ];
 
         AppSetting::updateOrCreate(

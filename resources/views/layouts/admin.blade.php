@@ -8,7 +8,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ asset('vendor/offline/sweetalert2.all.min.js') }}"></script>
 
 
 
@@ -61,11 +61,19 @@
         }
 
         .logo {
-            padding: 24px 20px;
-            font-weight: 800;
-            font-size: 18px;
-            color: var(--primary);
+            align-items: center;
             border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-start;
+            min-height: 92px;
+            padding: 18px 20px;
+        }
+
+        .logo img {
+            display: block;
+            max-height: 64px;
+            max-width: 178px;
+            object-fit: contain;
         }
 
         .menu {
@@ -267,7 +275,7 @@
             padding: 24px;
         }
 
-        input {
+        input:not([type="checkbox"]):not([type="radio"]) {
             width: 100%;
             padding: 12px;
             margin-top: 6px;
@@ -275,6 +283,78 @@
             border: 1px solid var(--border);
             background: #070a12;
             color: white;
+        }
+
+        input[type="checkbox"],
+        input[type="radio"] {
+            appearance: none;
+            -webkit-appearance: none;
+            align-items: center;
+            background: #070a12;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            cursor: pointer;
+            display: inline-grid;
+            flex: 0 0 auto;
+            height: 18px;
+            justify-content: center;
+            margin: 0;
+            padding: 0;
+            position: relative;
+            vertical-align: middle;
+            width: 18px;
+        }
+
+        input[type="checkbox"] {
+            border-radius: 5px;
+        }
+
+        input[type="radio"] {
+            border-radius: 999px;
+        }
+
+        input[type="checkbox"]::after {
+            border: solid #020617;
+            border-width: 0 2px 2px 0;
+            content: "";
+            display: none;
+            height: 9px;
+            margin-top: -2px;
+            transform: rotate(45deg);
+            width: 5px;
+        }
+
+        input[type="radio"]::after {
+            background: #020617;
+            border-radius: 999px;
+            content: "";
+            display: none;
+            height: 8px;
+            width: 8px;
+        }
+
+        input[type="checkbox"]:checked,
+        input[type="radio"]:checked {
+            background: #38bdf8;
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
+        }
+
+        input[type="checkbox"]:checked::after,
+        input[type="radio"]:checked::after {
+            display: block;
+        }
+
+        input[type="checkbox"]:focus-visible,
+        input[type="radio"]:focus-visible {
+            outline: 2px solid rgba(56, 189, 248, 0.75);
+            outline-offset: 2px;
+        }
+
+        label:has(> input[type="checkbox"]),
+        label:has(> input[type="radio"]) {
+            align-items: center;
+            display: inline-flex;
+            gap: 8px;
         }
 
         @media (max-width: 768px) {
@@ -306,30 +386,46 @@
     <div class="app">
         @php
             $operatorRole = session('operator_role', 'cashier');
-            $canManage = in_array($operatorRole, ['super_user', 'admin', 'manager'], true);
-            $isSuperUser = $operatorRole === 'super_user';
+            $isSuperUser = \App\Services\OperatorPermissions::allows($operatorRole, 'security.manage');
+            $canAudit = \App\Services\OperatorPermissions::allows($operatorRole, 'audit.view');
+            $canReports = \App\Services\OperatorPermissions::allows($operatorRole, 'reports.view');
+            $canCurrentAccount = \App\Services\OperatorPermissions::allows($operatorRole, 'current_account.manage');
+            $canPurchases = \App\Services\OperatorPermissions::allows($operatorRole, 'purchases.manage');
+            $canCatalog = \App\Services\OperatorPermissions::allows($operatorRole, 'catalog.manage');
+            $canShiftAudit = \App\Services\OperatorPermissions::allows($operatorRole, 'cash.audit');
             $activeModules = \App\Services\ModuleSettings::all();
+            $sidebarLogoUrl = \App\Services\BusinessSettings::logoUrl() ?: asset('images/bg-pos.png');
         @endphp
 
         <aside class="sidebar" id="sidebar">
-            <div class="logo">NKAMA ERP</div>
+            <div class="logo">
+                <img src="{{ $sidebarLogoUrl }}" alt="{{ config('app.name', 'Nkama ERP') }}">
+            </div>
             <nav class="menu">
                 <a class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">📊 Dashboard</a>
 
                 <div class="menu-section">Operações</div>
                 <a class="{{ request()->routeIs('admin.pos.*') ? 'active' : '' }}" href="{{ route('admin.pos.index') }}">⌗ POS / Caixa</a>
                 <a class="{{ request()->routeIs('admin.sales.*') ? 'active' : '' }}" href="{{ route('admin.sales.index') }}">💰 Vendas</a>
-                @if($canManage)
+                @if($canAudit)
                     <a class="{{ request()->routeIs('admin.audit.*') ? 'active' : '' }}" href="{{ route('admin.audit.index') }}">🛡 Auditoria</a>
+                @endif
+                @if($canReports)
+                    <a class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}" href="{{ route('admin.reports.index') }}">Relatórios</a>
+                @endif
+                @if($canCurrentAccount && ($activeModules['current_account'] ?? true))
                     <a class="{{ request()->routeIs('admin.current-accounts.*') ? 'active' : '' }}" href="{{ route('admin.current-accounts.index') }}">Conta Corrente</a>
+                @endif
+                @if($canPurchases && ($activeModules['purchases'] ?? true))
+                    <a class="{{ request()->routeIs('admin.purchases.*') ? 'active' : '' }}" href="{{ route('admin.purchases.index') }}">Compras</a>
                 @endif
 
                 <div class="menu-section">Caixa</div>
-                @if($canManage)
+                @if($canShiftAudit)
                     <a class="{{ request()->routeIs('admin.shifts.*') ? 'active' : '' }}" href="{{ route('admin.shifts.history') }}">🧾 Histórico de Fechos</a>
                 @endif
 
-                @if($canManage)
+                @if($canCatalog)
                     <div class="menu-section">Cadastros</div>
                     <a class="{{ request()->routeIs('admin.products.*') ? 'active' : '' }}" href="{{ route('admin.products.index') }}">📦 Produtos</a>
                     <a class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}" href="{{ route('admin.categories.index') }}">🏷️ Categorias</a>
@@ -377,9 +473,9 @@
                     @if($isSuperUser)
                         <form method="POST" action="{{ route('admin.system-date.next') }}">
                             @csrf
-                            <button class="btn-audit" type="submit" title="Avançar data do sistema para o próximo dia">
+                            <button class="btn-audit" type="submit" title="Gerar auditoria diaria e avancar data do sistema">
                                 <span>🛡</span>
-                                <span>Próxima data</span>
+                                <span>Auditoria</span>
                             </button>
                         </form>
                     @endif
@@ -451,6 +547,42 @@
             return window.nkamaAlert(String(message), 'info');
         };
 
+        window.nkamaPrintTicket = function(url) {
+            if (!url) return;
+
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+            })
+                .then(async response => {
+                    const data = await response.json().catch(() => ({}));
+
+                    if (!response.ok || data.success === false) {
+                        throw new Error(data.message || 'Nao foi possivel imprimir direto.');
+                    }
+
+                    if (data.message) {
+                        showToast(data.message);
+                    }
+
+                    return data;
+                })
+                .catch(error => {
+                    window.nkamaAlert(error.message, 'error', 'Impressao direta');
+                });
+        };
+
+        document.addEventListener('click', function(event) {
+            const trigger = event.target.closest('[data-direct-print-url]');
+            if (!trigger) return;
+
+            event.preventDefault();
+            window.nkamaPrintTicket(trigger.dataset.directPrintUrl || trigger.href);
+        });
+
         function showToast(msg) {
             if (window.Swal) {
                 Swal.fire({
@@ -474,6 +606,38 @@
             container.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            @if(session('success'))
+                @if(session('daily_report_url'))
+                    if (window.Swal) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Fecho diario gerado',
+                            text: @json(session('success')),
+                            confirmButtonText: 'Baixar relatorio',
+                            showCancelButton: true,
+                            cancelButtonText: 'Fechar',
+                            background: '#0f172a',
+                            color: '#e2e8f0',
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.open(@json(session('daily_report_url')), '_blank');
+                            }
+                        });
+                    } else {
+                        showToast(@json(session('success')));
+                    }
+                @else
+                    showToast(@json(session('success')));
+                @endif
+            @endif
+
+            @if($errors->any())
+                window.nkamaAlert(@json($errors->first()), 'error');
+            @endif
+
+        });
 
         function toggleSidebar() {
             const sb = document.getElementById("sidebar");

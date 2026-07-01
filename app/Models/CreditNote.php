@@ -46,4 +46,9 @@ class CreditNote extends Model
     {
         return $this->hasMany(CreditNoteItem::class);
     }
+
+    public function payments()
+    {
+        return $this->hasMany(Payments::class);
+    }
 }

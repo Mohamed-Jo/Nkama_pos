@@ -106,6 +106,10 @@ class PosController extends Controller
                 $outstanding = round(max($total - $paid, 0), 2);
                 $customerId = $request->integer('customer_id') ?: null;
 
+                if ($outstanding > 0 && !ModuleSettings::enabled('current_account')) {
+                    throw new \Exception('Modulo Conta Corrente desativado pelo super-user.');
+                }
+
                 if ($outstanding > 0 && !$customerId) {
                     throw new \Exception('Pagamento insuficiente');
                 }

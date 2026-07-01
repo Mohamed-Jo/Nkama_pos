@@ -16,11 +16,38 @@ class BusinessSettings
         'account_number' => '',
         'swift' => '',
         'logo_path' => '',
+        'login_background_path' => '',
     ];
 
     public const TAX_DEFAULTS = [
         'active' => false,
         'value' => 14,
+    ];
+
+    public const PRINT_DEFAULTS = [
+        'paper_width_mm' => 80,
+        'page_margin_left_mm' => 0,
+        'page_margin_right_mm' => 0,
+        'page_margin_top_mm' => 0,
+        'page_margin_bottom_mm' => 0,
+        'ticket_width_mm' => 76,
+        'ticket_padding_mm' => 5,
+        'font_family' => 'Arial, Helvetica, sans-serif',
+        'base_font_size_px' => 10,
+        'company_font_size_px' => 12,
+        'content_font_size_px' => 11,
+        'total_font_size_px' => 12,
+        'tax_summary_font_size_px' => 10,
+        'item_product_width_mm' => 20,
+        'item_tax_width_mm' => 5,
+        'item_qty_width_mm' => 5,
+        'item_price_width_mm' => 12,
+        'item_subtotal_width_mm' => 20,
+    ];
+
+    public const DIRECT_PRINT_DEFAULTS = [
+        'sumatra_path' => '',
+        'printer_name' => '',
     ];
 
     public static function company(): array
@@ -33,6 +60,19 @@ class BusinessSettings
         return self::setting('tax_settings', self::TAX_DEFAULTS);
     }
 
+    public static function print(): array
+    {
+        return self::setting('print_settings', self::PRINT_DEFAULTS);
+    }
+
+    public static function directPrint(): array
+    {
+        return self::setting('direct_print_settings', [
+            'sumatra_path' => (string) config('printing.sumatra_path', ''),
+            'printer_name' => (string) config('printing.printer_name', ''),
+        ] + self::DIRECT_PRINT_DEFAULTS);
+    }
+
     public static function updateCompany(array $company): array
     {
         $values = array_merge(self::COMPANY_DEFAULTS, [
@@ -43,6 +83,7 @@ class BusinessSettings
             'account_number' => trim((string) ($company['account_number'] ?? '')),
             'swift' => trim((string) ($company['swift'] ?? '')),
             'logo_path' => (string) ($company['logo_path'] ?? ''),
+            'login_background_path' => (string) ($company['login_background_path'] ?? ''),
         ]);
 
         AppSetting::updateOrCreate(
@@ -68,6 +109,58 @@ class BusinessSettings
         return $values;
     }
 
+    public static function updatePrint(array $print): array
+    {
+        $fontFamily = trim((string) ($print['font_family'] ?? self::PRINT_DEFAULTS['font_family']));
+
+        if ($fontFamily === '') {
+            $fontFamily = self::PRINT_DEFAULTS['font_family'];
+        }
+
+        $values = [
+            'paper_width_mm' => self::clampNumber($print['paper_width_mm'] ?? null, 58, 100, self::PRINT_DEFAULTS['paper_width_mm']),
+            'page_margin_left_mm' => self::clampNumber($print['page_margin_left_mm'] ?? null, 0, 20, self::PRINT_DEFAULTS['page_margin_left_mm']),
+            'page_margin_right_mm' => self::clampNumber($print['page_margin_right_mm'] ?? null, 0, 20, self::PRINT_DEFAULTS['page_margin_right_mm']),
+            'page_margin_top_mm' => self::clampNumber($print['page_margin_top_mm'] ?? null, 0, 20, self::PRINT_DEFAULTS['page_margin_top_mm']),
+            'page_margin_bottom_mm' => self::clampNumber($print['page_margin_bottom_mm'] ?? null, 0, 20, self::PRINT_DEFAULTS['page_margin_bottom_mm']),
+            'ticket_width_mm' => self::clampNumber($print['ticket_width_mm'] ?? null, 50, 96, self::PRINT_DEFAULTS['ticket_width_mm']),
+            'ticket_padding_mm' => self::clampNumber($print['ticket_padding_mm'] ?? null, 0, 10, self::PRINT_DEFAULTS['ticket_padding_mm']),
+            'font_family' => $fontFamily,
+            'base_font_size_px' => self::clampNumber($print['base_font_size_px'] ?? null, 8, 14, self::PRINT_DEFAULTS['base_font_size_px']),
+            'company_font_size_px' => self::clampNumber($print['company_font_size_px'] ?? null, 8, 18, self::PRINT_DEFAULTS['company_font_size_px']),
+            'content_font_size_px' => self::clampNumber($print['content_font_size_px'] ?? null, 8, 16, self::PRINT_DEFAULTS['content_font_size_px']),
+            'total_font_size_px' => self::clampNumber($print['total_font_size_px'] ?? null, 9, 18, self::PRINT_DEFAULTS['total_font_size_px']),
+            'tax_summary_font_size_px' => self::clampNumber($print['tax_summary_font_size_px'] ?? null, 8, 14, self::PRINT_DEFAULTS['tax_summary_font_size_px']),
+            'item_product_width_mm' => self::clampNumber($print['item_product_width_mm'] ?? null, 12, 34, self::PRINT_DEFAULTS['item_product_width_mm']),
+            'item_tax_width_mm' => self::clampNumber($print['item_tax_width_mm'] ?? null, 3, 10, self::PRINT_DEFAULTS['item_tax_width_mm']),
+            'item_qty_width_mm' => self::clampNumber($print['item_qty_width_mm'] ?? null, 3, 10, self::PRINT_DEFAULTS['item_qty_width_mm']),
+            'item_price_width_mm' => self::clampNumber($print['item_price_width_mm'] ?? null, 8, 22, self::PRINT_DEFAULTS['item_price_width_mm']),
+            'item_subtotal_width_mm' => self::clampNumber($print['item_subtotal_width_mm'] ?? null, 10, 30, self::PRINT_DEFAULTS['item_subtotal_width_mm']),
+        ];
+
+        AppSetting::updateOrCreate(
+            ['key' => 'print_settings'],
+            ['value' => $values]
+        );
+
+        return $values;
+    }
+
+    public static function updateDirectPrint(array $directPrint): array
+    {
+        $values = [
+            'sumatra_path' => trim((string) ($directPrint['sumatra_path'] ?? '')),
+            'printer_name' => trim((string) ($directPrint['printer_name'] ?? '')),
+        ];
+
+        AppSetting::updateOrCreate(
+            ['key' => 'direct_print_settings'],
+            ['value' => $values]
+        );
+
+        return $values;
+    }
+
     public static function logoUrl(?array $company = null): ?string
     {
         $company ??= self::company();
@@ -77,7 +170,39 @@ class BusinessSettings
             return null;
         }
 
-        return Storage::disk('public')->url($path);
+        return '/storage/' . ltrim($path, '/');
+    }
+
+    public static function logoDataUri(?array $company = null): ?string
+    {
+        $company ??= self::company();
+        $path = $company['logo_path'] ?? '';
+
+        if ($path === '') {
+            return null;
+        }
+
+        $fullPath = Storage::disk('public')->path($path);
+
+        if (! is_file($fullPath)) {
+            return null;
+        }
+
+        $mimeType = mime_content_type($fullPath) ?: 'image/png';
+
+        return 'data:' . $mimeType . ';base64,' . base64_encode(file_get_contents($fullPath));
+    }
+
+    public static function loginBackgroundUrl(?array $company = null): ?string
+    {
+        $company ??= self::company();
+        $path = $company['login_background_path'] ?? '';
+
+        if ($path === '') {
+            return null;
+        }
+
+        return '/storage/' . ltrim($path, '/');
     }
 
     public static function splitGrossTotal(float $grossTotal, ?float $taxRate = null): array
@@ -117,5 +242,12 @@ class BusinessSettings
         $setting = AppSetting::where('key', $key)->first();
 
         return array_merge($defaults, $setting?->value ?? []);
+    }
+
+    private static function clampNumber(mixed $value, float $min, float $max, float $default): float
+    {
+        $number = is_numeric($value) ? (float) $value : $default;
+
+        return round(min(max($number, $min), $max), 2);
     }
 }

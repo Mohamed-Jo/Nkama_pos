@@ -225,10 +225,9 @@
                 <div class="operator-field">
                     <label>Função</label>
                     <select name="role" required>
-                        <option value="super_user">Super-user</option>
-                        <option value="cashier">Caixa</option>
-                        <option value="manager">Gestor</option>
-                        <option value="admin">Administrador</option>
+                        @foreach($roleOptions as $role => $label)
+                            <option value="{{ $role }}">{{ $label }}</option>
+                        @endforeach
                     </select>
                 </div>
 
@@ -258,7 +257,7 @@
                             <td>
                                 <strong style="color:#fff;">{{ $operator->name }}</strong>
                                 <div class="operator-muted">{{ $operator->email }}</div>
-                                <div class="operator-muted">Função: {{ $operator->role }}</div>
+                                <div class="operator-muted">Função: {{ $roleOptions[$operator->role] ?? $operator->role }}</div>
                             </td>
                             <td>
                                 <span class="operator-status {{ $operator->active ? 'active' : 'inactive' }}">
@@ -273,10 +272,9 @@
                                     <input name="name" value="{{ $operator->name }}" required>
                                     <input name="email" type="email" value="{{ $operator->email }}" required>
                                     <select name="role">
-                                        <option value="super_user" @selected($operator->role === 'super_user')>Super-user</option>
-                                        <option value="cashier" @selected($operator->role === 'cashier')>Caixa</option>
-                                        <option value="manager" @selected($operator->role === 'manager')>Gestor</option>
-                                        <option value="admin" @selected($operator->role === 'admin')>Administrador</option>
+                                        @foreach($roleOptions as $role => $label)
+                                            <option value="{{ $role }}" @selected($operator->role === $role)>{{ $label }}</option>
+                                        @endforeach
                                     </select>
                                     <label class="operator-check">
                                         <input type="checkbox" name="active" value="1" @checked($operator->active)>

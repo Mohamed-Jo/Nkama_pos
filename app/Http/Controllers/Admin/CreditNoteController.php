@@ -7,11 +7,15 @@ use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
 use App\Models\CurrentAccountEntry;
 use App\Models\Operator;
+use App\Models\Payments;
 use App\Models\Product;
 use App\Models\Sale;
+use App\Models\Shift;
 use App\Models\StockMovement;
 use App\Services\BusinessSettings;
 use App\Services\DocumentNumbering;
+use App\Services\DirectPrintService;
+use App\Services\ModuleSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,10 +39,11 @@ class CreditNoteController extends Controller
         ]);
     }
 
-    public function store(Request $request, Sale $sale): RedirectResponse
+    public function store(Request $request, Sale $sale, DirectPrintService $printer): RedirectResponse
     {
         $validated = $request->validate([
             'reason' => ['nullable', 'string', 'max:255'],
+            'refund_method' => ['nullable', 'in:cash,card,transf'],
             'items' => ['required', 'array'],
             'items.*' => ['nullable', 'numeric', 'min:0'],
         ]);
@@ -157,14 +162,25 @@ class CreditNoteController extends Controller
                     }
                 }
 
-                if ($sale->customer_id && strtoupper((string) $sale->document_type_code) === 'FT') {
+                $previousCreditTotal = (float) CreditNote::where('original_sale_id', $sale->id)
+                    ->where('id', '<>', $creditNote->id)
+                    ->sum('total');
+
+                $debtRemaining = strtoupper((string) $sale->document_type_code) === 'FT'
+                    ? round(max((float) $sale->total - (float) $sale->paid - $previousCreditTotal, 0), 2)
+                    : 0.0;
+
+                $accountCredit = round(min($total, $debtRemaining), 2);
+                $refundAmount = round(max($total - $accountCredit, 0), 2);
+
+                if ($sale->customer_id && $accountCredit > 0) {
                     CurrentAccountEntry::create([
                         'entity_type' => 'customer',
                         'entity_id' => $sale->customer_id,
                         'entry_date' => now()->toDateString(),
                         'movement_type' => 'credit',
                         'debit' => 0,
-                        'credit' => round($total, 2),
+                        'credit' => $accountCredit,
                         'document_type' => 'credit_note',
                         'document_id' => $creditNote->id,
                         'description' => 'NC ' . $creditNote->invoice_number . ' ref. ' . $sale->invoice_number,
@@ -172,8 +188,57 @@ class CreditNoteController extends Controller
                     ]);
                 }
 
+                if ($refundAmount > 0) {
+                    $refundMethod = $validated['refund_method'] ?? null;
+
+                    if (! $refundMethod) {
+                        throw new \RuntimeException('Selecione o metodo de reembolso para a NC.');
+                    }
+
+                    $shift = $operator?->id
+                        ? Shift::where('operator_id', $operator->id)->where('status', 'open')->lockForUpdate()->first()
+                        : null;
+
+                    if (! $shift) {
+                        throw new \RuntimeException('Abra o caixa antes de emitir NC com reembolso.');
+                    }
+
+                    Payments::create($this->paymentPayload([
+                        'sale_id' => $sale->id,
+                        'credit_note_id' => $creditNote->id,
+                        'shift_id' => $shift->id,
+                        'operator_id' => $operator?->id,
+                        'method' => $refundMethod,
+                        'amount' => -1 * $refundAmount,
+                        'notes' => 'Reembolso NC ' . $creditNote->invoice_number,
+                    ]));
+                }
+
                 return $creditNote;
             });
+
+            if (! ModuleSettings::enabled('view_ticket')) {
+                try {
+                    $creditNote->load('originalSale', 'customer', 'operator', 'items.product', 'payments');
+                    $company = BusinessSettings::company();
+
+                    $printer->printView('admin.credit-notes.ticket', [
+                        'creditNote' => $creditNote,
+                        'company' => $company,
+                        'logoUrl' => BusinessSettings::logoUrl($company),
+                    ], 'nc-' . $creditNote->invoice_number . '.pdf');
+
+                    return redirect()
+                        ->route('admin.sales.show', $creditNote->original_sale_id)
+                        ->with('success', 'Nota de credito emitida e enviada para impressao.');
+                } catch (\Throwable $printError) {
+                    report($printError);
+
+                    return redirect()
+                        ->route('admin.sales.show', $creditNote->original_sale_id)
+                        ->withErrors(['items' => 'NC emitida, mas a impressao direta falhou: ' . $printError->getMessage()]);
+                }
+            }
 
             return redirect()
                 ->route('admin.credit-notes.ticket', $creditNote)
@@ -189,10 +254,18 @@ class CreditNoteController extends Controller
 
     public function ticket(CreditNote $creditNote): View
     {
-        $creditNote->load('originalSale', 'customer', 'operator', 'items.product');
+        $creditNote->load('originalSale', 'customer', 'operator', 'items.product', 'payments');
         $company = BusinessSettings::company();
         $logoUrl = BusinessSettings::logoUrl($company);
+        $printSettings = BusinessSettings::print();
 
-        return view('admin.credit-notes.ticket', compact('creditNote', 'company', 'logoUrl'));
+        return view('admin.credit-notes.ticket', compact('creditNote', 'company', 'logoUrl', 'printSettings'));
+    }
+
+    private function paymentPayload(array $values): array
+    {
+        return collect($values)
+            ->filter(fn ($value, $column) => $value !== null && Schema::hasColumn('payments', $column))
+            ->all();
     }
 }

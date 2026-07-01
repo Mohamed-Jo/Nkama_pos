@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Operator;
 use App\Services\AuditLogger;
+use App\Services\BusinessSettings;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 
@@ -16,10 +17,14 @@ class AuthController extends Controller
     public function kiosk()
     {
         if (session()->has('operator_id')) {
-            return redirect('/pos');
+            return redirect()->route('admin.pos.index');
         }
 
-        return view('kiosk');
+        $company = BusinessSettings::company();
+
+        return view('kiosk', [
+            'loginBackgroundUrl' => BusinessSettings::loginBackgroundUrl($company),
+        ]);
     }
 
     /**

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CashMovement;
 use App\Models\Payments;
 use App\Models\Shift;
+use App\Services\BusinessSettings;
+use App\Services\DirectPrintService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
@@ -112,14 +115,15 @@ class ShiftController extends Controller
             ]);
         }
 
-        $cashTotal   = Payments::where('shift_id', $shift->id)->where('method', 'cash')->sum('amount');
-        $cardTotal   = Payments::where('shift_id', $shift->id)->where('method', 'card')->sum('amount');
-        $multiTotal  = Payments::where('shift_id', $shift->id)->where('method', 'multi')->sum('amount');
-        $transfTotal = Payments::where('shift_id', $shift->id)->where('method', 'transf')->sum('amount');
+        $cashTotal   = $this->methodTotal($shift->id, 'cash');
+        $cardTotal   = $this->methodTotal($shift->id, 'card');
+        $multiTotal  = $this->methodTotal($shift->id, 'multi');
+        $transfTotal = $this->methodTotal($shift->id, 'transf');
 
         // O total esperado em dinheiro físico na gaveta é a abertura + vendas em dinheiro
         $expectedCashPhysical = $shift->opening_cash + $cashTotal;
         $totalSystemSales     = $cashTotal + $cardTotal + $multiTotal + $transfTotal;
+        $salesCount           = $this->salesCount($shift->id);
 
         return response()->json([
             'success'             => true,
@@ -130,7 +134,8 @@ class ShiftController extends Controller
             'multi_sales_total'   => $multiTotal,
             'transf_sales_total'  => $transfTotal,
             'expected'            => $expectedCashPhysical, // Foco no dinheiro físico
-            'total_sales'         => $totalSystemSales
+            'total_sales'         => $totalSystemSales,
+            'sales_count'         => $salesCount
         ]);
     }
 
@@ -139,7 +144,7 @@ class ShiftController extends Controller
     | 🔴 FECHAR TURNO (COM CORRECÇÃO DE AUDITORIA)
     |--------------------------------------------------------------------------
     */
-    public function closeShift(Request $request)
+    public function closeShift(Request $request, DirectPrintService $printer)
     {
         $operatorId = session('operator_id');
 
@@ -159,15 +164,17 @@ class ShiftController extends Controller
             ], 404);
         }
 
-        $cashTotal   = Payments::where('shift_id', $shift->id)->where('method', 'cash')->sum('amount');
-        $cardTotal   = Payments::where('shift_id', $shift->id)->where('method', 'card')->sum('amount');
-        $multiTotal  = Payments::where('shift_id', $shift->id)->where('method', 'multi')->sum('amount');
-        $transfTotal = Payments::where('shift_id', $shift->id)->where('method', 'transf')->sum('amount');
+        $cashTotal   = $this->methodTotal($shift->id, 'cash');
+        $cardTotal   = $this->methodTotal($shift->id, 'card');
+        $multiTotal  = $this->methodTotal($shift->id, 'multi');
+        $transfTotal = $this->methodTotal($shift->id, 'transf');
 
         // CORRECÇÃO FINANCEIRA: O operador só conta dinheiro vivo. O esperado é Abertura + Vendas Dinheiro.
         $expectedCashPhysical = $shift->opening_cash + $cashTotal;
         $countedCash          = (float) $request->counted_cash;
         $difference           = $countedCash - $expectedCashPhysical;
+        $totalSystemSales     = $cashTotal + $cardTotal + $multiTotal + $transfTotal;
+        $salesCount           = $this->salesCount($shift->id);
 
         $payload = [
             'status'             => 'closed',
@@ -178,7 +185,9 @@ class ShiftController extends Controller
             'transf_sales_total' => $transfTotal,
             'expected_cash'      => $expectedCashPhysical,
             'closing_cash'       => $countedCash,
-            'difference'         => $difference
+            'difference'         => $difference,
+            'total_sales'        => $totalSystemSales,
+            'sales_count'        => $salesCount
         ];
 
         if (Schema::hasColumn('shifts', 'notes')) {
@@ -186,10 +195,17 @@ class ShiftController extends Controller
         }
 
         $shift->update($payload);
+        $shift->refresh();
+
+        $printResult = $this->printShiftSummary($shift, $printer);
 
         return response()->json([
             'success'            => true,
-            'message'            => 'Caixa fechado com sucesso',
+            'message'            => $printResult['success']
+                ? 'Caixa fechado com sucesso. Resumo enviado para impressao.'
+                : 'Caixa fechado com sucesso, mas o resumo nao foi impresso: ' . $printResult['message'],
+            'printed'            => $printResult['success'],
+            'print_message'      => $printResult['message'],
             'shift_id'           => $shift->id,
             'expected_cash'      => $expectedCashPhysical,
             'counted_cash'       => $countedCash,
@@ -197,7 +213,9 @@ class ShiftController extends Controller
             'cash_sales_total'   => $cashTotal,
             'card_sales_total'   => $cardTotal,
             'multi_sales_total'  => $multiTotal,
-            'transf_sales_total' => $transfTotal
+            'transf_sales_total' => $transfTotal,
+            'total_sales'        => $totalSystemSales,
+            'sales_count'        => $salesCount
         ]);
     }
 
@@ -226,6 +244,49 @@ class ShiftController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        return view('admin.shifts.show', compact('shift', 'payments'));
+        $cashMovements = CashMovement::where('shift_id', $shift->id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return view('admin.shifts.show', compact('shift', 'payments', 'cashMovements'));
+    }
+
+    private function methodTotal(int $shiftId, string $method): float
+    {
+        return (float) Payments::where('shift_id', $shiftId)->where('method', $method)->sum('amount')
+            + (float) CashMovement::where('shift_id', $shiftId)->where('method', $method)->sum('amount');
+    }
+
+    private function salesCount(int $shiftId): int
+    {
+        return Payments::where('shift_id', $shiftId)
+            ->whereNotNull('sale_id')
+            ->distinct('sale_id')
+            ->count('sale_id');
+    }
+
+    private function printShiftSummary(Shift $shift, DirectPrintService $printer): array
+    {
+        try {
+            $shift->load('operator');
+            $payments = Payments::where('shift_id', $shift->id)->orderBy('created_at')->get();
+            $cashMovements = CashMovement::where('shift_id', $shift->id)->orderBy('created_at')->get();
+            $company = BusinessSettings::company();
+
+            $printer->printView('admin.shifts.ticket', [
+                'shift' => $shift,
+                'payments' => $payments,
+                'cashMovements' => $cashMovements,
+                'company' => $company,
+                'logoUrl' => BusinessSettings::logoUrl($company),
+                'printSettings' => BusinessSettings::print(),
+            ], 'fecho-caixa-' . $shift->id . '.pdf');
+
+            return ['success' => true, 'message' => 'Resumo enviado para impressao.'];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
     }
 }

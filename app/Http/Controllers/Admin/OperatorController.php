@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Operator;
 use App\Services\AuditLogger;
+use App\Services\OperatorPermissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -16,8 +17,9 @@ class OperatorController extends Controller
     public function index(): View
     {
         $operators = Operator::latest()->paginate(15);
+        $roleOptions = OperatorPermissions::roleOptions();
 
-        return view('admin.operators.index', compact('operators'));
+        return view('admin.operators.index', compact('operators', 'roleOptions'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -27,7 +29,7 @@ class OperatorController extends Controller
             'email' => 'required|email|max:255|unique:operators,email',
             'pin' => 'required|digits:8|confirmed',
             'password' => 'nullable|string|min:8|confirmed',
-            'role' => ['required', Rule::in(['super_user', 'admin', 'manager', 'cashier'])],
+            'role' => ['required', Rule::in(OperatorPermissions::roleKeys())],
             'active' => 'sometimes|boolean',
         ]);
 
@@ -73,7 +75,7 @@ class OperatorController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('operators', 'email')->ignore($operator->id)],
             'pin' => 'nullable|digits:8|confirmed',
             'password' => 'nullable|string|min:8|confirmed',
-            'role' => ['required', Rule::in(['super_user', 'admin', 'manager', 'cashier'])],
+            'role' => ['required', Rule::in(OperatorPermissions::roleKeys())],
             'active' => 'sometimes|boolean',
         ]);
 

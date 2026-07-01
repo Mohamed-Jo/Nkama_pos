@@ -175,6 +175,31 @@
             color: #e5e7eb;
         }
 
+        .cc-section-title {
+            color: #fff;
+            font-size: 15px;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }
+
+        .cc-section-note {
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.45;
+            margin-bottom: 14px;
+        }
+
+        .cc-warning-note {
+            background: rgba(251, 191, 36, 0.08);
+            border: 1px solid rgba(251, 191, 36, 0.22);
+            border-radius: 8px;
+            color: #fde68a;
+            font-size: 12px;
+            line-height: 1.45;
+            margin-bottom: 14px;
+            padding: 10px 12px;
+        }
+
         @media (max-width: 1000px) {
             .cc-grid,
             .cc-form-grid {
@@ -235,6 +260,58 @@
         </div>
 
         <div class="cc-panel">
+            <div class="cc-section-title">Liquidação com caixa</div>
+            <div class="cc-section-note">Use para receber cliente ou pagar fornecedor. Este movimento entra no fecho de caixa.</div>
+            <form method="POST" action="{{ route('admin.current-accounts.settle') }}" id="cc-settle-form">
+                @csrf
+                <div class="cc-form-grid">
+                    <div class="cc-field">
+                        <label>Liquidação</label>
+                        <select name="operation" id="settle_operation" required>
+                            <option value="customer_receipt" @selected(old('operation') === 'customer_receipt')>Receber cliente</option>
+                            <option value="supplier_payment" @selected(old('operation') === 'supplier_payment')>Pagar fornecedor</option>
+                        </select>
+                    </div>
+
+                    <div class="cc-field cc-span-2">
+                        <label>Entidade</label>
+                        <select name="entity_id" id="settle_entity_id" required></select>
+                    </div>
+
+                    <div class="cc-field">
+                        <label>Método</label>
+                        <select name="method" required>
+                            <option value="cash" @selected(old('method') === 'cash')>Dinheiro</option>
+                            <option value="card" @selected(old('method') === 'card')>Multicaixa</option>
+                            <option value="transf" @selected(old('method') === 'transf')>Transferência</option>
+                        </select>
+                    </div>
+
+                    <div class="cc-field">
+                        <label>Valor</label>
+                        <input type="number" min="0.01" step="0.01" name="amount" value="{{ old('amount') }}" required>
+                    </div>
+
+                    <div class="cc-field">
+                        <label>Data</label>
+                        <input type="date" name="entry_date" value="{{ old('entry_date', now()->toDateString()) }}" required>
+                    </div>
+
+                    <div class="cc-field cc-span-2">
+                        <label>Descrição</label>
+                        <input type="text" name="description" maxlength="255" value="{{ old('description') }}" placeholder="Ex.: Pagamento da FT, liquidação parcial">
+                    </div>
+
+                    <div class="cc-actions">
+                        <button class="cc-btn cc-btn-primary" type="submit">Liquidar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="cc-panel">
+            <div class="cc-section-title">Ajuste manual sem caixa</div>
+            <div class="cc-warning-note">Use apenas para saldo inicial, correção interna ou lançamento sem entrada/saída financeira. Para pagamento real, use a liquidação acima.</div>
             <form method="POST" action="{{ route('admin.current-accounts.store') }}" id="cc-entry-form">
                 @csrf
                 <div class="cc-form-grid">
@@ -311,6 +388,7 @@
                         <tr>
                             <th>Data</th>
                             <th>Entidade</th>
+                            <th>Origem</th>
                             <th>Descrição</th>
                             <th>Débito</th>
                             <th>Crédito</th>
@@ -325,6 +403,21 @@
                                     <strong>{{ $entry->entity_name }}</strong>
                                     <div class="cc-muted">{{ $entry->entity_type === 'customer' ? 'Cliente' : 'Fornecedor' }}</div>
                                 </td>
+                                <td>
+                                    @php
+                                        $originLabel = match($entry->document_type) {
+                                            'sale' => 'FT',
+                                            'credit_note' => 'NC',
+                                            'current_account_settlement' => 'Liquidação',
+                                            'purchase' => 'Compra',
+                                            default => 'Ajuste',
+                                        };
+                                    @endphp
+                                    <strong>{{ $originLabel }}</strong>
+                                    @if($entry->document_id)
+                                        <div class="cc-muted">#{{ $entry->document_id }}</div>
+                                    @endif
+                                </td>
                                 <td>{{ $entry->description ?: 'Movimento manual' }}</td>
                                 <td class="cc-debit">{{ $entry->debit > 0 ? number_format((float) $entry->debit, 2, ',', '.') . ' Kz' : '-' }}</td>
                                 <td class="cc-credit">{{ $entry->credit > 0 ? number_format((float) $entry->credit, 2, ',', '.') . ' Kz' : '-' }}</td>
@@ -332,7 +425,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="cc-muted" style="text-align:center; padding:32px;">Sem movimentos na conta corrente.</td>
+                                <td colspan="7" class="cc-muted" style="text-align:center; padding:32px;">Sem movimentos na conta corrente.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -382,6 +475,8 @@
         const ccSuppliers = @json($suppliers->map(fn ($supplier) => ['id' => $supplier->id, 'name' => $supplier->company_name])->values());
         const oldEntryType = @json(old('entity_type', 'customer'));
         const oldEntryId = @json((string) old('entity_id', ''));
+        const oldSettleOperation = @json(old('operation', 'customer_receipt'));
+        const oldSettleEntityId = @json((string) old('entity_id', ''));
         const filterType = @json($filters['entity_type'] ?? '');
         const filterId = @json((string) ($filters['entity_id'] ?? ''));
 
@@ -416,6 +511,8 @@
         document.getElementById('entry_entity_type').value = oldEntryType;
         fillEntitySelect('entry_entity_type', 'entry_entity_id', oldEntryId, false);
         fillEntitySelect('filter_entity_type', 'filter_entity_id', filterId, true);
+        document.getElementById('settle_operation').value = oldSettleOperation;
+        fillSettlementEntitySelect(oldSettleEntityId);
 
         document.getElementById('entry_entity_type').addEventListener('change', () => {
             fillEntitySelect('entry_entity_type', 'entry_entity_id', '', false);
@@ -424,6 +521,18 @@
         document.getElementById('filter_entity_type').addEventListener('change', () => {
             fillEntitySelect('filter_entity_type', 'filter_entity_id', '', true);
         });
+
+        document.getElementById('settle_operation').addEventListener('change', () => {
+            fillSettlementEntitySelect('');
+        });
+
+        function fillSettlementEntitySelect(selectedId) {
+            const operation = document.getElementById('settle_operation').value;
+            const select = document.getElementById('settle_entity_id');
+            const list = operation === 'supplier_payment' ? ccSuppliers : ccCustomers;
+            select.innerHTML = '';
+            list.forEach(item => addOption(select, item.id, item.name, selectedId));
+        }
 
         @if(session('success'))
             nkamaAlert(@json(session('success')), 'success');

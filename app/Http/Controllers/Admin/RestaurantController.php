@@ -185,10 +185,11 @@ class RestaurantController extends Controller
 
         $company = BusinessSettings::company();
         $logoUrl = BusinessSettings::logoUrl($company);
+        $printSettings = BusinessSettings::print();
 
         $totals = $this->restaurantOrderTotals($order);
 
-        return view('admin.restaurant.table-ticket', compact('table', 'order', 'company', 'logoUrl', 'totals'));
+        return view('admin.restaurant.table-ticket', compact('table', 'order', 'company', 'logoUrl', 'totals', 'printSettings'));
     }
 
     public function transferOrder(Request $request): JsonResponse
@@ -196,6 +197,9 @@ class RestaurantController extends Controller
         $request->validate([
             'from_table_id' => 'required|exists:restaurant_tables,id',
             'to_table_id' => 'required|exists:restaurant_tables,id|different:from_table_id',
+            'items' => 'nullable|array',
+            'items.*.product_id' => 'required_with:items|integer|exists:products,id',
+            'items.*.quantity' => 'required_with:items|integer|min:1',
         ]);
 
         try {
@@ -211,28 +215,128 @@ class RestaurantController extends Controller
                     throw new \Exception('A mesa de destino precisa estar livre.');
                 }
 
-                $order = RestaurantOrder::with('items')->lockForUpdate()->findOrFail($fromTable->current_order_id);
+                $order = RestaurantOrder::with('items.product')->lockForUpdate()->findOrFail($fromTable->current_order_id);
 
                 if ($order->items->isEmpty()) {
                     throw new \Exception('A conta de origem nao tem itens para transferir.');
                 }
 
-                $order->update(['table_id' => $toTable->id]);
+                $selectedItems = collect($request->input('items', []))
+                    ->filter(fn ($item) => (int) ($item['quantity'] ?? 0) > 0)
+                    ->keyBy(fn ($item) => (int) $item['product_id']);
 
-                $fromTable->update([
-                    'status' => 'free',
-                    'current_order_id' => null,
+                if ($selectedItems->isEmpty()) {
+                    $order->update(['table_id' => $toTable->id]);
+
+                    $fromTable->update([
+                        'status' => 'free',
+                        'current_order_id' => null,
+                    ]);
+
+                    $toTable->update([
+                        'status' => 'occupied',
+                        'current_order_id' => $order->id,
+                    ]);
+
+                    return [
+                        'order_id' => $order->id,
+                        'from_order_id' => null,
+                        'from_table' => $fromTable->name,
+                        'to_table' => $toTable->name,
+                        'partial' => false,
+                    ];
+                }
+
+                $destinationOrder = RestaurantOrder::create([
+                    'table_id' => $toTable->id,
+                    'operator_id' => $order->operator_id,
+                    'status' => 'open',
+                    'subtotal' => 0,
+                    'total' => 0,
+                    'notes' => 'Transferencia parcial da mesa ' . $fromTable->name,
                 ]);
+
+                foreach ($selectedItems as $selected) {
+                    $sourceItem = $order->items
+                        ->firstWhere('product_id', (int) $selected['product_id']);
+
+                    if (!$sourceItem) {
+                        throw new \Exception('Um dos itens selecionados ja nao existe na mesa de origem.');
+                    }
+
+                    $qtyToMove = (int) $selected['quantity'];
+                    $sourceQty = (int) $sourceItem->qty;
+
+                    if ($qtyToMove > $sourceQty) {
+                        throw new \Exception('Quantidade maior do que a disponivel para ' . ($sourceItem->product->name ?? 'produto') . '.');
+                    }
+
+                    $lineSubtotal = round($qtyToMove * (float) $sourceItem->price, 2);
+
+                    RestaurantOrderItem::create([
+                        'order_id' => $destinationOrder->id,
+                        'product_id' => $sourceItem->product_id,
+                        'qty' => $qtyToMove,
+                        'price' => $sourceItem->price,
+                        'subtotal' => $lineSubtotal,
+                        'notes' => $sourceItem->notes,
+                    ]);
+
+                    if ($qtyToMove === $sourceQty) {
+                        $sourceItem->delete();
+                    } else {
+                        $remainingQty = $sourceQty - $qtyToMove;
+                        $sourceItem->update([
+                            'qty' => $remainingQty,
+                            'subtotal' => round($remainingQty * (float) $sourceItem->price, 2),
+                        ]);
+                    }
+                }
+
+                $order->refresh();
+                $originTotal = round((float) $order->items()->sum('subtotal'), 2);
+                $destinationTotal = round((float) $destinationOrder->items()->sum('subtotal'), 2);
+
+                $destinationOrder->update([
+                    'subtotal' => $destinationTotal,
+                    'total' => $destinationTotal,
+                ]);
+
+                if ($originTotal <= 0 || !$order->items()->exists()) {
+                    $order->update([
+                        'subtotal' => 0,
+                        'total' => 0,
+                        'status' => 'transferred',
+                    ]);
+
+                    $fromTable->update([
+                        'status' => 'free',
+                        'current_order_id' => null,
+                    ]);
+                } else {
+                    $order->update([
+                        'subtotal' => $originTotal,
+                        'total' => $originTotal,
+                    ]);
+
+                    $fromTable->update([
+                        'status' => 'occupied',
+                        'current_order_id' => $order->id,
+                    ]);
+                }
+
 
                 $toTable->update([
                     'status' => 'occupied',
-                    'current_order_id' => $order->id,
+                    'current_order_id' => $destinationOrder->id,
                 ]);
 
                 return [
-                    'order_id' => $order->id,
+                    'order_id' => $destinationOrder->id,
+                    'from_order_id' => $originTotal > 0 ? $order->id : null,
                     'from_table' => $fromTable->name,
                     'to_table' => $toTable->name,
+                    'partial' => true,
                 ];
             });
 
@@ -240,6 +344,8 @@ class RestaurantController extends Controller
                 'success' => true,
                 'message' => "Conta transferida de {$result['from_table']} para {$result['to_table']}.",
                 'order_id' => $result['order_id'],
+                'from_order_id' => $result['from_order_id'],
+                'partial' => $result['partial'],
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -459,6 +565,7 @@ class RestaurantController extends Controller
         $grossTotal = 0.0;
         $netTotal = 0.0;
         $taxTotal = 0.0;
+        $taxBreakdown = [];
 
         foreach ($order->items as $item) {
             $gross = round((float) $item->subtotal, 2);
@@ -468,12 +575,28 @@ class RestaurantController extends Controller
             $grossTotal += $split['total'];
             $netTotal += $split['subtotal'];
             $taxTotal += $split['tax'];
+
+            $key = number_format($taxRate, 2, '.', '');
+            $taxBreakdown[$key] ??= [
+                'rate' => $taxRate,
+                'incidence' => 0.0,
+                'tax' => 0.0,
+            ];
+            $taxBreakdown[$key]['incidence'] += $split['subtotal'];
+            $taxBreakdown[$key]['tax'] += $split['tax'];
         }
+
+        ksort($taxBreakdown, SORT_NUMERIC);
 
         return [
             'subtotal' => round($netTotal, 2),
             'tax' => round($taxTotal, 2),
             'total' => round($grossTotal, 2),
+            'tax_breakdown' => array_map(fn ($row) => [
+                'rate' => round($row['rate'], 2),
+                'incidence' => round($row['incidence'], 2),
+                'tax' => round($row['tax'], 2),
+            ], array_values($taxBreakdown)),
         ];
     }
 }

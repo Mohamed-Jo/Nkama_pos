@@ -52,17 +52,62 @@
 
         .module-toggle {
             align-items: center;
-            color: #cbd5e1;
+            cursor: pointer;
             display: inline-flex;
-            font-size: 13px;
-            font-weight: 800;
-            gap: 8px;
+            gap: 10px;
             white-space: nowrap;
         }
 
         .module-toggle input {
-            height: 18px;
-            width: 18px;
+            height: 1px;
+            opacity: 0;
+            position: absolute;
+            width: 1px;
+        }
+
+        .switch-track {
+            align-items: center;
+            background: #334155;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            display: inline-flex;
+            height: 30px;
+            padding: 3px;
+            transition: background .18s ease, border-color .18s ease;
+            width: 56px;
+        }
+
+        .switch-knob {
+            background: #e2e8f0;
+            border-radius: 999px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .26);
+            display: block;
+            height: 22px;
+            transition: transform .18s ease, background .18s ease;
+            width: 22px;
+        }
+
+        .switch-text {
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .04em;
+            min-width: 32px;
+            text-align: left;
+        }
+
+        .module-toggle input:checked + .switch-track {
+            background: #10b981;
+            border-color: rgba(16, 185, 129, .55);
+        }
+
+        .module-toggle input:checked + .switch-track .switch-knob {
+            background: #ecfdf5;
+            transform: translateX(26px);
+        }
+
+        .module-toggle input:checked ~ .switch-text {
+            color: #86efac;
         }
 
         .module-actions {
@@ -99,7 +144,8 @@
                 </div>
                 <label class="module-toggle">
                     <input type="checkbox" name="modules[restaurant]" value="1" @checked($modules['restaurant'] ?? false)>
-                    Ativo
+                    <span class="switch-track"><span class="switch-knob"></span></span>
+                    <span class="switch-text">{{ ($modules['restaurant'] ?? false) ? 'ON' : 'OFF' }}</span>
                 </label>
             </div>
 
@@ -110,7 +156,44 @@
                 </div>
                 <label class="module-toggle">
                     <input type="checkbox" name="modules[supermarket]" value="1" @checked($modules['supermarket'] ?? false)>
-                    Ativo
+                    <span class="switch-track"><span class="switch-knob"></span></span>
+                    <span class="switch-text">{{ ($modules['supermarket'] ?? false) ? 'ON' : 'OFF' }}</span>
+                </label>
+            </div>
+
+            <div class="module-row">
+                <div>
+                    <div class="module-title">Conta Corrente</div>
+                    <div class="module-text">Ativa FT em conta corrente, recebimentos, pagamentos a fornecedores, extratos e relatórios de saldo.</div>
+                </div>
+                <label class="module-toggle">
+                    <input type="checkbox" name="modules[current_account]" value="1" @checked($modules['current_account'] ?? false)>
+                    <span class="switch-track"><span class="switch-knob"></span></span>
+                    <span class="switch-text">{{ ($modules['current_account'] ?? false) ? 'ON' : 'OFF' }}</span>
+                </label>
+            </div>
+
+            <div class="module-row">
+                <div>
+                    <div class="module-title">Ver Ticket</div>
+                    <div class="module-text">Quando ativo, abre o ticket para conferir. Quando inativo, envia direto para impressao.</div>
+                </div>
+                <label class="module-toggle">
+                    <input type="checkbox" name="modules[view_ticket]" value="1" @checked($modules['view_ticket'] ?? false)>
+                    <span class="switch-track"><span class="switch-knob"></span></span>
+                    <span class="switch-text">{{ ($modules['view_ticket'] ?? false) ? 'ON' : 'OFF' }}</span>
+                </label>
+            </div>
+
+            <div class="module-row">
+                <div>
+                    <div class="module-title">Compras</div>
+                    <div class="module-text">Ativa registo de compras, entrada de mercadoria e atualizacao de stock.</div>
+                </div>
+                <label class="module-toggle">
+                    <input type="checkbox" name="modules[purchases]" value="1" @checked($modules['purchases'] ?? false)>
+                    <span class="switch-track"><span class="switch-knob"></span></span>
+                    <span class="switch-text">{{ ($modules['purchases'] ?? false) ? 'ON' : 'OFF' }}</span>
                 </label>
             </div>
 
@@ -119,4 +202,19 @@
             </div>
         </form>
     </div>
+
+    <script>
+        document.querySelectorAll('.module-toggle input').forEach((input) => {
+            const text = input.closest('.module-toggle')?.querySelector('.switch-text');
+
+            function syncSwitchText() {
+                if (text) {
+                    text.textContent = input.checked ? 'ON' : 'OFF';
+                }
+            }
+
+            input.addEventListener('change', syncSwitchText);
+            syncSwitchText();
+        });
+    </script>
 @endsection

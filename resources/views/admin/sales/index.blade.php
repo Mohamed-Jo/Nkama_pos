@@ -255,6 +255,80 @@
 
         .action-link:hover { color: #ff974d; text-decoration: underline; }
 
+        .invoice-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .invoice-action {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: #e2e8f0;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 800;
+            min-height: 32px;
+            padding: 7px 10px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .invoice-action.primary {
+            background: rgba(249, 115, 22, 0.14);
+            border-color: rgba(249, 115, 22, 0.28);
+            color: #fdba74;
+        }
+
+        .invoice-action.danger {
+            background: rgba(239, 68, 68, 0.12);
+            border-color: rgba(239, 68, 68, 0.28);
+            color: #fca5a5;
+        }
+
+        .invoice-badge {
+            border-radius: 999px;
+            display: inline-flex;
+            font-size: 11px;
+            font-weight: 900;
+            padding: 4px 8px;
+        }
+
+        .invoice-badge.ok {
+            background: rgba(34, 197, 94, .12);
+            color: #86efac;
+        }
+
+        .invoice-badge.warn {
+            background: rgba(249, 115, 22, .14);
+            color: #fdba74;
+        }
+
+        .invoice-badge.danger {
+            background: rgba(239, 68, 68, .12);
+            color: #fca5a5;
+        }
+
+        .nc-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 7px;
+        }
+
+        .nc-link {
+            background: rgba(239, 68, 68, 0.10);
+            border: 1px solid rgba(239, 68, 68, 0.24);
+            border-radius: 999px;
+            color: #fca5a5;
+            font-size: 11px;
+            font-weight: 900;
+            padding: 4px 8px;
+            text-decoration: none;
+        }
+
         /* INSIGHTS ASSISTENTE */
         .insight-box {
             display: flex;
@@ -271,6 +345,9 @@
     </style>
 
     <div class="dashboard-container">
+        @php
+            $viewTicket = \App\Services\ModuleSettings::enabled('view_ticket');
+        @endphp
 
         <div class="sap-grid">
             <div class="kpi-card">
@@ -361,7 +438,98 @@
 
    
 
-     
+        <div class="panel-custom">
+            <h3 class="panel-title">Facturas emitidas</h3>
+
+            <form method="GET" action="{{ route('admin.sales.index') }}" class="filter-flex" style="margin-bottom: 16px;">
+                <input class="input-dark" type="text" name="search" value="{{ request('search') }}" placeholder="No. factura ou cliente">
+                <input class="input-dark" type="date" name="from" value="{{ request('from') }}">
+                <input class="input-dark" type="date" name="to" value="{{ request('to') }}">
+                <button class="btn-orange" type="submit">Filtrar</button>
+                <a class="invoice-action" href="{{ route('admin.sales.index') }}">Limpar</a>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table-modern">
+                    <thead>
+                        <tr>
+                            <th>Documento</th>
+                            <th>Cliente</th>
+                            <th>Data</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th style="text-align:right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($sales as $sale)
+                            @php
+                                $creditedTotal = (float) $sale->creditNotes->sum('total');
+                                $availableToCredit = max((float) $sale->total - $creditedTotal, 0);
+                            @endphp
+                            <tr>
+                                <td>
+                                    <strong style="color:#fff;">{{ $sale->invoice_number }}</strong>
+                                    <div style="color:var(--text-muted); font-size:12px;">{{ $sale->document_type_code ?? 'FR' }} · {{ strtoupper($sale->payment_method ?? '-') }}</div>
+                                    @if($sale->creditNotes->isNotEmpty())
+                                        <div class="nc-links">
+                                            @foreach($sale->creditNotes as $note)
+                                                @php
+                                                    $noteTicketUrl = route('admin.credit-notes.ticket', $note);
+                                                    $notePrintUrl = route('admin.print.credit-notes', $note);
+                                                @endphp
+                                                <a class="nc-link"
+                                                    href="{{ $viewTicket ? $noteTicketUrl : $notePrintUrl }}"
+                                                    @if($viewTicket) target="_blank" @else data-direct-print-url="{{ $notePrintUrl }}" @endif>
+                                                    {{ $viewTicket ? 'NC' : 'Imprimir NC' }} {{ $note->invoice_number }}
+                                                </a>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </td>
+                                <td>{{ $sale->customer->name ?? 'Consumidor Final' }}</td>
+                                <td>{{ optional($sale->created_at)->format('d/m/Y H:i') }}</td>
+                                <td>AOA {{ number_format((float) $sale->total, 2, ',', '.') }}</td>
+                                <td>
+                                    @if($creditedTotal >= (float) $sale->total && (float) $sale->total > 0)
+                                        <span class="invoice-badge danger">Anulada por NC</span>
+                                    @elseif($creditedTotal > 0)
+                                        <span class="invoice-badge warn">NC parcial</span>
+                                    @else
+                                        <span class="invoice-badge ok">Emitida</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <div class="invoice-actions">
+                                        <a class="invoice-action" href="{{ route('admin.sales.show', $sale) }}">Ver</a>
+                                        @php
+                                            $saleTicketUrl = route('admin.sales.ticket', $sale);
+                                            $salePrintUrl = route('admin.print.sales', $sale);
+                                        @endphp
+                                        <a class="invoice-action primary"
+                                            href="{{ $viewTicket ? $saleTicketUrl : $salePrintUrl }}"
+                                            @if($viewTicket) target="_blank" @else data-direct-print-url="{{ $salePrintUrl }}" @endif>
+                                            {{ $viewTicket ? 'Ticket' : 'Imprimir' }}
+                                        </a>
+                                        @if(\App\Services\OperatorPermissions::allows(session('operator_role'), 'sales.credit_note') && $availableToCredit > 0)
+                                            <a class="invoice-action danger" href="{{ route('admin.sales.credit-notes.create', $sale) }}">Anular/NC</a>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" style="text-align:center; color:var(--text-muted); padding:28px;">Nenhuma factura encontrada.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 16px;">
+                {{ $sales->links() }}
+            </div>
+        </div>
 
         <div class="panel-custom" style="margin-bottom: 0;">
             <h3 class="panel-title">🧠 Assistente de Insights Nkama</h3>
@@ -376,7 +544,7 @@
 
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="{{ asset('vendor/offline/chart.umd.min.js') }}"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const labels = @json($chartLabels);

@@ -26,6 +26,17 @@
         color: var(--primary);
     }
 
+    .btn-print {
+        background: rgba(249, 115, 22, 0.12);
+        border: 1px solid rgba(249, 115, 22, 0.28);
+        border-radius: 6px;
+        color: #f97316;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 700;
+        padding: 8px 12px;
+    }
+
     /* GRELHA REPARTIDA */
     .audit-grid {
         display: grid;
@@ -135,6 +146,11 @@
         ← Voltar ao Histórico
     </a>
 
+    <form method="POST" action="{{ route('admin.print.shifts', $shift) }}" style="margin-bottom:20px;">
+        @csrf
+        <button type="submit" class="btn-print">Imprimir resumo</button>
+    </form>
+
     <div class="audit-grid">
         
         <div class="audit-card">
@@ -201,7 +217,7 @@
                         <th>Hora</th>
                         <th>Ref. Pagamento</th>
                         <th>Método</th>
-                        <th style="text-align: right;">Valor Recebido</th>
+                        <th style="text-align: right;">Valor</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -210,6 +226,9 @@
                             <td style="color: var(--muted);">{{ \Carbon\Carbon::parse($payment->created_at)->format('H:i:s') }}</td>
                             <td>#{{ $payment->id }}</td>
                             <td>
+                                @if($payment->amount < 0)
+                                    <span class="method-tag" style="color: #fb7185;">Reembolso</span>
+                                @endif
                                 @if($payment->method == 'cash')
                                     <span class="method-tag" style="color: #10b981;">Dinheiro</span>
                                 @elseif($payment->method == 'card' || $payment->method == 'multi')
@@ -218,11 +237,25 @@
                                     <span class="method-tag" style="color: #a855f7;">Transf.</span>
                                 @endif
                             </td>
-                            <td style="text-align: right; font-weight: 600;">{{ number_format($payment->amount, 2) }} Kz</td>
+                            <td style="text-align: right; font-weight: 600; color: {{ $payment->amount < 0 ? '#fb7185' : 'inherit' }};">{{ number_format($payment->amount, 2) }} Kz</td>
                         </tr>
                     @endforeach
 
-                    @if($payments->isEmpty())
+                    @foreach(($cashMovements ?? collect()) as $movement)
+                        <tr>
+                            <td style="color: var(--muted);">{{ \Carbon\Carbon::parse($movement->created_at)->format('H:i:s') }}</td>
+                            <td>CC #{{ $movement->id }}</td>
+                            <td>
+                                <span class="method-tag" style="color: {{ $movement->amount < 0 ? '#fb7185' : '#10b981' }};">
+                                    {{ $movement->amount < 0 ? 'Saida' : 'Entrada' }}
+                                </span>
+                                <span class="method-tag" style="color: #a3e635;">{{ strtoupper($movement->method) }}</span>
+                            </td>
+                            <td style="text-align: right; font-weight: 600; color: {{ $movement->amount < 0 ? '#fb7185' : 'inherit' }};">{{ number_format($movement->amount, 2) }} Kz</td>
+                        </tr>
+                    @endforeach
+
+                    @if($payments->isEmpty() && ($cashMovements ?? collect())->isEmpty())
                         <tr>
                             <td colspan="4" style="text-align: center; color: var(--muted); padding: 40px;">
                                 Nenhuma transação financeira registada neste turno.

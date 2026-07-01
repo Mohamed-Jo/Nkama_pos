@@ -13,11 +13,11 @@ class Payments extends Model
         'operator_id',
         'shift_id',
         'user_id',
-        'payment_method',
         'amount',
         'reference',
         'notes',
         'sale_id',
+        'credit_note_id',
         'method'
     ];
 
@@ -41,6 +41,11 @@ class Payments extends Model
     public function shift()
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    public function creditNote()
+    {
+        return $this->belongsTo(CreditNote::class);
     }
 
     // Operador que recebeu pagamento

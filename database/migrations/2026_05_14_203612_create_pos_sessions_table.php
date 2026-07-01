@@ -13,8 +13,11 @@ return new class extends Migration
     {
         Schema::create('pos_sessions', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('operator_id')
+                ->nullable()
+                ->constrained('operators')
+                ->nullOnDelete();
             $table->timestamps();
-            $table->operator_id();
         });
     }
 

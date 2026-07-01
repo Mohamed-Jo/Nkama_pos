@@ -72,6 +72,7 @@
             background: rgba(249, 115, 22, 0.1);
             color: #f97316;
             border: 1px solid rgba(249, 115, 22, 0.2);
+            cursor: pointer;
             padding: 6px 12px;
             border-radius: 6px;
             text-decoration: none;
@@ -105,15 +106,15 @@
                     @foreach ($shifts as $shift)
                         @php
                             // Cálculo de diferença entre o esperado e o declarado
-                            $dif = $shift->reported_cash - $shift->estimated_cash;
+                            $dif = (float) $shift->difference;
                         @endphp
                         <tr>
                             <td>#{{ $shift->id }}</td>
                             <td>{{ $shift->operator->name ?? 'Operador ID: ' . $shift->operator_id }}</td>
                             <td>{{ \Carbon\Carbon::parse($shift->opened_at)->format('d/m/Y H:i') }}</td>
                             <td>{{ \Carbon\Carbon::parse($shift->closed_at)->format('d/m/Y H:i') }}</td>
-                            <td>{{ number_format($shift->estimated_cash, 2) }} Kz</td>
-                            <td>{{ number_format($shift->reported_cash, 2) }} Kz</td>
+                            <td>{{ number_format($shift->total_sales, 2) }} Kz</td>
+                            <td>{{ number_format($shift->closing_cash, 2) }} Kz</td>
                             <td>
                                 @if ($dif == 0)
                                     <span class="badge badge-success">✓ Correto</span>
@@ -125,6 +126,10 @@
                             </td>
                             <td>
                                 <a href="{{ route('admin.shifts.show', $shift->id) }}" class="btn-view">Auditar</a>
+                                <form method="POST" action="{{ route('admin.print.shifts', $shift) }}" style="display:inline;">
+                                    @csrf
+                                    <button type="submit" class="btn-view">Imprimir</button>
+                                </form>
                             </td>
                         </tr>
                     @endforeach

@@ -103,9 +103,44 @@
         .total-box strong {
             font-size: 20px;
         }
+
+        .nc-panel {
+            background: rgba(239, 68, 68, .08);
+            border: 1px solid rgba(239, 68, 68, .2);
+            border-radius: 8px;
+            margin-top: 22px;
+            padding: 14px;
+        }
+
+        .nc-row {
+            align-items: center;
+            border-top: 1px solid rgba(255, 255, 255, .07);
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+
+        .nc-row:first-of-type {
+            border-top: none;
+        }
+
+        .nc-link {
+            background: #ef4444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 800;
+            padding: 8px 10px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
     </style>
 
     <div class="invoice-box">
+        @php
+            $viewTicket = \App\Services\ModuleSettings::enabled('view_ticket');
+        @endphp
 
         <!-- HEADER -->
         <div class="invoice-header">
@@ -146,9 +181,23 @@
             </div>
 
             <div style="display:flex; gap:8px; align-items:center;">
-                <a href="{{ route('admin.sales.ticket', $sale) }}" target="_blank" class="btn-print" style="text-decoration:none;">
-                    Ticket
+                @php
+                    $saleTicketUrl = route('admin.sales.ticket', $sale);
+                    $salePrintUrl = route('admin.print.sales', $sale);
+                @endphp
+                <a href="{{ $viewTicket ? $saleTicketUrl : $salePrintUrl }}"
+                    @if($viewTicket) target="_blank" @else data-direct-print-url="{{ $salePrintUrl }}" @endif
+                    class="btn-print" style="text-decoration:none;">
+                    {{ $viewTicket ? 'Ticket' : 'Imprimir ticket' }}
                 </a>
+                @php
+                    $availableToCredit = max((float) $sale->total - (float) $sale->creditNotes->sum('total'), 0);
+                @endphp
+                @if(\App\Services\OperatorPermissions::allows(session('operator_role'), 'sales.credit_note') && $availableToCredit > 0)
+                    <a href="{{ route('admin.sales.credit-notes.create', $sale) }}" class="btn-print" style="background:#ef4444; color:#fff; text-decoration:none;">
+                        Emitir NC
+                    </a>
+                @endif
                 <button onclick="window.print()" class="btn-print">
                     Imprimir
                 </button>
@@ -234,6 +283,31 @@
             </div>
             <div><strong>Total: AOA {{ number_format($sale->total, 2) }}</strong></div>
         </div>
+
+        @if($sale->creditNotes->isNotEmpty())
+            <div class="nc-panel">
+                <h3 style="color:#fff; font-size:15px; margin:0 0 8px;">Notas de Crédito emitidas</h3>
+                @foreach($sale->creditNotes as $note)
+                    <div class="nc-row">
+                        <div>
+                            <strong style="color:#fca5a5;">NC {{ $note->invoice_number }}</strong>
+                            <div style="color:#94a3b8; font-size:12px;">
+                                {{ optional($note->created_at)->format('d/m/Y H:i') }} · AOA {{ number_format((float) $note->total, 2, ',', '.') }}
+                            </div>
+                        </div>
+                        @php
+                            $noteTicketUrl = route('admin.credit-notes.ticket', $note);
+                            $notePrintUrl = route('admin.print.credit-notes', $note);
+                        @endphp
+                        <a class="nc-link"
+                            href="{{ $viewTicket ? $noteTicketUrl : $notePrintUrl }}"
+                            @if($viewTicket) target="_blank" @else data-direct-print-url="{{ $notePrintUrl }}" @endif>
+                            {{ $viewTicket ? 'Ver/Reimprimir' : 'Imprimir' }}
+                        </a>
+                    </div>
+                @endforeach
+            </div>
+        @endif
 
     </div>
 @endsection

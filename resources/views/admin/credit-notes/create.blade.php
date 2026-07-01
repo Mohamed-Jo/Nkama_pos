@@ -3,6 +3,11 @@
 @section('page-title', 'Emitir NC')
 
 @section('content')
+    @php
+        $viewTicket = \App\Services\ModuleSettings::enabled('view_ticket');
+        $saleTicketUrl = route('admin.sales.ticket', $sale);
+        $salePrintUrl = route('admin.print.sales', $sale);
+    @endphp
     <style>
         .nc-wrap { display:grid; gap:18px; max-width:1100px; }
         .nc-panel {
@@ -72,6 +77,19 @@
             <label style="display:block; color:#cbd5e1; font-size:12px; font-weight:900; margin-bottom:7px;">Motivo</label>
             <input class="nc-input" name="reason" maxlength="255" value="{{ old('reason') }}" placeholder="Ex.: Devolucao, erro de faturacao, anulacao parcial">
 
+            <div style="margin-top:14px; background:rgba(56,189,248,.08); border:1px solid rgba(56,189,248,.22); border-radius:8px; padding:12px;">
+                <label style="display:block; color:#bae6fd; font-size:12px; font-weight:900; margin-bottom:7px;">Metodo de reembolso quando houver valor a devolver</label>
+                <select class="nc-input" name="refund_method">
+                    <option value="">Sem reembolso em caixa</option>
+                    <option value="cash" @selected(old('refund_method') === 'cash')>Dinheiro</option>
+                    <option value="card" @selected(old('refund_method') === 'card')>Multicaixa</option>
+                    <option value="transf" @selected(old('refund_method') === 'transf')>Transferencia</option>
+                </select>
+                <div class="nc-muted" style="margin-top:7px;">
+                    Em FR o valor da NC sai como reembolso. Em FT a NC abate primeiro a conta corrente; se exceder a divida, o excedente usa este metodo.
+                </div>
+            </div>
+
             <div class="nc-table-wrap" style="margin-top:16px;">
                 <table class="nc-table">
                     <thead>
@@ -109,7 +127,11 @@
             </div>
 
             <div class="nc-actions">
-                <a class="nc-btn nc-btn-ghost" href="{{ route('admin.sales.ticket', $sale) }}">Voltar ao ticket</a>
+                <a class="nc-btn nc-btn-ghost"
+                    href="{{ $viewTicket ? $saleTicketUrl : $salePrintUrl }}"
+                    @if($viewTicket) target="_blank" @else data-direct-print-url="{{ $salePrintUrl }}" @endif>
+                    {{ $viewTicket ? 'Voltar ao ticket' : 'Imprimir documento' }}
+                </a>
                 <button class="nc-btn nc-btn-primary" type="submit">Emitir NC</button>
             </div>
         </form>

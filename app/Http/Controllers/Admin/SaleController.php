@@ -13,6 +13,7 @@ use App\Models\Payment;
 use App\Models\StockMovement;
 use App\Services\BusinessSettings;
 use App\Services\DocumentNumbering;
+use App\Services\ModuleSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +33,7 @@ class SaleController extends Controller
             $baseSalesQuery->where('operator_id', $operatorId);
         }
 
-        $query = (clone $baseSalesQuery)->with('customer');
+        $query = (clone $baseSalesQuery)->with('customer', 'operator', 'creditNotes');
 
         // ================= FILTER =================
         if ($request->search) {
@@ -167,7 +168,7 @@ class SaleController extends Controller
     
     public function show($id)
     {
-        $sale = Sale::with('operator', 'items.product', 'payments')
+        $sale = Sale::with('operator', 'items.product', 'payments', 'creditNotes')
             ->findOrFail($id);
 
         if (session('operator_role') === 'cashier' && (int) $sale->operator_id !== (int) session('operator_id')) {
@@ -177,7 +178,7 @@ class SaleController extends Controller
         $company = BusinessSettings::company();
         $logoUrl = BusinessSettings::logoUrl($company);
 
-        return view('admin.sales.ticket', compact('sale', 'company', 'logoUrl'));
+        return view('admin.sales.show', compact('sale', 'company', 'logoUrl'));
     }
 
     public function ticket($id)
@@ -191,8 +192,9 @@ class SaleController extends Controller
 
         $company = BusinessSettings::company();
         $logoUrl = BusinessSettings::logoUrl($company);
+        $printSettings = BusinessSettings::print();
 
-        return view('admin.sales.ticket', compact('sale', 'company', 'logoUrl'));
+        return view('admin.sales.ticket', compact('sale', 'company', 'logoUrl', 'printSettings'));
     }
     public function store(Request $request)
     {
@@ -246,6 +248,13 @@ class SaleController extends Controller
             // ==============================
             // VALIDATION
             // ==============================
+            if ($outstanding > 0 && !ModuleSettings::enabled('current_account')) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Modulo Conta Corrente desativado pelo super-user.'
+                ], 403);
+            }
+
             if ($outstanding > 0 && !$customerId) {
                 return response()->json([
                     'success' => false,

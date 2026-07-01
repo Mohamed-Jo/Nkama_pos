@@ -37,6 +37,51 @@
             background-color: rgba(2, 6, 23, 0.85);
             backdrop-filter: blur(4px);
         }
+
+        .transfer-item-row {
+            align-items: center;
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 26px minmax(0, 1fr) 82px;
+            min-height: 58px;
+            padding: 9px 10px;
+        }
+
+        .transfer-item-check {
+            height: 20px !important;
+            width: 20px !important;
+        }
+
+        .transfer-item-name {
+            color: #fff;
+            font-size: 12px;
+            font-weight: 800;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .transfer-item-meta {
+            color: #94a3b8;
+            font-size: 11px;
+            line-height: 1.35;
+            margin-top: 2px;
+        }
+
+        .transfer-item-qty {
+            background: #0f172a !important;
+            border: 1px solid #334155 !important;
+            border-radius: 7px !important;
+            color: #fff !important;
+            margin: 0 !important;
+            min-height: 36px;
+            padding: 7px 8px !important;
+            text-align: center;
+            width: 100% !important;
+        }
         
         .metodo-pagamento {
             align-items: flex-start;
@@ -705,7 +750,9 @@
         <option value="card">Multicaixa</option>
         <option value="transf">Transferência</option>
         <option value="multi">Pagamento Misto</option>
-        <option value="credit">Conta Corrente</option>
+        @if($modules['current_account'] ?? true)
+            <option value="credit">Conta Corrente</option>
+        @endif
     </select>
 
     <div id="modal-pagamento"
@@ -776,6 +823,7 @@
                         </div>
                     </div>
 
+                    @if($modules['current_account'] ?? true)
                     <div id="wrapper-cliente-conta" style="display: none; background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.25); border-radius: 8px; padding: 10px;">
                         <label style="display: block; font-size: 11px; color: #fecdd3; text-transform: uppercase; margin-bottom: 6px; font-weight: bold;">Cliente da conta corrente</label>
                         <select id="select-cliente-conta" style="width: 100%; background: #020617; border: 1px solid #7f1d1d; color: #fff; padding: 11px; border-radius: 8px;">
@@ -791,6 +839,7 @@
                         style="background: transparent; color: #f43f5e; padding: 12px; border: 2px solid #f43f5e; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
                         Conta Corrente
                     </button>
+                    @endif
 
                     <div id="wrapper-valores-recebidos" style="display: flex; flex-direction: column; gap: 7px;">
                         <div style="flex: 1;">
@@ -929,7 +978,7 @@
 
     <div id="modal-transferencia-mesa"
         style="position: fixed; inset: 0; background: rgba(2, 6, 23, 0.86); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 66;">
-        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; width:100%; max-width:360px; padding:18px;">
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; width:100%; max-width:520px; padding:18px;">
             <h3 style="color:#fff; margin:0; font-size:17px;">Transferir Conta</h3>
             <div id="transferencia-origem" style="color:#94a3b8; font-size:12px; margin-top:5px;">Origem: -</div>
 
@@ -941,6 +990,14 @@
                     <option value="{{ $table->id }}">{{ $table->name }}</option>
                 @endforeach
             </select>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0 6px;">
+                <label style="display:block; color:#94a3b8; font-size:11px; font-weight:bold; text-transform:uppercase;">Produtos a transferir</label>
+                <button type="button" onclick="selecionarTodosItensTransferencia()"
+                    style="background:transparent; border:none; color:#38bdf8; font-size:12px; font-weight:bold; cursor:pointer;">Selecionar todos</button>
+            </div>
+            <div id="transferencia-itens"
+                style="display:grid; gap:8px; max-height:240px; overflow-y:auto; padding-right:4px;"></div>
 
             <div style="display:flex; gap:8px; margin-top:16px;">
                 <button type="button" onclick="fecharTransferenciaMesa()"
@@ -1065,6 +1122,8 @@
         @endforeach
 
         const modulosAtivos = @json($modules ?? ['restaurant' => true, 'supermarket' => true]);
+        const directPrintSaleUrlTemplate = @json(route('admin.print.sales', ['sale' => '__SALE_ID__']));
+        const directPrintTableUrlTemplate = @json(route('admin.restaurant.print.table', ['table' => '__TABLE_ID__']));
         let modoAtual = modulosAtivos.restaurant ? 'salao' : 'supermercado';
         let mesaSelecionadaId = modoAtual === 'supermercado' && modulosAtivos.supermarket ? 9999 : null;
         let filtroMesasAtual = 'all';
@@ -1687,6 +1746,11 @@
         }
         
         function selecionarMetodoPagamento(metodo) {
+            if (metodo === 'credit' && !modulosAtivos.current_account) {
+                nkamaAlert('Modulo Conta Corrente desativado pelo super-user.', 'warning');
+                metodo = 'cash';
+            }
+
             // Encontrar o botão clicado
             document.getElementById('select-metodo-pagamento').value = metodo;
             const botoes = document.querySelectorAll('.metodo-pagamento');
@@ -1772,8 +1836,12 @@
             document.getElementById('txt-troco-calculado').innerText = '0,00 Kz';
             document.getElementById('payment-split-wrapper').style.display = 'none';
             document.getElementById('input-valor-pago').style.display = 'block';
-            document.getElementById('wrapper-cliente-conta').style.display = 'none';
-            document.getElementById('select-cliente-conta').value = '';
+            if (document.getElementById('wrapper-cliente-conta')) {
+                document.getElementById('wrapper-cliente-conta').style.display = 'none';
+            }
+            if (document.getElementById('select-cliente-conta')) {
+                document.getElementById('select-cliente-conta').value = '';
+            }
             campoPagamentoAtivo = 'main';
             selecionarCampoPagamento('main');
         }
@@ -1799,7 +1867,12 @@
 
         function abrirTicketVenda() {
             if (!ultimaVendaId) return;
-            window.open(`/admin/sales/${ultimaVendaId}/ticket?print=1`, '_blank');
+            if (modulosAtivos.view_ticket) {
+                window.open(`/admin/sales/${ultimaVendaId}/ticket`, '_blank');
+                return;
+            }
+
+            window.nkamaPrintTicket(directPrintSaleUrlTemplate.replace('__SALE_ID__', ultimaVendaId));
         }
 
         function fecharConsultaMesa() {
@@ -1865,7 +1938,12 @@
                 return;
             }
 
-            window.open(`/admin/restaurant/table/${mesaSelecionadaId}/ticket?print=1`, '_blank');
+            if (modulosAtivos.view_ticket) {
+                window.open(`/admin/restaurant/table/${mesaSelecionadaId}/ticket`, '_blank');
+                return;
+            }
+
+            window.nkamaPrintTicket(directPrintTableUrlTemplate.replace('__TABLE_ID__', mesaSelecionadaId));
         }
 
         function abrirTransferenciaMesa() {
@@ -1881,6 +1959,7 @@
             }
 
             document.getElementById('transferencia-origem').innerText = `Origem: ${document.getElementById('lbl-mesa-ativa').innerText}`;
+            renderizarItensTransferencia(mesaAtual.itens || []);
             const select = document.getElementById('transferencia-destino');
             select.value = '';
 
@@ -1899,10 +1978,64 @@
             document.getElementById('modal-transferencia-mesa').style.display = 'none';
         }
 
+        function renderizarItensTransferencia(itens) {
+            const container = document.getElementById('transferencia-itens');
+            if (!container) return;
+
+            container.innerHTML = itens.map((item, index) => {
+                const productId = item.product_id || item.id;
+                const qty = Number(item.qty || item.quantity || 1);
+                const price = Number(item.price || 0);
+                const total = qty * price;
+
+                return `
+                    <div class="transfer-item-row">
+                        <input type="checkbox" class="transfer-item-check" data-index="${index}" data-product-id="${productId}" checked>
+                        <div style="min-width:0;">
+                            <div class="transfer-item-name">${item.name || 'Produto'}</div>
+                            <div class="transfer-item-meta">Disponivel: ${qty} · ${price.toLocaleString('pt-PT')} Kz · ${total.toLocaleString('pt-PT')} Kz</div>
+                        </div>
+                        <input type="number" class="transfer-item-qty" min="1" max="${qty}" value="${qty}" data-index="${index}" data-product-id="${productId}"
+                            aria-label="Quantidade a transferir">
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selecionarTodosItensTransferencia() {
+            document.querySelectorAll('.transfer-item-check').forEach((checkbox) => {
+                checkbox.checked = true;
+            });
+        }
+
+        function itensSelecionadosTransferencia() {
+            const mesaAtual = estadosMesas[mesaSelecionadaId];
+            const itens = mesaAtual?.itens || [];
+
+            return Array.from(document.querySelectorAll('.transfer-item-check:checked')).map((checkbox) => {
+                const index = Number(checkbox.dataset.index);
+                const item = itens[index];
+                const qtyInput = document.querySelector(`.transfer-item-qty[data-index="${index}"]`);
+                const available = Number(item?.qty || item?.quantity || 1);
+                const quantity = Math.max(1, Math.min(Number(qtyInput?.value || available), available));
+
+                return {
+                    product_id: Number(checkbox.dataset.productId),
+                    quantity
+                };
+            });
+        }
+
         function confirmarTransferenciaMesa() {
             const destino = document.getElementById('transferencia-destino').value;
             if (!destino) {
                 nkamaAlert('Selecione a mesa de destino.', 'warning');
+                return;
+            }
+
+            const selectedItems = itensSelecionadosTransferencia();
+            if (selectedItems.length === 0) {
+                nkamaAlert('Selecione pelo menos um produto para transferir.', 'warning');
                 return;
             }
 
@@ -1914,7 +2047,8 @@
                 },
                 body: JSON.stringify({
                     from_table_id: mesaSelecionadaId,
-                    to_table_id: destino
+                    to_table_id: destino,
+                    items: selectedItems
                 })
             })
                 .then(res => res.json())
@@ -1925,23 +2059,62 @@
                     }
 
                     const origem = mesaSelecionadaId;
+                    const origemAtual = estadosMesas[origem] || {};
+                    const itensOrigem = origemAtual.itens || [];
+                    const movedByProduct = {};
+                    selectedItems.forEach((item) => {
+                        movedByProduct[item.product_id] = (movedByProduct[item.product_id] || 0) + item.quantity;
+                    });
+
+                    const itensDestino = [];
+                    const itensRestantes = [];
+
+                    itensOrigem.forEach((item) => {
+                        const productId = Number(item.product_id || item.id);
+                        const qty = Number(item.qty || item.quantity || 0);
+                        const moveQty = Math.min(movedByProduct[productId] || 0, qty);
+
+                        if (moveQty > 0) {
+                            itensDestino.push({
+                                ...item,
+                                qty: moveQty,
+                                quantity: moveQty,
+                                total: moveQty * Number(item.price || 0)
+                            });
+                        }
+
+                        if (qty - moveQty > 0) {
+                            itensRestantes.push({
+                                ...item,
+                                qty: qty - moveQty,
+                                quantity: qty - moveQty,
+                                total: (qty - moveQty) * Number(item.price || 0)
+                            });
+                        }
+                    });
+
                     estadosMesas[destino] = {
-                        ...(estadosMesas[origem] || {}),
+                        itens: itensDestino,
+                        subtotal: itensDestino.reduce((sum, item) => sum + Number(item.total || 0), 0),
                         status: 'occupied',
                         order_id: data.order_id
                     };
                     estadosMesas[origem] = {
-                        itens: [],
-                        subtotal: 0,
-                        status: 'free',
-                        order_id: null
+                        itens: itensRestantes,
+                        subtotal: itensRestantes.reduce((sum, item) => sum + Number(item.total || 0), 0),
+                        status: itensRestantes.length ? 'occupied' : 'free',
+                        order_id: data.from_order_id
                     };
 
-                    atualizarVisualMesaCard(origem, 'free');
+                    atualizarVisualMesaCard(origem, estadosMesas[origem].status);
                     atualizarVisualMesaCard(destino, 'occupied');
                     atualizarContadoresTop();
                     fecharTransferenciaMesa();
-                    voltarParaMesas();
+                    if (itensRestantes.length) {
+                        renderizarCarrinho();
+                    } else {
+                        voltarParaMesas();
+                    }
                     nkamaAlert(data.message || 'Conta transferida com sucesso.', 'success');
                 })
                 .catch(err => {
@@ -2300,8 +2473,13 @@
         function submeterVendaFinal() {
             const metodo = document.getElementById('select-metodo-pagamento').value;
             const valorPago = obterTotalPago();
-            const clienteId = document.getElementById('select-cliente-conta').value;
+            const clienteId = document.getElementById('select-cliente-conta')?.value || '';
             const pendente = Math.max(Number(totalGeralVendaActual || 0) - valorPago, 0);
+
+            if (pendente > 0 && !modulosAtivos.current_account) {
+                nkamaAlert('Modulo Conta Corrente desativado pelo super-user.', 'warning');
+                return;
+            }
 
             if (pendente > 0 && !clienteId) {
                 nkamaAlert('Selecione o cliente para lançar o valor em conta corrente.', 'warning');
