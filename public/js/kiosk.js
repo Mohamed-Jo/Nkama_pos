@@ -1,5 +1,4 @@
 let pin = "";
-let kioskEnabled = false;
 
 function add(n) {
     if (pin.length >= 8) return;
@@ -37,7 +36,7 @@ function setStatus(msg, error = false) {
             document.getElementById("pinBox").classList.remove("shake");
         }, 400);
     } else {
-        s.style.color = "#94a3b8";
+        s.style.color = currentKioskTheme() === "light" ? "#475569" : "#94a3b8";
     }
 }
 
@@ -74,42 +73,29 @@ async function login() {
     }, 500);
 }
 
-function goFullScreen() {
-    const el = document.documentElement;
-
-    if (el.requestFullscreen) {
-        el.requestFullscreen().catch(() => {});
-    } else if (el.webkitRequestFullscreen) {
-        el.webkitRequestFullscreen();
-    } else if (el.msRequestFullscreen) {
-        el.msRequestFullscreen();
-    }
+function currentKioskTheme() {
+    return document.documentElement.dataset.theme === "light" ? "light" : "dark";
 }
 
-function enableKioskMode() {
-    if (kioskEnabled) return;
-
-    kioskEnabled = true;
-    goFullScreen();
-
-    document.removeEventListener("click", enableKioskMode);
-    document.removeEventListener("touchstart", enableKioskMode);
+function setKioskTheme(theme) {
+    const normalized = theme === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = normalized;
+    localStorage.setItem("nkama_theme", normalized);
+    updateKioskThemeButton();
 }
 
-document.addEventListener("click", enableKioskMode);
-document.addEventListener("touchstart", enableKioskMode);
+function toggleKioskTheme() {
+    setKioskTheme(currentKioskTheme() === "light" ? "dark" : "light");
+}
+
+function updateKioskThemeButton() {
+    const button = document.getElementById("kiosk-theme-btn");
+    if (!button) return;
+
+    button.textContent = currentKioskTheme() === "light" ? "Claro" : "Escuro";
+}
 
 document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") {
-        e.preventDefault();
-        goFullScreen();
-    }
-
-    if (e.key === "F11") {
-        e.preventDefault();
-        goFullScreen();
-    }
-
     if ((e.ctrlKey && e.key.toLowerCase() === "w") ||
         (e.ctrlKey && e.key.toLowerCase() === "r")) {
         e.preventDefault();
@@ -118,8 +104,6 @@ document.addEventListener("keydown", function (e) {
 
 document.addEventListener("contextmenu", e => e.preventDefault());
 
-document.addEventListener("fullscreenchange", () => {
-    if (!document.fullscreenElement) {
-        setTimeout(() => goFullScreen(), 200);
-    }
+document.addEventListener("DOMContentLoaded", () => {
+    updateKioskThemeButton();
 });

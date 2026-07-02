@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt">
 
 <head>
@@ -10,10 +10,18 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="{{ asset('vendor/offline/sweetalert2.all.min.js') }}"></script>
 
+    <script>
+        (function() {
+            const storedTheme = localStorage.getItem('nkama_theme') || 'dark';
+            document.documentElement.dataset.theme = storedTheme === 'light' ? 'light' : 'dark';
+        })();
+    </script>
+
 
 
     <style>
         :root {
+            color-scheme: dark;
             --bg: #0b0f19;
             --panel: rgba(17, 24, 39, 0.95);
             --card: #111827;
@@ -21,12 +29,35 @@
             --text: #e5e7eb;
             --muted: #9ca3af;
             --primary: #f97316;
+            --input-bg: #070a12;
+            --input-text: #ffffff;
+            --soft-bg: rgba(255, 255, 255, 0.04);
+            --page-bg: radial-gradient(circle at top right, #1a1f2e, #0b0f19);
+            --swal-bg: #0f172a;
+            --swal-text: #e2e8f0;
+        }
+
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --bg: #f8fafc;
+            --panel: rgba(255, 255, 255, 0.96);
+            --card: #ffffff;
+            --border: rgba(15, 23, 42, 0.12);
+            --text: #0f172a;
+            --muted: #64748b;
+            --primary: #ea580c;
+            --input-bg: #ffffff;
+            --input-text: #0f172a;
+            --soft-bg: rgba(15, 23, 42, 0.04);
+            --page-bg: linear-gradient(135deg, #f8fafc, #e8eef6);
+            --swal-bg: #ffffff;
+            --swal-text: #0f172a;
         }
 
         body {
             margin: 0;
             font-family: 'Inter', system-ui, sans-serif;
-            background: radial-gradient(circle at top right, #1a1f2e, #0b0f19);
+            background: var(--page-bg);
             color: var(--text);
             height: 100vh;
             overflow: hidden;
@@ -136,7 +167,7 @@
 
         .system-date {
             align-items: center;
-            background: rgba(255, 255, 255, 0.04);
+            background: var(--soft-bg);
             border: 1px solid var(--border);
             border-radius: 8px;
             color: var(--muted);
@@ -157,7 +188,7 @@
 
         .operator-chip {
             align-items: center;
-            background: rgba(255, 255, 255, 0.04);
+            background: var(--soft-bg);
             border: 1px solid var(--border);
             border-radius: 8px;
             color: var(--muted);
@@ -243,12 +274,12 @@
         }
 
         .toast {
-            background: #1f2937;
+            background: var(--card);
             border-left: 4px solid var(--primary);
             padding: 16px;
             margin-bottom: 10px;
             border-radius: 4px;
-            color: white;
+            color: var(--text);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
 
@@ -281,8 +312,8 @@
             margin-top: 6px;
             border-radius: 8px;
             border: 1px solid var(--border);
-            background: #070a12;
-            color: white;
+            background: var(--input-bg);
+            color: var(--input-text);
         }
 
         input[type="checkbox"],
@@ -290,7 +321,7 @@
             appearance: none;
             -webkit-appearance: none;
             align-items: center;
-            background: #070a12;
+            background: var(--input-bg);
             border: 1px solid rgba(148, 163, 184, 0.45);
             cursor: pointer;
             display: inline-grid;
@@ -357,6 +388,75 @@
             gap: 8px;
         }
 
+        .btn-control {
+            align-items: center;
+            background: var(--soft-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 800;
+            gap: 6px;
+            min-height: 36px;
+            padding: 0 12px;
+            white-space: nowrap;
+        }
+
+        .btn-control:hover {
+            border-color: rgba(249, 115, 22, 0.38);
+            color: var(--primary);
+        }
+
+        :root[data-theme="light"] .menu-section {
+            color: #64748b;
+        }
+
+        :root[data-theme="light"] .menu a:hover,
+        :root[data-theme="light"] .menu a.active {
+            background: rgba(234, 88, 12, 0.1);
+        }
+
+        :root[data-theme="light"] .modal {
+            background: rgba(15, 23, 42, 0.32);
+        }
+
+        :root[data-theme="light"] .btn-primary {
+            color: #ffffff;
+        }
+
+        :root[data-theme="light"] .content :is(.card, .panel, .module-card, .settings-card, .report-card, .purchase-card, .summary-card, .stat-card, .table-wrap, .section-card, .modal-box) {
+            background: var(--card) !important;
+            border-color: var(--border) !important;
+            color: var(--text) !important;
+        }
+
+        :root[data-theme="light"] .content :is(input, select, textarea) {
+            background: var(--input-bg) !important;
+            border-color: var(--border) !important;
+            color: var(--input-text) !important;
+        }
+
+        :root[data-theme="light"] .content :is(table, th, td) {
+            border-color: var(--border) !important;
+        }
+
+
+        :root[data-theme="light"] .content [style*="#020617"],
+        :root[data-theme="light"] .content [style*="#0f172a"],
+        :root[data-theme="light"] .content [style*="#111827"],
+        :root[data-theme="light"] .content [style*="#070a12"],
+        :root[data-theme="light"] .content [style*="rgb(2, 6, 23)"],
+        :root[data-theme="light"] .content [style*="rgb(15, 23, 42)"] {
+            background: var(--card) !important;
+            border-color: var(--border) !important;
+            color: var(--text) !important;
+        }
+        :root[data-theme="light"] .content :is(.text-muted, .muted, small) {
+            color: var(--muted) !important;
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 position: absolute;
@@ -367,6 +467,15 @@
             }
 
             .operator-chip {
+                display: none;
+            }
+
+            .btn-control {
+                min-width: 38px;
+                padding: 0 10px;
+            }
+
+            .btn-control span:last-child {
                 display: none;
             }
 
@@ -391,7 +500,7 @@
             $canAudit = \App\Services\OperatorPermissions::allows($operatorRole, 'audit.view');
             $canReports = \App\Services\OperatorPermissions::allows($operatorRole, 'reports.view');
             $canCurrentAccount = \App\Services\OperatorPermissions::allows($operatorRole, 'current_account.manage');
-            $canPurchases = \App\Services\OperatorPermissions::allows($operatorRole, 'purchases.manage');
+            $canPurchases = \App\Services\OperatorPermissions::allowsAny($operatorRole, ['purchases.create', 'purchases.approve', 'purchases.receive']);
             $canCatalog = \App\Services\OperatorPermissions::allows($operatorRole, 'catalog.manage');
             $canShiftAudit = \App\Services\OperatorPermissions::allows($operatorRole, 'cash.audit');
             $activeModules = \App\Services\ModuleSettings::all();
@@ -471,6 +580,11 @@
                         <strong>{{ session('operator_name', 'Operador') }}</strong>
                     </div>
 
+                    <button class="btn-control" type="button" onclick="toggleTheme()" title="Alternar modo claro/escuro">
+                        <span id="theme-toggle-icon">☾</span>
+                        <span id="theme-toggle-label">Tema</span>
+                    </button>
+
                     @if($isSuperUser)
                         <form method="POST" action="{{ route('admin.system-date.next') }}">
                             @csrf
@@ -495,6 +609,38 @@
     </div>
 
     <script>
+        function currentTheme() {
+            return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+        }
+
+        function setTheme(theme) {
+            const normalized = theme === 'light' ? 'light' : 'dark';
+            document.documentElement.dataset.theme = normalized;
+            localStorage.setItem('nkama_theme', normalized);
+            updateThemeButton();
+        }
+
+        function toggleTheme() {
+            setTheme(currentTheme() === 'light' ? 'dark' : 'light');
+        }
+
+        function updateThemeButton() {
+            const isLight = currentTheme() === 'light';
+            const icon = document.getElementById('theme-toggle-icon');
+            const label = document.getElementById('theme-toggle-label');
+
+            if (icon) icon.textContent = isLight ? '☀' : '☾';
+            if (label) label.textContent = isLight ? 'Claro' : 'Escuro';
+        }
+
+        function swalTheme() {
+            const styles = getComputedStyle(document.documentElement);
+            return {
+                background: styles.getPropertyValue('--swal-bg').trim() || '#0f172a',
+                color: styles.getPropertyValue('--swal-text').trim() || '#e2e8f0',
+            };
+        }
+
         window.nativeAlert = window.alert.bind(window);
 
         window.nkamaAlert = function(message, type = 'info', title = null) {
@@ -517,8 +663,8 @@
                 icon: type,
                 confirmButtonText: 'OK',
                 confirmButtonColor: '#f97316',
-                background: '#0f172a',
-                color: '#e2e8f0',
+                background: swalTheme().background,
+                color: swalTheme().color,
                 customClass: {
                     popup: 'nkama-swal-popup'
                 }
@@ -539,8 +685,8 @@
                 cancelButtonText: 'Cancelar',
                 confirmButtonColor: '#f97316',
                 cancelButtonColor: '#334155',
-                background: '#0f172a',
-                color: '#e2e8f0',
+                background: swalTheme().background,
+                color: swalTheme().color,
             }).then(result => result.isConfirmed);
         };
 
@@ -594,8 +740,8 @@
                     showConfirmButton: false,
                     timer: 2600,
                     timerProgressBar: true,
-                    background: '#0f172a',
-                    color: '#e2e8f0',
+                    background: swalTheme().background,
+                    color: swalTheme().color,
                 });
                 return;
             }
@@ -609,6 +755,8 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            updateThemeButton();
+
             @if(session('success'))
                 @if(session('daily_report_url'))
                     if (window.Swal) {
@@ -619,8 +767,8 @@
                             confirmButtonText: 'Baixar relatorio',
                             showCancelButton: true,
                             cancelButtonText: 'Fechar',
-                            background: '#0f172a',
-                            color: '#e2e8f0',
+                            background: swalTheme().background,
+                            color: swalTheme().color,
                         }).then((result) => {
                             if (result.isConfirmed) {
                                 window.open(@json(session('daily_report_url')), '_blank');

@@ -83,7 +83,7 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
         Route::get('reports/stock.pdf', [ReportController::class, 'stockPdf'])->middleware('operator.permission:reports.view')->name('reports.stock.pdf');
         Route::get('reports/stock-movements.pdf', [ReportController::class, 'stockMovementsPdf'])->middleware('operator.permission:reports.view')->name('reports.stock-movements.pdf');
         Route::get('reports/purchases.pdf', [ReportController::class, 'purchasesPdf'])
-            ->middleware(['module.enabled:purchases', 'operator.permission:purchases.manage'])
+            ->middleware(['module.enabled:purchases', 'operator.permission:purchases.create,purchases.approve,purchases.receive'])
             ->name('reports.purchases.pdf');
         Route::get('reports/shifts.pdf', [ReportController::class, 'shiftsPdf'])->middleware('operator.permission:cash.audit')->name('reports.shifts.pdf');
         Route::get('reports/audit.pdf', [ReportController::class, 'auditPdf'])->middleware(['module.enabled:audit', 'operator.permission:audit.view'])->name('reports.audit.pdf');
@@ -94,16 +94,26 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             Route::post('current-accounts/settle', [CurrentAccountController::class, 'settle'])->name('current-accounts.settle');
         });
 
-        Route::middleware(['module.enabled:purchases', 'operator.permission:purchases.manage'])->group(function () {
+        Route::middleware(['module.enabled:purchases', 'operator.permission:purchases.create,purchases.approve,purchases.receive'])->group(function () {
             Route::get('purchases', [PurchaseController::class, 'index'])->name('purchases.index');
+        });
+        Route::middleware(['module.enabled:purchases', 'operator.permission:purchases.create'])->group(function () {
             Route::get('purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
             Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
-            Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
-            Route::patch('purchases/{purchase}/approve', [PurchaseController::class, 'approve'])->name('purchases.approve');
-            Route::patch('purchases/{purchase}/reject', [PurchaseController::class, 'reject'])->name('purchases.reject');
-            Route::patch('purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->name('purchases.status');
-            Route::post('purchases/{purchase}/receive', [PurchaseController::class, 'receive'])->name('purchases.receive');
+            Route::patch('purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->whereNumber('purchase')->name('purchases.status');
         });
+        Route::middleware(['module.enabled:purchases', 'operator.permission:purchases.approve'])->group(function () {
+            Route::patch('purchases/{purchase}/approve', [PurchaseController::class, 'approve'])->whereNumber('purchase')->name('purchases.approve');
+            Route::patch('purchases/{purchase}/reject', [PurchaseController::class, 'reject'])->whereNumber('purchase')->name('purchases.reject');
+        });
+        Route::post('purchases/{purchase}/receive', [PurchaseController::class, 'receive'])
+            ->whereNumber('purchase')
+            ->middleware(['module.enabled:purchases', 'operator.permission:purchases.receive'])
+            ->name('purchases.receive');
+        Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])
+            ->whereNumber('purchase')
+            ->middleware(['module.enabled:purchases', 'operator.permission:purchases.create,purchases.approve,purchases.receive'])
+            ->name('purchases.show');
 
         // Cadastros e Recursos Globais
         Route::middleware('operator.permission:catalog.manage')->group(function () {

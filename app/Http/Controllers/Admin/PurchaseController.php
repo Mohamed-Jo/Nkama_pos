@@ -9,6 +9,7 @@ use App\Models\Purchase;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Services\ModuleSettings;
+use App\Services\OperatorPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -35,7 +36,9 @@ class PurchaseController extends Controller
             'value' => (float) Purchase::sum('total'),
         ];
 
-        return view('admin.purchases.index', compact('purchases', 'totals'));
+        $canCreatePurchase = OperatorPermissions::allows(session('operator_role'), 'purchases.create');
+
+        return view('admin.purchases.index', compact('purchases', 'totals', 'canCreatePurchase'));
     }
 
     public function create()
@@ -136,7 +139,12 @@ class PurchaseController extends Controller
     {
         $purchase->load('supplier', 'operator', 'approver', 'rejecter', 'items.product', 'currentAccountEntry');
 
-        return view('admin.purchases.show', compact('purchase'));
+        $operatorRole = session('operator_role');
+        $canCreatePurchase = OperatorPermissions::allows($operatorRole, 'purchases.create');
+        $canApprovePurchase = OperatorPermissions::allows($operatorRole, 'purchases.approve');
+        $canReceivePurchase = OperatorPermissions::allows($operatorRole, 'purchases.receive');
+
+        return view('admin.purchases.show', compact('purchase', 'canCreatePurchase', 'canApprovePurchase', 'canReceivePurchase'));
     }
 
     public function approve(Request $request, Purchase $purchase)

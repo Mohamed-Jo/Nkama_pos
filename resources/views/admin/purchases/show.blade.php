@@ -53,14 +53,14 @@
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <a class="btn btn-ghost" href="{{ route('admin.purchases.index') }}">Voltar</a>
-                @if(!$purchase->isClosedForReceiving() && !$purchase->isApproved() && !$reviewedByCreator)
+                @if($canApprovePurchase && !$purchase->isClosedForReceiving() && !$purchase->isApproved() && !$reviewedByCreator)
                     <form method="POST" action="{{ route('admin.purchases.approve', $purchase) }}">
                         @csrf
                         @method('PATCH')
                         <button class="btn btn-primary" type="submit">Aprovar</button>
                     </form>
                 @endif
-                @if(!$purchase->isClosedForReceiving() && !$purchase->isApproved() && !$purchase->isRejected() && !$reviewedByCreator && $purchase->items->sum('received_quantity') <= 0)
+                @if($canApprovePurchase && !$purchase->isClosedForReceiving() && !$purchase->isApproved() && !$purchase->isRejected() && !$reviewedByCreator && $purchase->items->sum('received_quantity') <= 0)
                     <form method="POST" action="{{ route('admin.purchases.reject', $purchase) }}" style="display:flex; gap:8px;">
                         @csrf
                         @method('PATCH')
@@ -68,10 +68,10 @@
                         <button class="btn btn-danger" type="submit">Rejeitar</button>
                     </form>
                 @endif
-                @if(!$purchase->isClosedForReceiving() && !$purchase->isApproved() && !$purchase->isRejected() && $reviewedByCreator)
+                @if(!$purchase->isClosedForReceiving() && !$purchase->isApproved() && !$purchase->isRejected() && (!$canApprovePurchase || $reviewedByCreator))
                     <span class="muted" style="align-self:center;">Aguardando aprovacao de outro operador.</span>
                 @endif
-                @if($purchase->isApproved() && $purchase->status === \App\Models\Purchase::STATUS_DRAFT)
+                @if($canCreatePurchase && $purchase->isApproved() && $purchase->status === \App\Models\Purchase::STATUS_DRAFT)
                     <form method="POST" action="{{ route('admin.purchases.status', $purchase) }}">
                         @csrf
                         @method('PATCH')
@@ -126,7 +126,7 @@
                         <th>Custo</th>
                         <th>IVA</th>
                         <th>Total</th>
-                        @if($purchase->isApproved() && !$purchase->isClosedForReceiving())
+                        @if($canReceivePurchase && $purchase->isApproved() && !$purchase->isClosedForReceiving())
                             <th>Receber agora</th>
                         @endif
                     </tr>
@@ -144,7 +144,7 @@
                             <td>AOA {{ number_format((float) $item->unit_cost, 2, ',', '.') }}</td>
                             <td>{{ number_format((float) $item->tax_rate, 2, ',', '.') }}%</td>
                             <td>AOA {{ number_format((float) $item->total, 2, ',', '.') }}</td>
-                            @if($purchase->isApproved() && !$purchase->isClosedForReceiving())
+                            @if($canReceivePurchase && $purchase->isApproved() && !$purchase->isClosedForReceiving())
                                 <td>
                                     <input class="receive-input" type="number" name="received[{{ $item->id }}]" min="0" max="{{ $pending }}" value="{{ $pending }}">
                                 </td>
@@ -158,7 +158,7 @@
                 <div>IVA: <strong>AOA {{ number_format((float) $purchase->tax, 2, ',', '.') }}</strong></div>
                 <div style="font-size:18px;">Total: <strong>AOA {{ number_format((float) $purchase->total, 2, ',', '.') }}</strong></div>
             </div>
-            @if($purchase->isApproved() && !$purchase->isClosedForReceiving())
+            @if($canReceivePurchase && $purchase->isApproved() && !$purchase->isClosedForReceiving())
                 <div style="display:flex; justify-content:flex-end; margin-top:14px;">
                     <button class="btn btn-primary" type="submit">Registar recebimento</button>
                 </div>

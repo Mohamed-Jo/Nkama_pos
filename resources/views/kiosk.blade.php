@@ -8,19 +8,62 @@
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
+    <script>
+        (function() {
+            const storedTheme = localStorage.getItem('nkama_theme') || 'dark';
+            document.documentElement.dataset.theme = storedTheme === 'light' ? 'light' : 'dark';
+        })();
+    </script>
+
     @php
         $loginBackgroundUrl = $loginBackgroundUrl ?? null;
     @endphp
 
     <style>
         :root {
+            color-scheme: dark;
             --bg1: #030712;
             --bg2: #0b1528;
+            --halo1: #1e293b;
+            --halo2: #111827;
             --orange: #f97316;
             --orange-glow: rgba(249, 115, 22, 0.35);
             --text: #f3f4f6;
+            --heading: #ffffff;
+            --muted: #d1d5db;
+            --subtle: #9ca3af;
             --glass: rgba(6, 10, 20, 0.78);
             --border: rgba(255, 255, 255, 0.12);
+            --login-bg-start: rgba(3, 7, 18, 0.86);
+            --login-bg-end: rgba(3, 7, 18, 0.38);
+            --login-side-bg: rgba(3, 7, 18, 0.72);
+            --login-shadow: -22px 0 60px rgba(0, 0, 0, 0.34);
+            --pin-bg: rgba(0, 0, 0, 0.4);
+            --key-bg: rgba(31, 41, 55, 0.5);
+            --key-hover-bg: rgba(55, 65, 81, 0.68);
+        }
+
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --bg1: #f8fafc;
+            --bg2: #e8eef6;
+            --halo1: rgba(234, 88, 12, 0.12);
+            --halo2: rgba(14, 165, 233, 0.14);
+            --orange: #ea580c;
+            --orange-glow: rgba(234, 88, 12, 0.24);
+            --text: #0f172a;
+            --heading: #0f172a;
+            --muted: #475569;
+            --subtle: #64748b;
+            --glass: rgba(255, 255, 255, 0.86);
+            --border: rgba(15, 23, 42, 0.14);
+            --login-bg-start: rgba(248, 250, 252, 0.92);
+            --login-bg-end: rgba(248, 250, 252, 0.34);
+            --login-side-bg: rgba(255, 255, 255, 0.74);
+            --login-shadow: -22px 0 60px rgba(15, 23, 42, 0.14);
+            --pin-bg: rgba(248, 250, 252, 0.88);
+            --key-bg: rgba(255, 255, 255, 0.74);
+            --key-hover-bg: rgba(241, 245, 249, 0.9);
         }
 
         * {
@@ -32,8 +75,8 @@
 
         body {
             background:
-                radial-gradient(circle at 15% 15%, #1e293b 0%, transparent 48%),
-                radial-gradient(circle at 85% 85%, #111827 0%, transparent 46%),
+                radial-gradient(circle at 15% 15%, var(--halo1) 0%, transparent 48%),
+                radial-gradient(circle at 85% 85%, var(--halo2) 0%, transparent 46%),
                 linear-gradient(135deg, var(--bg2), var(--bg1));
             color: var(--text);
             height: 100vh;
@@ -42,7 +85,7 @@
 
         body.has-login-bg {
             background:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.86), rgba(3, 7, 18, 0.38)),
+                linear-gradient(90deg, var(--login-bg-start), var(--login-bg-end)),
                 url('{{ $loginBackgroundUrl }}') center / cover no-repeat;
         }
 
@@ -63,11 +106,41 @@
         }
 
         .brand-mark {
-            color: rgba(255, 255, 255, 0.72);
+            color: var(--muted);
             font-size: 13px;
             font-weight: 900;
             letter-spacing: 0.18em;
             text-transform: uppercase;
+        }
+
+        .brand-top {
+            align-items: center;
+            display: flex;
+            gap: 14px;
+            justify-content: space-between;
+        }
+
+        .kiosk-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .kiosk-action-btn {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 900;
+            min-height: 36px;
+            padding: 0 12px;
+            text-transform: uppercase;
+        }
+
+        .kiosk-action-btn:hover {
+            border-color: var(--orange);
+            color: var(--orange);
         }
 
         .brand-copy {
@@ -75,7 +148,7 @@
         }
 
         .brand-copy h1 {
-            color: #fff;
+            color: var(--heading);
             font-size: 54px;
             font-weight: 900;
             letter-spacing: 0;
@@ -85,7 +158,7 @@
         }
 
         .brand-copy p {
-            color: #d1d5db;
+            color: var(--muted);
             font-size: 17px;
             font-weight: 700;
             line-height: 1.55;
@@ -93,16 +166,16 @@
         }
 
         .brand-footer {
-            color: rgba(255, 255, 255, 0.54);
+            color: var(--subtle);
             font-size: 12px;
             font-weight: 800;
         }
 
         .login-side {
             align-items: center;
-            background: rgba(3, 7, 18, 0.72);
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: -22px 0 60px rgba(0, 0, 0, 0.34);
+            background: var(--login-side-bg);
+            border-left: 1px solid var(--border);
+            box-shadow: var(--login-shadow);
             display: flex;
             justify-content: center;
             padding: 34px;
@@ -132,7 +205,7 @@
         }
 
         .subtitle {
-            color: #9ca3af;
+            color: var(--subtle);
             font-size: 13px;
             font-weight: 700;
             margin: 6px 0 22px;
@@ -140,7 +213,7 @@
         }
 
         .pin-box {
-            background: rgba(0, 0, 0, 0.4);
+            background: var(--pin-bg);
             border: 1px solid var(--border);
             border-radius: 8px;
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
@@ -177,10 +250,10 @@
 
         .btn {
             align-items: center;
-            background: rgba(31, 41, 55, 0.5);
+            background: var(--key-bg);
             border: 1px solid var(--border);
             border-radius: 8px;
-            color: white;
+            color: var(--text);
             cursor: pointer;
             display: flex;
             font-size: 22px;
@@ -193,8 +266,8 @@
         }
 
         .btn:hover {
-            background: rgba(55, 65, 81, 0.68);
-            border-color: rgba(255, 255, 255, 0.2);
+            background: var(--key-hover-bg);
+            border-color: var(--border);
             transform: translateY(-1px);
         }
 
@@ -285,7 +358,7 @@
 
             .login-side {
                 border-left: none;
-                border-top: 1px solid rgba(255, 255, 255, 0.1);
+                border-top: 1px solid var(--border);
                 padding: 22px;
             }
         }
@@ -295,7 +368,12 @@
 <body class="{{ $loginBackgroundUrl ? 'has-login-bg' : '' }}">
     <div class="login-shell">
         <section class="brand-side">
-            <div class="brand-mark">NKAMA POS</div>
+            <div class="brand-top">
+                <div class="brand-mark">NKAMA POS</div>
+                <div class="kiosk-actions">
+                    <button type="button" class="kiosk-action-btn" onclick="toggleKioskTheme()" id="kiosk-theme-btn">Tema</button>
+                </div>
+            </div>
             <div class="brand-copy">
                 <h1>Terminal de venda</h1>
                 <p>Acesso seguro para operadores, com caixa, vendas e restaurante prontos para o turno.</p>

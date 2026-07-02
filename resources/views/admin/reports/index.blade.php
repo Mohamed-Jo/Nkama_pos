@@ -49,7 +49,7 @@
             </div>
         </form>
 
-        @if($modules['purchases'] ?? true)
+        @if(($modules['purchases'] ?? true) && \App\Services\OperatorPermissions::allowsAny(session('operator_role'), ['purchases.create', 'purchases.approve', 'purchases.receive']))
         <form class="report-panel" method="GET" action="{{ route('admin.reports.purchases.pdf') }}" target="_blank">
             <div class="report-grid">
                 <div class="report-field">

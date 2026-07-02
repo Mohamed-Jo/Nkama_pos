@@ -36,7 +36,9 @@
                 <h1 class="purchase-title">Compras</h1>
                 <div class="purchase-subtitle">Registo de entradas de mercadoria e atualização de stock.</div>
             </div>
-            <a class="purchase-btn" href="{{ route('admin.purchases.create') }}">Nova compra</a>
+            @if($canCreatePurchase)
+                <a class="purchase-btn" href="{{ route('admin.purchases.create') }}">Nova compra</a>
+            @endif
         </div>
 
         @if(session('success'))
