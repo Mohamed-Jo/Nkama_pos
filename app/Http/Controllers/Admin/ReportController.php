@@ -215,8 +215,23 @@ class ReportController extends Controller
             $query->where('status', $request->status);
         }
 
+        if ($request->filled('approval_status')) {
+            $query->where('approval_status', $request->approval_status);
+        }
+
         if ($request->filled('payment_type')) {
             $query->where('payment_type', $request->payment_type);
+        }
+
+        if ($request->filled('payment_status')) {
+            if ($request->payment_status === 'overdue') {
+                $query->where('payment_type', 'credit')
+                    ->where('approval_status', Purchase::APPROVAL_APPROVED)
+                    ->where('payment_status', '<>', 'paid')
+                    ->whereDate('due_date', '<', now()->toDateString());
+            } else {
+                $query->where('payment_status', $request->payment_status);
+            }
         }
 
         $purchases = $query->get();
@@ -228,10 +243,21 @@ class ReportController extends Controller
             'purchases' => $purchases,
             'totals' => [
                 'count' => $purchases->count(),
-                'draft' => $purchases->where('status', 'draft')->count(),
+                'open' => $purchases->filter(fn ($purchase) => in_array($purchase->status, [
+                    Purchase::STATUS_DRAFT,
+                    Purchase::STATUS_ORDERED,
+                    Purchase::STATUS_PARTIAL,
+                ], true) && $purchase->approval_status !== Purchase::APPROVAL_REJECTED)->count(),
+                'pending_approval' => $purchases->where('approval_status', 'pending')->count(),
+                'approved' => $purchases->where('approval_status', 'approved')->count(),
+                'rejected' => $purchases->where('approval_status', 'rejected')->count(),
+                'partial' => $purchases->where('status', 'partial')->count(),
                 'received' => $purchases->where('status', 'received')->count(),
                 'credit' => (float) $purchases->where('payment_type', 'credit')->sum('total'),
                 'direct' => (float) $purchases->where('payment_type', 'direct')->sum('total'),
+                'paid' => (float) $purchases->sum('paid_amount'),
+                'balance' => (float) $purchases->sum(fn ($purchase) => $purchase->balance),
+                'overdue' => $purchases->filter(fn ($purchase) => $purchase->isOverdue())->count(),
                 'total' => (float) $purchases->sum('total'),
             ],
         ], 'relatorio-compras.pdf');

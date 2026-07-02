@@ -187,6 +187,18 @@
 
             <div class="module-row">
                 <div>
+                    <div class="module-title">Auditoria</div>
+                    <div class="module-text">Ativa trilha de auditoria, relatorio de auditoria e fecho diario pela auditoria.</div>
+                </div>
+                <label class="module-toggle">
+                    <input type="checkbox" name="modules[audit]" value="1" @checked($modules['audit'] ?? false)>
+                    <span class="switch-track"><span class="switch-knob"></span></span>
+                    <span class="switch-text">{{ ($modules['audit'] ?? false) ? 'ON' : 'OFF' }}</span>
+                </label>
+            </div>
+
+            <div class="module-row">
+                <div>
                     <div class="module-title">Compras</div>
                     <div class="module-text">Ativa registo de compras, entrada de mercadoria e atualizacao de stock.</div>
                 </div>

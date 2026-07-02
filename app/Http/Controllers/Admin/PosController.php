@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\RestaurantTable;
 use App\Models\Sale;
 use App\Models\Shift;
+use App\Models\StockMovement;
 use App\Services\BusinessSettings;
 use App\Services\DocumentNumbering;
 use App\Services\ModuleSettings;
@@ -148,6 +149,10 @@ class PosController extends Controller
 
                 foreach ($calculated['items'] as $item) {
                     $product = $item['product'];
+                    $stockBefore = Schema::hasColumn('products', 'stock_quantity')
+                        ? (float) $product->stock_quantity
+                        : null;
+
                     $sale->items()->create([
                         'product_id' => $product->id,
                         'quantity' => $item['quantity'],
@@ -160,6 +165,16 @@ class PosController extends Controller
 
                     if (Schema::hasColumn('products', 'stock_quantity')) {
                         $product->decrement('stock_quantity', $item['quantity']);
+
+                        StockMovement::create([
+                            'product_id' => $product->id,
+                            'type' => 'OUT',
+                            'quantity' => $item['quantity'],
+                            'stock_before' => $stockBefore,
+                            'stock_after' => (float) $product->fresh()->stock_quantity,
+                            'notes' => 'Venda ' . $sale->invoice_number,
+                            'operator_id' => $operator?->id,
+                        ]);
                     }
                 }
 

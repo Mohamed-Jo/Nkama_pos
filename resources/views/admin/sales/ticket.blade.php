@@ -6,6 +6,12 @@
     <title>Ticket {{ $sale->invoice_number }}</title>
     @php
         $printSettings = array_merge(\App\Services\BusinessSettings::PRINT_DEFAULTS, $printSettings ?? []);
+        $itemFontSize = max((float) $printSettings['content_font_size_px'] - 1, 8);
+        $itemProductWidth = max((float) $printSettings['item_product_width_mm'] - 2, 12);
+        $itemTaxWidth = max((float) $printSettings['item_tax_width_mm'] - 1, 3);
+        $itemQtyWidth = max((float) $printSettings['item_qty_width_mm'] - 1, 3);
+        $itemPriceWidth = max((float) $printSettings['item_price_width_mm'] - 2, 8);
+        $itemSubtotalWidth = max((float) $printSettings['item_subtotal_width_mm'] - 4, 10);
     @endphp
     <style>
         @page {
@@ -80,9 +86,10 @@
 
         .item-line {
             display: table;
-            font-size: {{ $printSettings['content_font_size_px'] }}px;
+            font-size: {{ $itemFontSize }}px;
             table-layout: fixed;
-            width: 100%;
+            margin-right: 7%;
+            width: 93%;
         }
 
         .item-product,
@@ -97,37 +104,39 @@
         .item-product {
             font-weight: 900;
             overflow-wrap: anywhere;
-            width: {{ $printSettings['item_product_width_mm'] }}mm;
+            width: {{ $itemProductWidth }}mm;
         }
 
         .item-tax,
         .item-qty,
         .item-price {
-            font-size: {{ $printSettings['content_font_size_px'] }}px;
+            font-size: {{ $itemFontSize }}px;
             font-weight: 700;
             line-height: 1.25;
             text-align: center;
         }
 
         .item-tax {
-            width: {{ $printSettings['item_tax_width_mm'] }}mm;
+            width: {{ $itemTaxWidth }}mm;
         }
 
         .item-qty {
-            width: {{ $printSettings['item_qty_width_mm'] }}mm;
+            width: {{ $itemQtyWidth }}mm;
         }
 
         .item-price {
             text-align: right;
-            width: {{ $printSettings['item_price_width_mm'] }}mm;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            width: {{ $itemPriceWidth }}mm;
         }
 
         .item-subtotal {
             font-weight: 900;
             overflow-wrap: anywhere;
             text-align: right;
-            white-space: nowrap;
-            width: {{ $printSettings['item_subtotal_width_mm'] }}mm;
+            word-break: break-word;
+            width: {{ $itemSubtotalWidth }}mm;
         }
 
         .totals {

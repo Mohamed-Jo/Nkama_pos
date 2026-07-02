@@ -23,6 +23,10 @@ class AuditLogger
                 return;
             }
 
+            if ($action !== 'modules_updated' && !ModuleSettings::enabled('audit')) {
+                return;
+            }
+
             AuditLog::create([
                 'user_id' => Auth::id(),
                 'action' => $action,

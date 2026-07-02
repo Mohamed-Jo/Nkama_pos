@@ -186,6 +186,7 @@
             border: 1px solid rgba(249, 115, 22, 0.32);
             border-radius: 8px;
             color: var(--primary);
+            cursor: pointer;
             display: inline-flex;
             font-size: 13px;
             font-weight: 800;
@@ -193,7 +194,6 @@
             min-height: 36px;
             padding: 0 12px;
             text-decoration: none;
-            cursor: pointer;
         }
 
         .btn-audit:hover {
@@ -373,6 +373,7 @@
             .btn-audit span:last-child {
                 display: none;
             }
+
         }
     </style>
 
@@ -407,7 +408,7 @@
                 <div class="menu-section">Operações</div>
                 <a class="{{ request()->routeIs('admin.pos.*') ? 'active' : '' }}" href="{{ route('admin.pos.index') }}">⌗ POS / Caixa</a>
                 <a class="{{ request()->routeIs('admin.sales.*') ? 'active' : '' }}" href="{{ route('admin.sales.index') }}">💰 Vendas</a>
-                @if($canAudit)
+                @if($canAudit && ($activeModules['audit'] ?? true))
                     <a class="{{ request()->routeIs('admin.audit.*') ? 'active' : '' }}" href="{{ route('admin.audit.index') }}">🛡 Auditoria</a>
                 @endif
                 @if($canReports)

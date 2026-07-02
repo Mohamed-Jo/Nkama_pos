@@ -13,6 +13,7 @@ class ModuleSettings
         'current_account' => true,
         'purchases' => true,
         'view_ticket' => true,
+        'audit' => true,
     ];
 
     public static function all(): array
@@ -39,6 +40,7 @@ class ModuleSettings
             'current_account' => (bool) ($modules['current_account'] ?? false),
             'purchases' => (bool) ($modules['purchases'] ?? false),
             'view_ticket' => (bool) ($modules['view_ticket'] ?? false),
+            'audit' => (bool) ($modules['audit'] ?? false),
         ];
 
         AppSetting::updateOrCreate(

@@ -7,6 +7,7 @@ use App\Models\CashMovement;
 use App\Models\CreditNote;
 use App\Models\CurrentAccountEntry;
 use App\Models\Customer;
+use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\Supplier;
@@ -180,6 +181,8 @@ class CurrentAccountController extends Controller
 
                 if ($isReceipt) {
                     $this->allocateCustomerReceipt((int) $validated['entity_id'], $amount);
+                } else {
+                    $this->allocateSupplierPayment((int) $validated['entity_id'], $amount);
                 }
             });
         } catch (\Throwable $e) {
@@ -242,5 +245,49 @@ class CurrentAccountController extends Controller
         }
 
         $sale->update($payload);
+    }
+
+    private function allocateSupplierPayment(int $supplierId, float $amount): void
+    {
+        $remaining = round($amount, 2);
+
+        $purchases = Purchase::where('supplier_id', $supplierId)
+            ->where('payment_type', 'credit')
+            ->where('approval_status', Purchase::APPROVAL_APPROVED)
+            ->whereNotNull('current_account_entry_id')
+            ->where('payment_status', '<>', 'paid')
+            ->orderByRaw('COALESCE(due_date, purchase_date, created_at)')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($purchases as $purchase) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $due = round(max((float) $purchase->total - (float) $purchase->paid_amount, 0), 2);
+
+            if ($due <= 0) {
+                $this->markPurchasePaymentState($purchase);
+                continue;
+            }
+
+            $applied = min($remaining, $due);
+            $purchase->paid_amount = round((float) $purchase->paid_amount + $applied, 2);
+            $this->markPurchasePaymentState($purchase);
+            $remaining = round($remaining - $applied, 2);
+        }
+    }
+
+    private function markPurchasePaymentState(Purchase $purchase): void
+    {
+        $paid = round((float) $purchase->paid_amount, 2);
+        $total = round((float) $purchase->total, 2);
+
+        $purchase->update([
+            'paid_amount' => $paid,
+            'payment_status' => $paid >= $total ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
+        ]);
     }
 }

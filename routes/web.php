@@ -73,7 +73,7 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
     });
 
     Route::middleware('operator.permission:management.view')->group(function () {
-        Route::get('/audit', [AuditLogController::class, 'index'])->middleware('operator.permission:audit.view')->name('audit.index');
+        Route::get('/audit', [AuditLogController::class, 'index'])->middleware(['module.enabled:audit', 'operator.permission:audit.view'])->name('audit.index');
         Route::get('reports', [ReportController::class, 'index'])->middleware('operator.permission:reports.view')->name('reports.index');
         Route::get('reports/sales.pdf', [ReportController::class, 'salesPdf'])->middleware('operator.permission:reports.view')->name('reports.sales.pdf');
         Route::get('reports/cash.pdf', [ReportController::class, 'cashPdf'])->middleware('operator.permission:reports.view')->name('reports.cash.pdf');
@@ -86,7 +86,7 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             ->middleware(['module.enabled:purchases', 'operator.permission:purchases.manage'])
             ->name('reports.purchases.pdf');
         Route::get('reports/shifts.pdf', [ReportController::class, 'shiftsPdf'])->middleware('operator.permission:cash.audit')->name('reports.shifts.pdf');
-        Route::get('reports/audit.pdf', [ReportController::class, 'auditPdf'])->middleware('operator.permission:audit.view')->name('reports.audit.pdf');
+        Route::get('reports/audit.pdf', [ReportController::class, 'auditPdf'])->middleware(['module.enabled:audit', 'operator.permission:audit.view'])->name('reports.audit.pdf');
         Route::get('reports/daily-postings.pdf', [ReportController::class, 'dailyPostingsPdf'])->middleware('operator.permission:reports.view')->name('reports.daily-postings.pdf');
         Route::middleware(['module.enabled:current_account', 'operator.permission:current_account.manage'])->group(function () {
             Route::get('current-accounts', [CurrentAccountController::class, 'index'])->name('current-accounts.index');
@@ -99,6 +99,9 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             Route::get('purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
             Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
             Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
+            Route::patch('purchases/{purchase}/approve', [PurchaseController::class, 'approve'])->name('purchases.approve');
+            Route::patch('purchases/{purchase}/reject', [PurchaseController::class, 'reject'])->name('purchases.reject');
+            Route::patch('purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->name('purchases.status');
             Route::post('purchases/{purchase}/receive', [PurchaseController::class, 'receive'])->name('purchases.receive');
         });
 

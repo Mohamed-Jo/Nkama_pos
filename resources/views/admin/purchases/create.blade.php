@@ -49,6 +49,10 @@
                     <input name="purchase_date" type="date" value="{{ old('purchase_date', now()->toDateString()) }}" required>
                 </div>
                 <div class="field">
+                    <label>Vencimento</label>
+                    <input name="due_date" type="date" value="{{ old('due_date', now()->toDateString()) }}">
+                </div>
+                <div class="field">
                     <label>Liquidação</label>
                     <select name="payment_type" required>
                         <option value="direct" @selected(old('payment_type', $currentAccountEnabled ? 'credit' : 'direct') === 'direct')>Pago / sem conta corrente</option>

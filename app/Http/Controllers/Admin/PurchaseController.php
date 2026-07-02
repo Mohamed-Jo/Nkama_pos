@@ -23,8 +23,15 @@ class PurchaseController extends Controller
 
         $totals = [
             'count' => Purchase::count(),
-            'draft' => Purchase::where('status', 'draft')->count(),
-            'received' => Purchase::where('status', 'received')->count(),
+            'open' => Purchase::whereIn('status', [
+                Purchase::STATUS_DRAFT,
+                Purchase::STATUS_ORDERED,
+                Purchase::STATUS_PARTIAL,
+            ])->where('approval_status', '<>', Purchase::APPROVAL_REJECTED)->count(),
+            'pending_approval' => Purchase::where('approval_status', Purchase::APPROVAL_PENDING)->count(),
+            'approved' => Purchase::where('approval_status', Purchase::APPROVAL_APPROVED)->count(),
+            'partial' => Purchase::where('status', Purchase::STATUS_PARTIAL)->count(),
+            'received' => Purchase::where('status', Purchase::STATUS_RECEIVED)->count(),
             'value' => (float) Purchase::sum('total'),
         ];
 
@@ -46,6 +53,7 @@ class PurchaseController extends Controller
             'supplier_id' => ['required', 'exists:suppliers,id'],
             'document_number' => ['nullable', 'string', 'max:80'],
             'purchase_date' => ['required', 'date'],
+            'due_date' => ['nullable', 'date', 'after_or_equal:purchase_date'],
             'payment_type' => ['required', Rule::in(['direct', 'credit'])],
             'notes' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
@@ -67,13 +75,18 @@ class PurchaseController extends Controller
                 'operator_id' => session('operator_id'),
                 'document_number' => $validated['document_number'] ?? null,
                 'purchase_date' => $validated['purchase_date'],
-                'status' => 'draft',
+                'due_date' => $validated['payment_type'] === 'credit'
+                    ? ($validated['due_date'] ?? $validated['purchase_date'])
+                    : $validated['purchase_date'],
+                'status' => Purchase::STATUS_DRAFT,
+                'approval_status' => Purchase::APPROVAL_PENDING,
                 'payment_type' => $validated['payment_type'],
-                'payment_status' => $validated['payment_type'] === 'credit' ? 'unpaid' : 'paid',
+                'payment_status' => 'unpaid',
                 'notes' => $validated['notes'] ?? null,
                 'subtotal' => 0,
                 'tax' => 0,
                 'total' => 0,
+                'paid_amount' => 0,
             ]);
 
             $subtotal = 0.0;
@@ -91,6 +104,7 @@ class PurchaseController extends Controller
                 $purchase->items()->create([
                     'product_id' => $item['product_id'],
                     'quantity' => $quantity,
+                    'received_quantity' => 0,
                     'unit_cost' => $unitCost,
                     'tax_rate' => $taxRate,
                     'subtotal' => $lineSubtotal,
@@ -107,16 +121,62 @@ class PurchaseController extends Controller
                 'subtotal' => round($subtotal, 2),
                 'tax' => round($tax, 2),
                 'total' => round($total, 2),
+                'paid_amount' => 0,
             ]);
 
-            if ($validated['payment_type'] === 'credit' && $total > 0) {
+            return $purchase;
+        });
+
+        return redirect()
+            ->route('admin.purchases.show', $purchase)
+            ->with('success', 'Compra registada. Aprove a compra antes de enviar o pedido ou receber stock.');
+    }
+
+    public function show(Purchase $purchase)
+    {
+        $purchase->load('supplier', 'operator', 'approver', 'rejecter', 'items.product', 'currentAccountEntry');
+
+        return view('admin.purchases.show', compact('purchase'));
+    }
+
+    public function approve(Request $request, Purchase $purchase)
+    {
+        if ($purchase->isClosedForReceiving()) {
+            return back()->with('error', 'Esta compra ja esta fechada.');
+        }
+
+        $operatorId = (int) session('operator_id');
+        if ($purchase->operator_id && $operatorId && (int) $purchase->operator_id === $operatorId) {
+            return back()->with('error', 'A compra deve ser aprovada por outro operador.');
+        }
+
+        DB::transaction(function () use ($purchase) {
+            $purchase = Purchase::lockForUpdate()->findOrFail($purchase->id);
+
+            $updates = [
+                'approval_status' => Purchase::APPROVAL_APPROVED,
+                'approved_by' => session('operator_id'),
+                'approved_at' => now(),
+                'rejected_by' => null,
+                'rejected_at' => null,
+                'rejection_reason' => null,
+            ];
+
+            if ($purchase->payment_type === 'direct') {
+                $updates['paid_amount'] = $purchase->total;
+                $updates['payment_status'] = 'paid';
+            }
+
+            $purchase->update($updates);
+
+            if ($purchase->payment_type === 'credit' && (float) $purchase->total > 0 && !$purchase->current_account_entry_id) {
                 $entry = CurrentAccountEntry::create([
                     'entity_type' => 'supplier',
-                    'entity_id' => $validated['supplier_id'],
-                    'entry_date' => $validated['purchase_date'],
+                    'entity_id' => $purchase->supplier_id,
+                    'entry_date' => optional($purchase->purchase_date)->toDateString() ?: now()->toDateString(),
                     'movement_type' => 'credit',
                     'debit' => 0,
-                    'credit' => round($total, 2),
+                    'credit' => round((float) $purchase->total, 2),
                     'document_type' => 'purchase',
                     'document_id' => $purchase->id,
                     'description' => 'Compra a credito #' . $purchase->id . ($purchase->document_number ? ' - ' . $purchase->document_number : ''),
@@ -125,66 +185,160 @@ class PurchaseController extends Controller
 
                 $purchase->update(['current_account_entry_id' => $entry->id]);
             }
-
-            return $purchase;
         });
 
-        return redirect()
-            ->route('admin.purchases.show', $purchase)
-            ->with('success', 'Compra registada. Receba o stock quando a mercadoria entrar.');
+        return back()->with('success', 'Compra aprovada com sucesso.');
     }
 
-    public function show(Purchase $purchase)
+    public function reject(Request $request, Purchase $purchase)
     {
-        $purchase->load('supplier', 'operator', 'items.product', 'currentAccountEntry');
-
-        return view('admin.purchases.show', compact('purchase'));
-    }
-
-    public function receive(Purchase $purchase)
-    {
-        if ($purchase->status === 'received') {
-            return back()->with('error', 'Esta compra ja foi recebida no stock.');
+        if ($purchase->isApproved()) {
+            return back()->with('error', 'Nao pode rejeitar uma compra ja aprovada. Use um fluxo de anulacao quando necessario.');
         }
 
-        DB::transaction(function () use ($purchase) {
-            $purchase->load('items.product');
+        $operatorId = (int) session('operator_id');
+        if ($purchase->operator_id && $operatorId && (int) $purchase->operator_id === $operatorId) {
+            return back()->with('error', 'A compra deve ser rejeitada por outro operador.');
+        }
 
-            foreach ($purchase->items as $item) {
-                if (!$item->product) {
-                    continue;
+        if ($purchase->items()->where('received_quantity', '>', 0)->exists()) {
+            return back()->with('error', 'Nao pode rejeitar uma compra que ja tem stock recebido.');
+        }
+
+        $validated = $request->validate([
+            'rejection_reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $purchase->update([
+            'approval_status' => Purchase::APPROVAL_REJECTED,
+            'approved_by' => null,
+            'approved_at' => null,
+            'rejected_by' => session('operator_id'),
+            'rejected_at' => now(),
+            'rejection_reason' => $validated['rejection_reason'] ?? null,
+            'status' => Purchase::STATUS_DRAFT,
+        ]);
+
+        return back()->with('success', 'Compra rejeitada.');
+    }
+
+    public function updateStatus(Request $request, Purchase $purchase)
+    {
+        $validated = $request->validate([
+            'status' => ['required', Rule::in([
+                Purchase::STATUS_ORDERED,
+            ])],
+        ]);
+
+        $purchase->load('items');
+
+        if (!$purchase->isApproved()) {
+            return back()->with('error', 'A compra precisa estar aprovada antes de enviar o pedido.');
+        }
+
+        if ($validated['status'] === Purchase::STATUS_ORDERED && $purchase->items->sum('received_quantity') > 0) {
+            return back()->with('error', 'Nao pode voltar uma compra parcial para pedido enviado.');
+        }
+
+        if ($purchase->isClosedForReceiving()) {
+            return back()->with('error', 'Esta compra ja esta fechada.');
+        }
+
+        $purchase->update(['status' => $validated['status']]);
+
+        return back()->with('success', 'Estado da compra atualizado.');
+    }
+
+    public function receive(Request $request, Purchase $purchase)
+    {
+        if (!$purchase->isApproved()) {
+            return back()->with('error', 'A compra precisa estar aprovada antes de receber stock.');
+        }
+
+        if ($purchase->isClosedForReceiving()) {
+            return back()->with('error', 'Esta compra ja nao aceita recebimento de stock.');
+        }
+
+        $validated = $request->validate([
+            'received' => ['nullable', 'array'],
+            'received.*' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $receivedInput = collect($validated['received'] ?? [])
+            ->mapWithKeys(fn ($value, $key) => [(int) $key => (int) $value])
+            ->all();
+
+        $receivedAny = false;
+
+        try {
+            DB::transaction(function () use ($purchase, $receivedInput, &$receivedAny) {
+                $purchase->load('items.product');
+
+                foreach ($purchase->items as $item) {
+                    $remaining = max((int) $item->quantity - (int) $item->received_quantity, 0);
+                    $quantityToReceive = array_key_exists((int) $item->id, $receivedInput)
+                        ? (int) $receivedInput[(int) $item->id]
+                        : $remaining;
+
+                    if ($quantityToReceive <= 0) {
+                        continue;
+                    }
+
+                    if ($quantityToReceive > $remaining) {
+                        throw new \RuntimeException('Quantidade recebida maior que a quantidade pendente em ' . ($item->product->name ?? 'um item') . '.');
+                    }
+
+                    if (!$item->product) {
+                        continue;
+                    }
+
+                    $product = Product::lockForUpdate()->find($item->product_id);
+
+                    if (!$product) {
+                        continue;
+                    }
+
+                    $stockBefore = (float) $product->stock_quantity;
+                    $product->increment('stock_quantity', $quantityToReceive);
+                    $product->update(['purchase_price' => $item->unit_cost]);
+                    $stockAfter = (float) $product->fresh()->stock_quantity;
+
+                    StockMovement::create([
+                        'product_id' => $product->id,
+                        'type' => 'IN',
+                        'quantity' => $quantityToReceive,
+                        'stock_before' => $stockBefore,
+                        'stock_after' => $stockAfter,
+                        'notes' => 'Recebimento compra #' . $purchase->id,
+                        'operator_id' => session('operator_id'),
+                    ]);
+
+                    $item->increment('received_quantity', $quantityToReceive);
+                    $receivedAny = true;
                 }
 
-                $product = Product::lockForUpdate()->find($item->product_id);
-
-                if (!$product) {
-                    continue;
+                if (!$receivedAny) {
+                    throw new \RuntimeException('Informe pelo menos uma quantidade para receber.');
                 }
 
-                $stockBefore = (float) $product->stock_quantity;
-                $product->increment('stock_quantity', (int) $item->quantity);
-                $product->update(['purchase_price' => $item->unit_cost]);
-                $stockAfter = (float) $product->fresh()->stock_quantity;
+                $purchase->load('items');
+                $totalQuantity = (int) $purchase->items->sum('quantity');
+                $totalReceived = (int) $purchase->items->sum('received_quantity');
+                $fullyReceived = $totalQuantity > 0 && $totalReceived >= $totalQuantity;
 
-                StockMovement::create([
-                    'product_id' => $product->id,
-                    'type' => 'IN',
-                    'quantity' => $item->quantity,
-                    'stock_before' => $stockBefore,
-                    'stock_after' => $stockAfter,
-                    'notes' => 'Compra #' . $purchase->id,
-                    'operator_id' => session('operator_id'),
+                $purchase->update([
+                    'status' => $fullyReceived ? Purchase::STATUS_RECEIVED : Purchase::STATUS_PARTIAL,
+                    'received_at' => $fullyReceived ? now() : null,
                 ]);
-            }
+            });
+        } catch (\Throwable $e) {
+            report($e);
 
-            $purchase->update([
-                'status' => 'received',
-                'received_at' => now(),
-            ]);
-        });
+            return back()->with('error', $e->getMessage());
+        }
 
         return redirect()
             ->route('admin.purchases.show', $purchase)
-            ->with('success', 'Stock recebido com sucesso.');
+            ->with('success', 'Recebimento de stock registado com sucesso.');
     }
 }

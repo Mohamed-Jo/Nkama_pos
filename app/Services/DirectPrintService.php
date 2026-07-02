@@ -28,13 +28,16 @@ class DirectPrintService
         $path = $directory . DIRECTORY_SEPARATOR . Str::slug(pathinfo($filename, PATHINFO_FILENAME)) . '-' . now()->format('YmdHis') . '.pdf';
 
         $printSettings = BusinessSettings::print();
-        $paperWidth = ((float) ($printSettings['paper_width_mm'] ?? 80)) * 72 / 25.4;
+        $paperWidthMm = (float) ($printSettings['paper_width_mm'] ?? 80);
+        $paperWidth = $this->mmToPoints($paperWidthMm);
+        $paperHeight = $this->mmToPoints($this->estimatePaperHeightMm($view, $data, $printSettings));
 
         Pdf::loadView($view, array_merge($data, [
             'directPrint' => true,
             'printSettings' => $printSettings,
         ]))
-            ->setPaper([0, 0, $paperWidth, 1200], 'portrait')
+            ->setOption('defaultMediaType', 'print')
+            ->setPaper([0, 0, $paperWidth, $paperHeight], 'portrait')
             ->save($path);
 
         $printerName = trim((string) (BusinessSettings::directPrint()['printer_name'] ?? ''));
@@ -100,5 +103,61 @@ class DirectPrintService
     private function powershellQuote(string $value): string
     {
         return "'" . str_replace("'", "''", $value) . "'";
+    }
+
+    private function mmToPoints(float $millimeters): float
+    {
+        return $millimeters * 72 / 25.4;
+    }
+
+    private function estimatePaperHeightMm(string $view, array $data, array $printSettings): float
+    {
+        $baseHeight = 82.0;
+        $itemHeight = 5.8;
+        $taxRowHeight = 4.4;
+        $footerHeight = 28.0;
+        $lineWrapHeight = 4.2;
+        $items = [];
+        $taxRows = 0;
+
+        if ($view === 'admin.sales.ticket' && isset($data['sale'])) {
+            $items = $data['sale']->items ?? [];
+            $taxRows = $this->saleTaxRows($items);
+        } elseif ($view === 'admin.credit-notes.ticket' && isset($data['creditNote'])) {
+            $items = $data['creditNote']->items ?? [];
+            $taxRows = $this->saleTaxRows($items);
+            $footerHeight += 8;
+        } elseif ($view === 'admin.restaurant.table-ticket' && isset($data['order'])) {
+            $items = $data['order']->items ?? [];
+            $taxRows = count($data['totals']['tax_breakdown'] ?? []);
+        } elseif ($view === 'admin.shifts.ticket') {
+            $payments = $data['payments'] ?? [];
+            $cashMovements = $data['cashMovements'] ?? [];
+
+            return min(900, max(180, 96 + (count($payments) + count($cashMovements)) * 5.4));
+        }
+
+        $height = $baseHeight + $footerHeight + max(1, count($items)) * $itemHeight + max(0, $taxRows) * $taxRowHeight;
+
+        foreach ($items as $item) {
+            $name = (string) ($item->product->name ?? 'Produto removido');
+            $height += max(0, (int) ceil(mb_strlen($name) / 28) - 1) * $lineWrapHeight;
+        }
+
+        $height += (float) ($printSettings['ticket_padding_mm'] ?? 0) * 2;
+
+        return min(900, max(160, $height));
+    }
+
+    private function saleTaxRows(iterable $items): int
+    {
+        $rates = [];
+
+        foreach ($items as $item) {
+            $rate = round((float) ($item->tax_rate ?? $item->product?->tax_rate ?? 0), 2);
+            $rates[number_format($rate, 2, '.', '')] = true;
+        }
+
+        return count($rates);
     }
 }

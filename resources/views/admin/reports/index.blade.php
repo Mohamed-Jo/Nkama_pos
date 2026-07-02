@@ -73,8 +73,19 @@
                     <label>Estado</label>
                     <select name="status">
                         <option value="">Todos</option>
-                        <option value="draft">Por receber</option>
+                        <option value="draft">Por enviar</option>
+                        <option value="ordered">Pedido enviado</option>
+                        <option value="partial">Parcial</option>
                         <option value="received">Recebidas</option>
+                    </select>
+                </div>
+                <div class="report-field">
+                    <label>Aprovacao</label>
+                    <select name="approval_status">
+                        <option value="">Todas</option>
+                        <option value="pending">Pendentes</option>
+                        <option value="approved">Aprovadas</option>
+                        <option value="rejected">Rejeitadas</option>
                     </select>
                 </div>
                 <div class="report-field">
@@ -83,6 +94,16 @@
                         <option value="">Todas</option>
                         <option value="direct">Direta</option>
                         <option value="credit">Conta corrente</option>
+                    </select>
+                </div>
+                <div class="report-field">
+                    <label>Pagamento</label>
+                    <select name="payment_status">
+                        <option value="">Todos</option>
+                        <option value="unpaid">Em aberto</option>
+                        <option value="partial">Parcial</option>
+                        <option value="paid">Pago</option>
+                        <option value="overdue">Vencidas</option>
                     </select>
                 </div>
                 <div class="report-actions">
@@ -207,6 +228,7 @@
             </div>
         </form>
 
+        @if($modules['audit'] ?? true)
         <form class="report-panel" method="GET" action="{{ route('admin.reports.audit.pdf') }}" target="_blank">
             <div class="report-grid">
                 <div class="report-field">
@@ -240,6 +262,7 @@
                 </div>
             </div>
         </form>
+        @endif
     </div>
 
     <script>

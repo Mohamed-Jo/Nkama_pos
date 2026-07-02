@@ -149,7 +149,7 @@
                     <td>{{ optional($purchase->created_at)->format('H:i') }}</td>
                     <td>#{{ $purchase->id }} {{ $purchase->document_number ?: '' }}</td>
                     <td>{{ $purchase->supplier->company_name ?? 'Fornecedor removido' }}</td>
-                    <td>{{ $purchase->payment_type === 'credit' ? 'Conta corrente' : 'Direta' }} / {{ $purchase->status === 'received' ? 'Recebida' : 'Por receber' }}</td>
+                    <td>{{ $purchase->payment_type === 'credit' ? 'Conta corrente' : 'Direta' }} / {{ $purchase->approvalLabel() }} / {{ $purchase->statusLabel() }} / {{ $purchase->paymentStatusLabel() }}</td>
                     <td class="right">{{ number_format((float) $purchase->total, 2, ',', '.') }}</td>
                 </tr>
             @empty
