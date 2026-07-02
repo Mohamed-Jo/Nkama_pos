@@ -392,6 +392,29 @@
 
         @php
             $pendingAmount = max((float) $sale->total - (float) ($sale->paid ?? 0), 0);
+            $paymentLabels = [
+                'cash' => 'Dinheiro',
+                'card' => 'Multicaixa',
+                'multi' => 'Multicaixa',
+                'transf' => 'Transferencia',
+                'transfer' => 'Transferencia',
+                'credit' => 'Conta corrente',
+                'mixed' => 'Pagamento Misto',
+                'mixed_credit' => 'Misto + Conta',
+            ];
+            $paymentLines = $sale->payments
+                ->filter(fn ($payment) => (float) $payment->amount > 0)
+                ->groupBy(fn ($payment) => $payment->method ?? 'unknown')
+                ->map(fn ($payments, $method) => [
+                    'method' => $method,
+                    'label' => $paymentLabels[$method] ?? strtoupper((string) $method),
+                    'amount' => (float) $payments->sum('amount'),
+                ])
+                ->values();
+            $storedPaymentLabel = $paymentLabels[$sale->payment_method] ?? strtoupper($sale->payment_method ?? '-');
+            $paymentMethodLabel = in_array($sale->payment_method, ['mixed', 'mixed_credit'], true) || $paymentLines->count() > 1
+                ? $storedPaymentLabel
+                : ($paymentLines->first()['label'] ?? $storedPaymentLabel);
         @endphp
         <table class="summary-table">
             <tr>
@@ -410,8 +433,16 @@
             </tr>
             <tr>
                 <td>Metodo</td>
-                <td>{{ strtoupper($sale->payments->first()?->method ?? $sale->payment_method ?? '-') }}</td>
+                <td>{{ $paymentMethodLabel }}</td>
             </tr>
+            @foreach($paymentLines as $paymentLine)
+                @if($paymentLines->count() > 1)
+                    <tr>
+                        <td>{{ $paymentLine['label'] }}</td>
+                        <td>{{ number_format($paymentLine['amount'], 2, ',', '.') }}</td>
+                    </tr>
+                @endif
+            @endforeach
         </table>
 
         <div class="line"></div>

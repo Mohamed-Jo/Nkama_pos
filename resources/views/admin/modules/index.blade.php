@@ -163,6 +163,41 @@
 
             <div class="module-row">
                 <div>
+                    <div class="module-title">Vendas</div>
+                    <div class="module-text">Ativa emissao de vendas, historico de facturas, tickets e relatorios de vendas.</div>
+                </div>
+                <label class="module-toggle">
+                    <input type="checkbox" name="modules[sales]" value="1" @checked($modules['sales'] ?? false)>
+                    <span class="switch-track"><span class="switch-knob"></span></span>
+                    <span class="switch-text">{{ ($modules['sales'] ?? false) ? 'ON' : 'OFF' }}</span>
+                </label>
+            </div>
+
+            <div class="module-row">
+                <div>
+                    <div class="module-title">Stocks</div>
+                    <div class="module-text">Ativa validacao, entrada, saida e relatorios de stock.</div>
+                </div>
+                <label class="module-toggle">
+                    <input type="checkbox" name="modules[stock]" value="1" @checked($modules['stock'] ?? false)>
+                    <span class="switch-track"><span class="switch-knob"></span></span>
+                    <span class="switch-text">{{ ($modules['stock'] ?? false) ? 'ON' : 'OFF' }}</span>
+                </label>
+            </div>
+
+            <div class="module-row">
+                <div>
+                    <div class="module-title">Transferencias</div>
+                    <div class="module-text">Ativa transferencia de contas e produtos entre mesas do restaurante.</div>
+                </div>
+                <label class="module-toggle">
+                    <input type="checkbox" name="modules[transfers]" value="1" @checked($modules['transfers'] ?? false)>
+                    <span class="switch-track"><span class="switch-knob"></span></span>
+                    <span class="switch-text">{{ ($modules['transfers'] ?? false) ? 'ON' : 'OFF' }}</span>
+                </label>
+            </div>
+            <div class="module-row">
+                <div>
                     <div class="module-title">Conta Corrente</div>
                     <div class="module-text">Ativa FT em conta corrente, recebimentos, pagamentos a fornecedores, extratos e relatórios de saldo.</div>
                 </div>

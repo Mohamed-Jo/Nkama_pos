@@ -10,6 +10,9 @@ class ModuleSettings
     public const DEFAULTS = [
         'restaurant' => true,
         'supermarket' => true,
+        'sales' => true,
+        'stock' => true,
+        'transfers' => true,
         'current_account' => true,
         'purchases' => true,
         'view_ticket' => true,
@@ -37,6 +40,9 @@ class ModuleSettings
         $values = [
             'restaurant' => (bool) ($modules['restaurant'] ?? false),
             'supermarket' => (bool) ($modules['supermarket'] ?? false),
+            'sales' => (bool) ($modules['sales'] ?? false),
+            'stock' => (bool) ($modules['stock'] ?? false),
+            'transfers' => (bool) ($modules['transfers'] ?? false),
             'current_account' => (bool) ($modules['current_account'] ?? false),
             'purchases' => (bool) ($modules['purchases'] ?? false),
             'view_ticket' => (bool) ($modules['view_ticket'] ?? false),
