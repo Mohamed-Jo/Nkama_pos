@@ -4,58 +4,92 @@
 
 @section('content')
     <style>
+        :root {
+            --primary: #f97316;
+            --primary-dark: #ea580c;
+            --bg-panel: rgba(15, 23, 42, 0.85);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-main: #fff;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --success-light: #86efac;
+            --success-bg: rgba(16, 185, 129, 0.15);
+        }
+
         .modules-wrap {
-            max-width: 860px;
+            max-width: 900px;
+            margin: 0 auto;
+            font-family: 'Inter', sans-serif; /* Recomendado usar uma fonte moderna */
         }
 
         .modules-alert {
-            background: rgba(16, 185, 129, 0.12);
-            border: 1px solid rgba(16, 185, 129, 0.24);
-            border-radius: 8px;
-            color: #86efac;
-            margin-bottom: 14px;
-            padding: 10px 12px;
+            background: var(--success-bg);
+            border: 1px solid var(--success);
+            border-radius: 12px;
+            color: var(--success-light);
+            margin-bottom: 20px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
         }
 
         .modules-panel {
-            background: rgba(15, 23, 42, 0.72);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 8px;
-            padding: 18px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
         }
 
         .module-row {
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            align-items: flex-start;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
             display: flex;
             justify-content: space-between;
-            gap: 18px;
-            padding: 16px 0;
+            gap: 20px;
+            padding: 20px;
+            transition: background 0.2s ease, border-color 0.2s ease;
         }
 
-        .module-row:last-child {
-            border-bottom: none;
+        .module-row:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .module-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
 
         .module-title {
-            color: #fff;
-            font-size: 15px;
-            font-weight: 800;
-            margin-bottom: 4px;
+            color: var(--text-main);
+            font-size: 16px;
+            font-weight: 700;
         }
 
         .module-text {
-            color: #94a3b8;
-            font-size: 13px;
-            line-height: 1.45;
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.5;
         }
 
         .module-toggle {
             align-items: center;
             cursor: pointer;
             display: inline-flex;
-            gap: 10px;
-            white-space: nowrap;
+            gap: 12px;
+            margin-top: 5px;
         }
 
         .module-toggle input {
@@ -67,181 +101,107 @@
 
         .switch-track {
             align-items: center;
-            background: #334155;
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: #475569;
             border-radius: 999px;
             display: inline-flex;
-            height: 30px;
+            height: 28px;
             padding: 3px;
-            transition: background .18s ease, border-color .18s ease;
-            width: 56px;
+            transition: background .3s ease;
+            width: 52px;
+            position: relative;
         }
 
         .switch-knob {
-            background: #e2e8f0;
+            background: var(--text-main);
             border-radius: 999px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, .26);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             display: block;
             height: 22px;
-            transition: transform .18s ease, background .18s ease;
+            transition: transform .3s ease, background .3s ease;
             width: 22px;
-        }
-
-        .switch-text {
-            color: #94a3b8;
-            font-size: 12px;
-            font-weight: 900;
-            letter-spacing: .04em;
-            min-width: 32px;
-            text-align: left;
+            z-index: 2;
         }
 
         .module-toggle input:checked + .switch-track {
-            background: #10b981;
-            border-color: rgba(16, 185, 129, .55);
+            background: var(--success);
         }
 
         .module-toggle input:checked + .switch-track .switch-knob {
-            background: #ecfdf5;
-            transform: translateX(26px);
-        }
-
-        .module-toggle input:checked ~ .switch-text {
-            color: #86efac;
+            transform: translateX(24px);
         }
 
         .module-actions {
             display: flex;
             justify-content: flex-end;
-            margin-top: 18px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
         }
 
         .module-btn {
-            background: #f97316;
+            background: var(--primary);
             border: none;
-            border-radius: 8px;
-            color: #111827;
+            border-radius: 10px;
+            color: #fff;
             cursor: pointer;
-            font-weight: 900;
-            min-height: 42px;
-            padding: 0 16px;
+            font-weight: 700;
+            font-size: 15px;
+            height: 48px;
+            padding: 0 24px;
+            transition: background .2s ease, transform 0.1s ease;
+        }
+
+        .module-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .module-btn:active {
+            transform: scale(0.98);
         }
     </style>
 
     <div class="modules-wrap">
         @if(session('success'))
-            <div class="modules-alert">{{ session('success') }}</div>
+            <div class="modules-alert">
+                <span style="font-size: 1.2em;">✓</span> 
+                {{ session('success') }}
+            </div>
         @endif
+
+        @php
+            $availableModules = [
+                'restaurant'      => ['title' => 'Restaurante', 'desc' => 'Ativa salão, mesas, categorias de restaurante e pedidos por mesa.'],
+                'supermarket'     => ['title' => 'Supermercado', 'desc' => 'Ativa caixa de retalho, leitura por código de barras e grelha de produtos.'],
+                'sales'           => ['title' => 'Vendas', 'desc' => 'Ativa emissão de vendas, histórico de faturas, tickets e relatórios de vendas.'],
+                'stock'           => ['title' => 'Stocks', 'desc' => 'Ativa validação, entrada, saída e relatórios de stock.'],
+                'transfers'       => ['title' => 'Transferências', 'desc' => 'Ativa transferência de contas e produtos entre mesas do restaurante.'],
+                'current_account' => ['title' => 'Conta Corrente', 'desc' => 'Ativa FT em conta corrente, recebimentos, pagamentos a fornecedores, extratos e relatórios de saldo.'],
+                'view_ticket'     => ['title' => 'Ver Ticket', 'desc' => 'Quando ativo, abre o ticket para conferir. Quando inativo, envia direto para impressão.'],
+                'audit'           => ['title' => 'Auditoria', 'desc' => 'Ativa trilha de auditoria, relatório de auditoria e fecho diário pela auditoria.'],
+                'purchases'       => ['title' => 'Compras', 'desc' => 'Ativa registo de compras, entrada de mercadoria e atualização de stock.']
+            ];
+        @endphp
 
         <form method="POST" action="{{ route('admin.modules.update') }}" class="modules-panel">
             @csrf
             @method('PUT')
 
-            <div class="module-row">
-                <div>
-                    <div class="module-title">Restaurante</div>
-                    <div class="module-text">Ativa salão, mesas, categorias de restaurante e pedidos por mesa.</div>
-                </div>
-                <label class="module-toggle">
-                    <input type="checkbox" name="modules[restaurant]" value="1" @checked($modules['restaurant'] ?? false)>
-                    <span class="switch-track"><span class="switch-knob"></span></span>
-                    <span class="switch-text">{{ ($modules['restaurant'] ?? false) ? 'ON' : 'OFF' }}</span>
-                </label>
-            </div>
-
-            <div class="module-row">
-                <div>
-                    <div class="module-title">Supermercado</div>
-                    <div class="module-text">Ativa caixa de retalho, leitura por código de barras e grelha de produtos.</div>
-                </div>
-                <label class="module-toggle">
-                    <input type="checkbox" name="modules[supermarket]" value="1" @checked($modules['supermarket'] ?? false)>
-                    <span class="switch-track"><span class="switch-knob"></span></span>
-                    <span class="switch-text">{{ ($modules['supermarket'] ?? false) ? 'ON' : 'OFF' }}</span>
-                </label>
-            </div>
-
-            <div class="module-row">
-                <div>
-                    <div class="module-title">Vendas</div>
-                    <div class="module-text">Ativa emissao de vendas, historico de facturas, tickets e relatorios de vendas.</div>
-                </div>
-                <label class="module-toggle">
-                    <input type="checkbox" name="modules[sales]" value="1" @checked($modules['sales'] ?? false)>
-                    <span class="switch-track"><span class="switch-knob"></span></span>
-                    <span class="switch-text">{{ ($modules['sales'] ?? false) ? 'ON' : 'OFF' }}</span>
-                </label>
-            </div>
-
-            <div class="module-row">
-                <div>
-                    <div class="module-title">Stocks</div>
-                    <div class="module-text">Ativa validacao, entrada, saida e relatorios de stock.</div>
-                </div>
-                <label class="module-toggle">
-                    <input type="checkbox" name="modules[stock]" value="1" @checked($modules['stock'] ?? false)>
-                    <span class="switch-track"><span class="switch-knob"></span></span>
-                    <span class="switch-text">{{ ($modules['stock'] ?? false) ? 'ON' : 'OFF' }}</span>
-                </label>
-            </div>
-
-            <div class="module-row">
-                <div>
-                    <div class="module-title">Transferencias</div>
-                    <div class="module-text">Ativa transferencia de contas e produtos entre mesas do restaurante.</div>
-                </div>
-                <label class="module-toggle">
-                    <input type="checkbox" name="modules[transfers]" value="1" @checked($modules['transfers'] ?? false)>
-                    <span class="switch-track"><span class="switch-knob"></span></span>
-                    <span class="switch-text">{{ ($modules['transfers'] ?? false) ? 'ON' : 'OFF' }}</span>
-                </label>
-            </div>
-            <div class="module-row">
-                <div>
-                    <div class="module-title">Conta Corrente</div>
-                    <div class="module-text">Ativa FT em conta corrente, recebimentos, pagamentos a fornecedores, extratos e relatórios de saldo.</div>
-                </div>
-                <label class="module-toggle">
-                    <input type="checkbox" name="modules[current_account]" value="1" @checked($modules['current_account'] ?? false)>
-                    <span class="switch-track"><span class="switch-knob"></span></span>
-                    <span class="switch-text">{{ ($modules['current_account'] ?? false) ? 'ON' : 'OFF' }}</span>
-                </label>
-            </div>
-
-            <div class="module-row">
-                <div>
-                    <div class="module-title">Ver Ticket</div>
-                    <div class="module-text">Quando ativo, abre o ticket para conferir. Quando inativo, envia direto para impressao.</div>
-                </div>
-                <label class="module-toggle">
-                    <input type="checkbox" name="modules[view_ticket]" value="1" @checked($modules['view_ticket'] ?? false)>
-                    <span class="switch-track"><span class="switch-knob"></span></span>
-                    <span class="switch-text">{{ ($modules['view_ticket'] ?? false) ? 'ON' : 'OFF' }}</span>
-                </label>
-            </div>
-
-            <div class="module-row">
-                <div>
-                    <div class="module-title">Auditoria</div>
-                    <div class="module-text">Ativa trilha de auditoria, relatorio de auditoria e fecho diario pela auditoria.</div>
-                </div>
-                <label class="module-toggle">
-                    <input type="checkbox" name="modules[audit]" value="1" @checked($modules['audit'] ?? false)>
-                    <span class="switch-track"><span class="switch-knob"></span></span>
-                    <span class="switch-text">{{ ($modules['audit'] ?? false) ? 'ON' : 'OFF' }}</span>
-                </label>
-            </div>
-
-            <div class="module-row">
-                <div>
-                    <div class="module-title">Compras</div>
-                    <div class="module-text">Ativa registo de compras, entrada de mercadoria e atualizacao de stock.</div>
-                </div>
-                <label class="module-toggle">
-                    <input type="checkbox" name="modules[purchases]" value="1" @checked($modules['purchases'] ?? false)>
-                    <span class="switch-track"><span class="switch-knob"></span></span>
-                    <span class="switch-text">{{ ($modules['purchases'] ?? false) ? 'ON' : 'OFF' }}</span>
-                </label>
+            <div class="module-grid">
+                @foreach($availableModules as $key => $module)
+                    @php $isActive = $modules[$key] ?? false; @endphp
+                    <div class="module-row">
+                        <div class="module-info">
+                            <div class="module-title">{{ $module['title'] }}</div>
+                            <div class="module-text">{{ $module['desc'] }}</div>
+                        </div>
+                        <label class="module-toggle">
+                            <input type="checkbox" name="modules[{{ $key }}]" value="1" @checked($isActive)>
+                            <span class="switch-track">
+                                <span class="switch-knob"></span>
+                            </span>
+                        </label>
+                    </div>
+                @endforeach
             </div>
 
             <div class="module-actions">
@@ -249,19 +209,4 @@
             </div>
         </form>
     </div>
-
-    <script>
-        document.querySelectorAll('.module-toggle input').forEach((input) => {
-            const text = input.closest('.module-toggle')?.querySelector('.switch-text');
-
-            function syncSwitchText() {
-                if (text) {
-                    text.textContent = input.checked ? 'ON' : 'OFF';
-                }
-            }
-
-            input.addEventListener('change', syncSwitchText);
-            syncSwitchText();
-        });
-    </script>
 @endsection
