@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\EnviarDocumentoAGTJob;
 use App\Models\AgtDocument;
 use App\Models\AgtSeries;
 use App\Models\CreditNote;
@@ -129,13 +130,13 @@ class AgtDocumentController extends Controller
         return back()->with('success', 'Nota de credito AGT preparada: ' . $document->invoice_number);
     }
 
-    public function send(AgtDocument $agtDocument, AGTElectronicInvoiceService $service): RedirectResponse
+    public function send(AgtDocument $agtDocument): RedirectResponse
     {
-        $document = $service->send($agtDocument);
+        EnviarDocumentoAGTJob::dispatch((int) $agtDocument->id)->afterResponse();
 
         return back()->with(
-            $document->status === 'failed' ? 'error' : 'success',
-            $document->invoice_number . ' - ' . $document->validation_message
+            'success',
+            $agtDocument->invoice_number . ' - envio AGT agendado.'
         );
     }
 

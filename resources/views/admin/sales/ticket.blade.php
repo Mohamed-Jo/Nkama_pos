@@ -221,6 +221,26 @@
             margin-top: 4px;
         }
 
+        .agt-qr {
+            font-size: {{ max((float) $printSettings['content_font_size_px'] - 1, 8) }}px;
+            font-weight: 800;
+            text-align: center;
+            overflow-wrap: anywhere;
+        }
+
+        .agt-qr svg {
+            display: block;
+            height: 88px;
+            margin: 4px auto;
+            width: 88px;
+        }
+
+        .agt-qr-link {
+            font-size: {{ max((float) $printSettings['content_font_size_px'] - 3, 7) }}px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
         .ticket > .center:not(:first-child) {
             font-size: {{ $printSettings['content_font_size_px'] }}px;
         }
@@ -325,8 +345,20 @@
             </div>
         @endif
 
-        <div class="line"></div>
+        @php
+            $agtQrUrl = \App\Services\BusinessSettings::agtDocumentUrl($company, $sale->invoice_number);
+            $agtQrSvg = \App\Services\BusinessSettings::agtQrSvg($company, $sale->invoice_number, 88);
+        @endphp
+        @if($agtQrSvg)
+            <div class="line"></div>
+            <div class="agt-qr">
+                <div>Consulta AGT</div>
+                {!! $agtQrSvg !!}
+                <div class="agt-qr-link">{{ $agtQrUrl }}</div>
+            </div>
+        @endif
 
+        <div class="line"></div>
         @foreach($sale->items as $item)
             @php
                 $taxRateLabel = rtrim(rtrim(number_format((float) ($item->tax_rate ?? 0), 2, ',', '.'), '0'), ',');

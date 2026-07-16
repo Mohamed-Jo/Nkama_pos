@@ -48,6 +48,9 @@
         .tax-summary-table td:nth-child(2), .tax-summary-table td:nth-child(3) { overflow-wrap:anywhere; text-align:right; width:41%; }
         .tax-summary-head td { border-bottom:1px solid #000; font-size:{{ max((float) $printSettings['tax_summary_font_size_px'] - 1, 8) }}px; font-weight:900; padding-bottom:2px; }
         .total-final { font-size:{{ $printSettings['total_font_size_px'] }}px; font-weight:900; margin-top:4px; }
+        .agt-qr { font-size:{{ max((float) $printSettings['content_font_size_px'] - 1, 8) }}px; font-weight:800; overflow-wrap:anywhere; text-align:center; }
+        .agt-qr svg { display:block; height:88px; margin:4px auto; width:88px; }
+        .agt-qr-link { font-size:{{ max((float) $printSettings['content_font_size_px'] - 3, 7) }}px; font-weight:600; line-height:1.2; }
         .ticket > .center:not(:first-child) { font-size:{{ $printSettings['content_font_size_px'] }}px; }
         .actions { display:flex; gap:8px; justify-content:center; margin:12px auto; width:{{ $printSettings['ticket_width_mm'] }}mm; }
         .actions button, .actions a { background:#111827; border:none; border-radius:6px; color:#fff; cursor:pointer; font-family:system-ui,sans-serif; font-size:12px; font-weight:700; padding:8px 10px; text-decoration:none; }
@@ -87,6 +90,19 @@
         <div class="row"><span>Cliente</span><span>{{ $creditNote->customer->name ?? 'Consumidor Final' }}</span></div>
         @if($creditNote->reason)
             <div class="row"><span>Motivo</span><span>{{ $creditNote->reason }}</span></div>
+        @endif
+
+        @php
+            $agtQrUrl = \App\Services\BusinessSettings::agtDocumentUrl($company, $creditNote->invoice_number);
+            $agtQrSvg = \App\Services\BusinessSettings::agtQrSvg($company, $creditNote->invoice_number, 88);
+        @endphp
+        @if($agtQrSvg)
+            <div class="line"></div>
+            <div class="agt-qr">
+                <div>Consulta AGT</div>
+                {!! $agtQrSvg !!}
+                <div class="agt-qr-link">{{ $agtQrUrl }}</div>
+            </div>
         @endif
 
         <div class="line"></div>

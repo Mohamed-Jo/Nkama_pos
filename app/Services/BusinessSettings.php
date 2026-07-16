@@ -234,6 +234,42 @@ class BusinessSettings
         return 'data:' . $mimeType . ';base64,' . base64_encode(file_get_contents($fullPath));
     }
 
+    public static function agtDocumentUrl(?array $company, ?string $documentNumber): ?string
+    {
+        $company ??= self::company();
+        $nif = trim((string) ($company['nif'] ?? config('agt.nif', '')));
+        $document = trim((string) $documentNumber);
+
+        if ($nif === '' || $document === '') {
+            return null;
+        }
+
+        return 'https://quiosqueagt.minfin.gov.ao/facturacao-eletronica/consultar-fe?' . http_build_query([
+            'emissor' => preg_replace('/\s+/', '', $nif),
+            'document' => $document,
+        ], '', '&', PHP_QUERY_RFC3986);
+    }
+
+    public static function agtQrSvg(?array $company, ?string $documentNumber, int $size = 120): ?string
+    {
+        $url = self::agtDocumentUrl($company, $documentNumber);
+
+        if (! $url || ! class_exists(\SimpleSoftwareIO\QrCode\Facades\QrCode::class)) {
+            return null;
+        }
+
+        try {
+            $svg = (string) \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+                ->size($size)
+                ->margin(1)
+                ->errorCorrection('M')
+                ->generate($url);
+
+            return preg_replace('/<\?xml[^>]*\?>\s*/', '', $svg) ?: $svg;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
     public static function loginBackgroundUrl(?array $company = null): ?string
     {
         $company ??= self::company();

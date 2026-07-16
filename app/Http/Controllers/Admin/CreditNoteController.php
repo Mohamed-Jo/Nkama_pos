@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\EnviarDocumentoAGTJob;
+use App\Jobs\SolicitarSerieAGTJob;
 use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
 use App\Models\CurrentAccountEntry;
@@ -12,7 +14,6 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\StockMovement;
-use App\Services\AGTSeriesRequestService;
 use App\Services\AGTElectronicInvoiceService;
 use App\Services\BusinessSettings;
 use App\Services\DocumentNumbering;
@@ -219,7 +220,10 @@ class CreditNoteController extends Controller
                 return $creditNote;
             });
 
-            app(AGTSeriesRequestService::class)->requestForCreditNote($creditNote);
+            if ($creditNote->document_series_id) {
+                SolicitarSerieAGTJob::dispatch((int) $creditNote->document_series_id)->afterResponse();
+            }
+
             $agtDocument = $this->registerAgtCreditNote($creditNote);
 
             if (! ModuleSettings::enabled('view_ticket')) {
@@ -261,8 +265,11 @@ class CreditNoteController extends Controller
     {
         try {
             $service = app(AGTElectronicInvoiceService::class);
+            $document = $service->prepareCreditNote($creditNote);
 
-            return $service->send($service->prepareCreditNote($creditNote));
+            EnviarDocumentoAGTJob::dispatch((int) $document->id)->afterResponse();
+
+            return $document;
         } catch (\Throwable $e) {
             report($e);
 

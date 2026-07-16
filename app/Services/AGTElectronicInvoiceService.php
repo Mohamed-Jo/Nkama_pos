@@ -103,6 +103,95 @@ class AGTElectronicInvoiceService
         return $document->fresh();
     }
 
+    public function sendPending(int $limit = 20): int
+    {
+        $count = 0;
+
+        AgtDocument::query()
+            ->where(function ($query): void {
+                $query->where('status', 'ready')
+                    ->orWhere(function ($query): void {
+                        $query->where('status', 'failed')
+                            ->whereNull('external_id');
+                    });
+            })
+            ->where('attempts', '<', 5)
+            ->oldest()
+            ->limit($limit)
+            ->get()
+            ->each(function (AgtDocument $document) use (&$count): void {
+                $this->send($document);
+                $count++;
+            });
+
+        return $count;
+    }
+
+    public function syncPendingStatus(int $limit = 50): int
+    {
+        $count = 0;
+
+        AgtDocument::query()
+            ->where('status', 'pending')
+            ->whereNotNull('external_id')
+            ->oldest('submitted_at')
+            ->limit($limit)
+            ->get()
+            ->each(function (AgtDocument $document) use (&$count): void {
+                $this->syncStatus($document);
+                $count++;
+            });
+
+        return $count;
+    }
+
+    public function syncStatus(AgtDocument $document): AgtDocument
+    {
+        $document->refresh();
+
+        if ($document->status === 'submitted' || ! $document->external_id) {
+            return $document;
+        }
+
+        if (! config('agt.enabled')) {
+            return $document;
+        }
+
+        try {
+            $agt = app(AGTApiService::class);
+            $statusResponse = $agt->consultarEstado((string) $document->external_id);
+            $agtStatus = $this->agtDocumentStatus($statusResponse);
+            $status = $this->localStatus(['resultCode' => 1], $agtStatus, (string) $document->external_id);
+            $failed = $status === 'failed';
+
+            $document->forceFill([
+                'status' => $status,
+                'last_response' => array_filter([
+                    'registration' => data_get($document->last_response, 'registration'),
+                    'status_query' => $statusResponse,
+                    'agt_document_status' => $agtStatus,
+                ], fn ($value) => $value !== null),
+                'last_error' => $failed ? $this->responseMessage($statusResponse) : null,
+                'accepted_at' => $status === 'submitted' ? now() : $document->accepted_at,
+                'rejected_at' => $failed ? now() : null,
+            ])->save();
+
+            $this->exportResponseJson($document->fresh());
+        } catch (\Throwable $e) {
+            $document->forceFill([
+                'last_error' => $e->getMessage(),
+            ])->save();
+
+            Log::warning('Falha na consulta de estado AGT', [
+                'agt_document_id' => $document->id,
+                'invoice_number' => $document->invoice_number,
+                'external_id' => $document->external_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $document->fresh();
+    }
     private function ensureSignedPayload(AgtDocument $agtDocument): AgtDocument
     {
         $source = $agtDocument->document;
@@ -326,19 +415,52 @@ class AGTElectronicInvoiceService
 
     private function responseMessage(array $response): string
     {
-        $errors = $response['errorList'] ?? $response['errors'] ?? null;
+        $errors = $this->extractResponseErrors($response);
 
-        if (is_array($errors)) {
+        if ($errors !== []) {
             return collect($errors)
                 ->map(fn ($error) => is_array($error) ? json_encode($error, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $error)
-                ->filter()
+                ->filter(fn ($error) => trim((string) $error) !== '')
                 ->take(3)
                 ->implode(' | ') ?: 'Erro AGT nao especificado.';
         }
 
-        return (string) ($errors ?: ($response['message'] ?? 'Erro AGT nao especificado.'));
+        return (string) ($response['message'] ?? 'Erro AGT nao especificado.');
     }
 
+    private function extractResponseErrors(array $response): array
+    {
+        $errors = [];
+
+        foreach (['errorList', 'errors', 'requestErrorList'] as $key) {
+            $value = $response[$key] ?? null;
+
+            if (is_array($value)) {
+                array_push($errors, ...$value);
+            } elseif (filled($value)) {
+                $errors[] = $value;
+            }
+        }
+
+        foreach ((array) ($response['documentStatusList'] ?? []) as $documentStatus) {
+            if (! is_array($documentStatus)) {
+                continue;
+            }
+
+            foreach ((array) ($documentStatus['errorList'] ?? []) as $error) {
+                if (is_array($error)) {
+                    $errors[] = trim(implode(' ', array_filter([
+                        $error['idError'] ?? null,
+                        $error['descriptionError'] ?? null,
+                    ])));
+                } else {
+                    $errors[] = $error;
+                }
+            }
+        }
+
+        return array_values(array_filter($errors, fn ($error) => trim((string) $error) !== ''));
+    }
     private function documentHash(Model $document): string
     {
         return hash('sha256', implode('|', [

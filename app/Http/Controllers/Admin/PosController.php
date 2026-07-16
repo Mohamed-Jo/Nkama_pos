@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\EnviarDocumentoAGTJob;
+use App\Jobs\SolicitarSerieAGTJob;
 use App\Models\Category;
 use App\Models\CurrentAccountEntry;
 use App\Models\Customer;
@@ -14,7 +16,6 @@ use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\StockMovement;
 use App\Services\AuditLogger;
-use App\Services\AGTSeriesRequestService;
 use App\Services\AGTElectronicInvoiceService;
 use App\Services\BusinessSettings;
 use App\Services\CustomerCardAuthorizationService;
@@ -327,7 +328,10 @@ class PosController extends Controller
                 return $sale;
             });
 
-            app(AGTSeriesRequestService::class)->requestForSale($sale);
+            if ($sale->document_series_id) {
+                SolicitarSerieAGTJob::dispatch((int) $sale->document_series_id)->afterResponse();
+            }
+
             $agtDocument = $this->registerAgtSale($sale);
 
             return response()->json([
@@ -356,8 +360,11 @@ class PosController extends Controller
     {
         try {
             $service = app(AGTElectronicInvoiceService::class);
+            $document = $service->prepareSale($sale);
 
-            return $service->send($service->prepareSale($sale));
+            EnviarDocumentoAGTJob::dispatch((int) $document->id)->afterResponse();
+
+            return $document;
         } catch (\Throwable $e) {
             report($e);
 
@@ -367,7 +374,7 @@ class PosController extends Controller
     public function findProductByBarcode(Request $request)
     {
         if (!ModuleSettings::enabled('supermarket')) {
-            return response()->json(['success' => false, 'message' => 'Módulo supermercado desativado.'], 403);
+            return response()->json(['success' => false, 'message' => 'Modulo supermercado desativado.'], 403);
         }
 
         $product = Product::where('barcode', $request->barcode)->where('status', true)->first();

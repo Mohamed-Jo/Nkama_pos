@@ -32,6 +32,10 @@
         .totals { margin-left: auto; width: 100%; }
         .totals td { border-bottom: 1px solid #e5e7eb; padding: 6px; }
         .grand td { background: #111827; color: #fff; font-size: 13px; font-weight: 900; }
+        .agt-qr-box { border: 1px solid #d1d5db; margin-top: 10px; padding: 8px; text-align: center; }
+        .agt-qr-title { color: #374151; font-size: 9px; font-weight: 800; margin-bottom: 5px; text-transform: uppercase; }
+        .agt-qr-box svg { height: 92px; width: 92px; }
+        .agt-qr-url { color: #4b5563; font-size: 7.5px; line-height: 1.25; margin-top: 4px; word-break: break-all; }
         .footer { border-top: 1px solid #d1d5db; color: #6b7280; font-size: 9px; margin-top: 18px; padding-top: 7px; text-align: center; }
     </style>
 </head>
@@ -86,6 +90,9 @@
             }
             return $words;
         };
+
+        $agtQrUrl = \App\Services\BusinessSettings::agtDocumentUrl($company, $sale->invoice_number);
+        $agtQrSvg = \App\Services\BusinessSettings::agtQrSvg($company, $sale->invoice_number, 92);
     @endphp
 
     <div class="top">
@@ -153,6 +160,14 @@
                     @endforeach
                 </tbody>
             </table>
+
+            @if($agtQrSvg)
+                <div class="agt-qr-box">
+                    <div class="agt-qr-title">Consulta AGT</div>
+                    {!! $agtQrSvg !!}
+                    <div class="agt-qr-url">{{ $agtQrUrl }}</div>
+                </div>
+            @endif
 
             @if(!empty($sale->exemption_reason))
                 <div class="info-box">

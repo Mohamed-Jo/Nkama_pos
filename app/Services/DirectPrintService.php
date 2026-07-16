@@ -123,10 +123,11 @@ class DirectPrintService
         if ($view === 'admin.sales.ticket' && isset($data['sale'])) {
             $items = $data['sale']->items ?? [];
             $taxRows = $this->saleTaxRows($items);
+            $footerHeight += 32;
         } elseif ($view === 'admin.credit-notes.ticket' && isset($data['creditNote'])) {
             $items = $data['creditNote']->items ?? [];
             $taxRows = $this->saleTaxRows($items);
-            $footerHeight += 8;
+            $footerHeight += 40;
         } elseif ($view === 'admin.restaurant.table-ticket' && isset($data['order'])) {
             $items = $data['order']->items ?? [];
             $taxRows = count($data['totals']['tax_breakdown'] ?? []);
