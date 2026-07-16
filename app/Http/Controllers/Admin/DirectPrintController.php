@@ -22,7 +22,7 @@ class DirectPrintController extends Controller
             abort(403, 'Sem permissao para imprimir esta venda.');
         }
 
-        $sale->load('operator', 'items.product', 'payments', 'customer');
+        $sale->load('operator', 'items.product', 'payments', 'customer.card', 'customerCard.balanceTransactions', 'pointTransactions');
         $company = BusinessSettings::company();
 
         return $this->send(function () use ($printer, $sale, $company) {

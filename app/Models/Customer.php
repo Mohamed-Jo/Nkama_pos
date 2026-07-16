@@ -13,4 +13,14 @@ class Customer extends Model
         'address',
         'status'
     ];
+
+    public function card()
+    {
+        return $this->hasOne(CustomerCard::class);
+    }
+
+    public function coupons()
+    {
+        return $this->hasMany(CustomerCoupon::class);
+    }
 }

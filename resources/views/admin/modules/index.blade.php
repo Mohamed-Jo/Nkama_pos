@@ -176,6 +176,8 @@
                 'stock'           => ['title' => 'Stocks', 'desc' => 'Ativa validação, entrada, saída e relatórios de stock.'],
                 'transfers'       => ['title' => 'Transferências', 'desc' => 'Ativa transferência de contas e produtos entre mesas do restaurante.'],
                 'current_account' => ['title' => 'Conta Corrente', 'desc' => 'Ativa FT em conta corrente, recebimentos, pagamentos a fornecedores, extratos e relatórios de saldo.'],
+                'customer_card'   => ['title' => 'Cartão Cliente', 'desc' => 'Ativa cadastro, consulta e seleção de clientes para vendas e conta corrente.'],
+                'customer_card_otp' => ['title' => 'OTP Cartao Cliente', 'desc' => 'Permite enviar OTP ao cliente para autorizar pagamento por fidelidade. Se desligado, use autorizacao do gestor.'],
                 'view_ticket'     => ['title' => 'Ver Ticket', 'desc' => 'Quando ativo, abre o ticket para conferir. Quando inativo, envia direto para impressão.'],
                 'audit'           => ['title' => 'Auditoria', 'desc' => 'Ativa trilha de auditoria, relatório de auditoria e fecho diário pela auditoria.'],
                 'purchases'       => ['title' => 'Compras', 'desc' => 'Ativa registo de compras, entrada de mercadoria e atualização de stock.']

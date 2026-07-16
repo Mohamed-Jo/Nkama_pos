@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\{
     CategoryController,
     ProductController,
     CustomerController,
+    CustomerCardController,
     SupplierController,
     SaleController,
     PosController,
@@ -21,6 +22,8 @@ use App\Http\Controllers\Admin\{
     CreditNoteController,
     DirectPrintController,
     ReportController,
+    AgtDocumentController,
+    AgtSettingController,
     ShiftController,
     CurrentAccountController,
     PurchaseController,
@@ -63,6 +66,8 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::get('settings/printing-discovery', [SettingController::class, 'printingDiscovery'])->name('settings.printing-discovery');
         Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
+        Route::get('agt/settings', [AgtSettingController::class, 'edit'])->name('agt.settings');
+        Route::put('agt/settings', [AgtSettingController::class, 'update'])->name('agt.settings.update');
         Route::get('document-settings', [DocumentSettingController::class, 'index'])->name('document-settings.index');
         Route::post('document-settings/types', [DocumentSettingController::class, 'storeType'])->name('document-settings.types.store');
         Route::post('document-settings/series', [DocumentSettingController::class, 'storeSeries'])->name('document-settings.series.store');
@@ -75,6 +80,12 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
     Route::middleware('operator.permission:management.view')->group(function () {
         Route::get('/audit', [AuditLogController::class, 'index'])->middleware(['module.enabled:audit', 'operator.permission:audit.view'])->name('audit.index');
         Route::get('reports', [ReportController::class, 'index'])->middleware('operator.permission:reports.view')->name('reports.index');
+        Route::get('agt', [AgtDocumentController::class, 'index'])->middleware('operator.permission:reports.view')->name('agt.index');
+        Route::post('agt/series/request', [AgtDocumentController::class, 'requestSeries'])->middleware('operator.permission:reports.view')->name('agt.series.request');
+        Route::post('agt/series/list', [AgtDocumentController::class, 'listSeries'])->middleware('operator.permission:reports.view')->name('agt.series.list');
+        Route::post('agt/sales/{sale}/prepare', [AgtDocumentController::class, 'prepareSale'])->middleware('operator.permission:reports.view')->whereNumber('sale')->name('agt.sales.prepare');
+        Route::post('agt/credit-notes/{creditNote}/prepare', [AgtDocumentController::class, 'prepareCreditNote'])->middleware('operator.permission:reports.view')->whereNumber('creditNote')->name('agt.credit-notes.prepare');
+        Route::post('agt/documents/{agtDocument}/send', [AgtDocumentController::class, 'send'])->middleware('operator.permission:reports.view')->whereNumber('agtDocument')->name('agt.send');
         Route::get('reports/sales.pdf', [ReportController::class, 'salesPdf'])->middleware('operator.permission:reports.view')->name('reports.sales.pdf');
         Route::get('reports/cash.pdf', [ReportController::class, 'cashPdf'])->middleware('operator.permission:reports.view')->name('reports.cash.pdf');
         Route::get('reports/current-accounts.pdf', [ReportController::class, 'currentAccountsPdf'])
@@ -88,6 +99,9 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
         Route::get('reports/shifts.pdf', [ReportController::class, 'shiftsPdf'])->middleware('operator.permission:cash.audit')->name('reports.shifts.pdf');
         Route::get('reports/audit.pdf', [ReportController::class, 'auditPdf'])->middleware(['module.enabled:audit', 'operator.permission:audit.view'])->name('reports.audit.pdf');
         Route::get('reports/daily-postings.pdf', [ReportController::class, 'dailyPostingsPdf'])->middleware('operator.permission:reports.view')->name('reports.daily-postings.pdf');
+        Route::get('reports/customer-cards.pdf', [ReportController::class, 'customerCardsPdf'])
+            ->middleware(['module.enabled:customer_card', 'operator.permission:reports.view'])
+            ->name('reports.customer-cards.pdf');
         Route::middleware(['module.enabled:current_account', 'operator.permission:current_account.manage'])->group(function () {
             Route::get('current-accounts', [CurrentAccountController::class, 'index'])->name('current-accounts.index');
             Route::post('current-accounts', [CurrentAccountController::class, 'store'])->name('current-accounts.store');
@@ -123,6 +137,16 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             Route::resource('suppliers', SupplierController::class);
         });
 
+        Route::middleware(['module.enabled:customer_card', 'operator.permission:catalog.manage'])->group(function () {
+            Route::get('customer-cards', [CustomerCardController::class, 'index'])->name('customer-cards.index');
+            Route::get('customer-cards/authorizations', [CustomerCardController::class, 'authorizationsIndex'])->name('customer-cards.authorizations.index');
+            Route::get('customer-cards/{customerCard}', [CustomerCardController::class, 'show'])->whereNumber('customerCard')->name('customer-cards.show');
+            Route::patch('customer-cards/{customerCard}/details', [CustomerCardController::class, 'updateDetails'])->whereNumber('customerCard')->name('customer-cards.details');
+            Route::patch('customer-cards/{customerCard}/toggle-status', [CustomerCardController::class, 'toggleStatus'])->whereNumber('customerCard')->name('customer-cards.toggle-status');
+            Route::post('customer-cards/{customerCard}/recharge', [CustomerCardController::class, 'recharge'])->whereNumber('customerCard')->name('customer-cards.recharge');
+            Route::post('customer-cards/{customerCard}/redeem', [CustomerCardController::class, 'redeem'])->whereNumber('customerCard')->name('customer-cards.redeem');
+        });
+
         Route::middleware(['module.enabled:restaurant', 'operator.permission:restaurant.manage'])->group(function () {
             Route::get('/mesas', [RestaurantMesaController::class, 'index'])->name('restaurantMesa.index');
             Route::get('/mesas/criar', [RestaurantMesaController::class, 'create'])->name('restaurantMesa.create');
@@ -147,6 +171,13 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
         Route::get('pos', [PosController::class, 'index'])->name('pos.index');
         Route::post('pos/add', [PosController::class, 'add'])->name('pos.add');
         Route::post('pos/checkout', [PosController::class, 'checkout'])->middleware(EnsureShiftOpen::class)->name('pos.checkout');
+        Route::get('customer-cards/lookup', [CustomerCardController::class, 'lookup'])->middleware('module.enabled:customer_card')->name('customer-cards.lookup');
+        Route::post('customer-cards/otp', [CustomerCardController::class, 'requestOtp'])->middleware('module.enabled:customer_card')->name('customer-cards.otp');
+        Route::post('customer-cards/authorizations', [CustomerCardController::class, 'requestAuthorization'])->middleware('module.enabled:customer_card')->name('customer-cards.authorizations.request');
+        Route::get('customer-cards/authorizations/{authorization}', [CustomerCardController::class, 'authorizationStatus'])->middleware('module.enabled:customer_card')->whereNumber('authorization')->name('customer-cards.authorizations.status');
+        Route::get('customer-cards/authorizations/pending', [CustomerCardController::class, 'pendingAuthorizations'])->middleware('module.enabled:customer_card')->name('customer-cards.authorizations.pending');
+        Route::post('customer-cards/authorizations/{authorization}/approve', [CustomerCardController::class, 'approveAuthorization'])->middleware('module.enabled:customer_card')->whereNumber('authorization')->name('customer-cards.authorizations.approve');
+        Route::post('customer-cards/authorizations/{authorization}/reject', [CustomerCardController::class, 'rejectAuthorization'])->middleware('module.enabled:customer_card')->whereNumber('authorization')->name('customer-cards.authorizations.reject');
         Route::post('pos/supermercado/find-product', [PosController::class, 'findProductByBarcode'])->middleware('module.enabled:supermarket')->name('pos.supermarket.findProduct');
     });
 
@@ -155,8 +186,10 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
         Route::get('sales/{sale}/credit-note', [CreditNoteController::class, 'create'])->name('sales.credit-notes.create');
         Route::post('sales/{sale}/credit-note', [CreditNoteController::class, 'store'])->name('sales.credit-notes.store');
     });
+    Route::get('sales/create', [SaleController::class, 'create'])->middleware('operator.permission:sales.create')->name('sales.create');
     Route::middleware('operator.permission:sales.view')->group(function () {
         Route::get('credit-notes/{creditNote}/ticket', [CreditNoteController::class, 'ticket'])->name('credit-notes.ticket');
+        Route::get('sales/{sale}/invoice-a4', [SaleController::class, 'invoicePdf'])->whereNumber('sale')->name('sales.invoice-a4');
         Route::get('sales/{sale}/ticket', [SaleController::class, 'ticket'])->name('sales.ticket');
         Route::post('print/sales/{sale}', [DirectPrintController::class, 'sale'])->name('print.sales');
         Route::post('print/credit-notes/{creditNote}', [DirectPrintController::class, 'creditNote'])->name('print.credit-notes');

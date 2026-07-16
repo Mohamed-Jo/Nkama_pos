@@ -242,6 +242,13 @@
             }
         }
 
+        .notification-wrap { position: relative; }
+        .notification-bell { align-items: center; background: var(--soft-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; display: inline-flex; font-size: 18px; height: 36px; justify-content: center; position: relative; text-decoration: none; width: 40px; }
+        .notification-bell:hover { border-color: rgba(249, 115, 22, 0.38); color: var(--primary); }
+        .notification-badge { align-items: center; background: #ef4444; border: 2px solid var(--panel); border-radius: 999px; color: #fff; display: none; font-size: 10px; font-weight: 900; height: 18px; justify-content: center; line-height: 1; min-width: 18px; padding: 0 4px; position: absolute; right: -7px; top: -7px; }
+        .notification-badge.active { display: inline-flex; }
+        .notification-bell.has-alert { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18); }
+
         .content {
             padding: 24px;
             flex: 1;
@@ -503,6 +510,7 @@
             $canPurchases = \App\Services\OperatorPermissions::allowsAny($operatorRole, ['purchases.create', 'purchases.approve', 'purchases.receive']);
             $canCatalog = \App\Services\OperatorPermissions::allows($operatorRole, 'catalog.manage');
             $canShiftAudit = \App\Services\OperatorPermissions::allows($operatorRole, 'cash.audit');
+            $canCustomerCardNotifications = \App\Services\OperatorPermissions::allowsAny($operatorRole, ['security.manage', 'cash.audit', 'management.view', 'catalog.manage']);
             $activeModules = \App\Services\ModuleSettings::all();
             $sidebarLogoUrl = \App\Services\BusinessSettings::logoUrl() ?: asset('images/bg-pos.png');
         @endphp
@@ -522,6 +530,7 @@
                 @endif
                 @if($canReports)
                     <a class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}" href="{{ route('admin.reports.index') }}">Relatórios</a>
+                    <a class="{{ request()->routeIs('admin.agt.*') ? 'active' : '' }}" href="{{ route('admin.agt.index') }}">Fiscalizacao AGT</a>
                 @endif
                 @if($canCurrentAccount && ($activeModules['current_account'] ?? true))
                     <a class="{{ request()->routeIs('admin.current-accounts.*') ? 'active' : '' }}" href="{{ route('admin.current-accounts.index') }}">Conta Corrente</a>
@@ -542,7 +551,10 @@
                     @if($activeModules['restaurant'] ?? true)
                         <a class="{{ request()->routeIs('admin.restaurantMesa.*') ? 'active' : '' }}" href="{{ route('admin.restaurantMesa.index') }}">🪑 Mesas</a>
                     @endif
-                    <a class="{{ request()->routeIs('admin.customers.*') ? 'active' : '' }}" href="{{ route('admin.customers.index') }}">👥 Clientes</a>
+                    @if($activeModules['customer_card'] ?? true)
+                        <a class="{{ request()->routeIs('admin.customers.*') ? 'active' : '' }}" href="{{ route('admin.customers.index') }}">👥 Clientes</a>
+                        <a class="{{ request()->routeIs('admin.customer-cards.*') ? 'active' : '' }}" href="{{ route('admin.customer-cards.index') }}">Cartoes Cliente</a>
+                    @endif
                     <a class="{{ request()->routeIs('admin.suppliers.*') ? 'active' : '' }}" href="{{ route('admin.suppliers.index') }}">🚚 Fornecedores</a>
                 @endif
 
@@ -550,6 +562,7 @@
                     <div class="menu-section">Segurança</div>
                     <a class="{{ request()->routeIs('admin.settings.*') ? 'active' : '' }}" href="{{ route('admin.settings.index') }}">Empresa & IVA</a>
                     <a class="{{ request()->routeIs('admin.document-settings.*') ? 'active' : '' }}" href="{{ route('admin.document-settings.index') }}">Documentos & Séries</a>
+                    <a class="{{ request()->routeIs('admin.agt.settings') ? 'active' : '' }}" href="{{ route('admin.agt.settings') }}">Configuracoes AGT</a>
                     <a class="{{ request()->routeIs('admin.modules.*') ? 'active' : '' }}" href="{{ route('admin.modules.index') }}">🧩 Módulos</a>
                     <a class="{{ request()->routeIs('admin.operators.*') ? 'active' : '' }}" href="{{ route('admin.operators.index') }}">🔐 Operadores</a>
                 @endif
@@ -579,6 +592,15 @@
                         <span>Operador</span>
                         <strong>{{ session('operator_name', 'Operador') }}</strong>
                     </div>
+
+                    @if(($activeModules['customer_card'] ?? true) && $canCustomerCardNotifications)
+                        <div class="notification-wrap">
+                            <a id="customer-card-notification-bell" class="notification-bell" href="{{ route('admin.customer-cards.authorizations.index') }}" title="Solicitacoes pendentes do Cartao Cliente">
+                                <span aria-hidden="true">&#128276;</span>
+                                <span id="customer-card-notification-badge" class="notification-badge">0</span>
+                            </a>
+                        </div>
+                    @endif
 
                     <button class="btn-control" type="button" onclick="toggleTheme()" title="Alternar modo claro/escuro">
                         <span id="theme-toggle-icon">☾</span>
@@ -721,6 +743,45 @@
                     window.nkamaAlert(error.message, 'error', 'Impressao direta');
                 });
         };
+
+        @if(($activeModules['customer_card'] ?? true) && $canCustomerCardNotifications)
+        (function() {
+            const bell = document.getElementById('customer-card-notification-bell');
+            const badge = document.getElementById('customer-card-notification-badge');
+            const pendingUrl = @json(route('admin.customer-cards.authorizations.pending'));
+            let lastKnownIds = new Set();
+            let initialized = false;
+
+            async function pollCustomerCardNotifications() {
+                if (!bell || !badge) return;
+                try {
+                    const response = await fetch(pendingUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) { bell.style.display = 'none'; return; }
+                    bell.style.display = 'inline-flex';
+                    const items = data.authorizations || [];
+                    const count = items.length;
+                    const currentIds = new Set(items.map(item => Number(item.id)));
+                    const hasNew = initialized && items.some(item => !lastKnownIds.has(Number(item.id)));
+                    badge.textContent = count > 99 ? '99+' : String(count);
+                    badge.classList.toggle('active', count > 0);
+                    bell.classList.toggle('has-alert', count > 0);
+                    if (hasNew && window.Swal) {
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Nova solicitacao de Cartao Cliente', showConfirmButton: false, timer: 3200, timerProgressBar: true, background: swalTheme().background, color: swalTheme().color });
+                    } else if (hasNew) {
+                        showToast('Nova solicitacao de Cartao Cliente');
+                    }
+                    lastKnownIds = currentIds;
+                    initialized = true;
+                } catch (error) {
+                    bell.style.display = 'none';
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', pollCustomerCardNotifications);
+            setInterval(pollCustomerCardNotifications, 5000);
+        })();
+        @endif
 
         document.addEventListener('click', function(event) {
             const trigger = event.target.closest('[data-direct-print-url]');

@@ -130,6 +130,11 @@
             width: 34px;
         }
 
+        .pos-processing-spinner { animation: pos-processing-spin .75s linear infinite; border: 2px solid rgba(2,6,23,.28); border-left-color: #020617; border-radius: 999px; display: none; flex: 0 0 16px; height: 16px; width: 16px; }
+        .pos-processing-button { align-items: center; display: inline-flex; justify-content: center; gap: 8px; }
+        .pos-processing-button.is-processing { cursor: wait !important; opacity: .86; }
+        .pos-processing-button.is-processing .pos-processing-spinner { display: inline-block; }
+        @keyframes pos-processing-spin { to { transform: rotate(360deg); } }
         .payment-chip {
             background: rgba(148, 163, 184, 0.08);
             border: 1px solid rgba(148, 163, 184, 0.18);
@@ -480,7 +485,8 @@
                 padding: 7px 8px !important;
             }
 
-            .payment-chip {
+
+        .payment-chip {
                 min-height: 28px;
                 padding: 5px 8px;
             }
@@ -750,6 +756,7 @@
         <option value="card">Multicaixa</option>
         <option value="transf">Transferência</option>
         <option value="multi">Pagamento Misto</option>
+        <option value="customer_card">Cartao Cliente</option>
         @if($modules['current_account'] ?? true)
             <option value="credit">Conta Corrente</option>
         @endif
@@ -820,8 +827,12 @@
                                 style="background: transparent; color: #f59e0b; padding: 12px; border: 2px solid #f59e0b; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
                                 🔀 Pagamento Misto
                             </button>
-                        </div>
+                            <button type="button" onclick="selecionarMetodoPagamento('customer_card')" class="metodo-pagamento" data-metodo="customer_card" data-cor="#22c55e" data-label="Cartao Cliente" data-desc="Usa bonus de pontos e saldo do cartao"
+                                style="background: transparent; color: #22c55e; padding: 12px; border: 2px solid #22c55e; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
+                                Fidelidade
+                            </button>                        </div>
                     </div>
+
 
                     @if($modules['current_account'] ?? true)
                     <div id="wrapper-cliente-conta" style="display: none; background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.25); border-radius: 8px; padding: 10px;">
@@ -841,6 +852,48 @@
                     </button>
                     @endif
 
+                    @if($modules['customer_card'] ?? true)
+                    <div id="wrapper-cartao-cliente" style="background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.24); border-radius: 8px; padding: 10px;">
+                        <label style="display: block; font-size: 11px; color: #bae6fd; text-transform: uppercase; margin-bottom: 6px; font-weight: bold;">Cartao cliente</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input id="input-cartao-cliente" type="text" placeholder="Ler codigo de barras ou QR" style="flex: 1; background: #020617; border: 1px solid #0ea5e9; color: #fff; padding: 10px; border-radius: 8px;">
+                            <button type="button" onclick="consultarCartaoCliente()" style="background:#38bdf8; color:#020617; border:0; border-radius:8px; padding:0 12px; font-weight:800;">OK</button>
+                            <button type="button" onclick="limparCartaoCliente()" style="background:transparent; color:#bae6fd; border:1px solid rgba(186,230,253,.4); border-radius:8px; padding:0 10px; font-weight:800;">X</button>
+                        </div>
+                        <div id="painel-cartao-cliente" style="display:none; margin-top:8px; color:#e0f2fe; font-size:12px; line-height:1.5;"></div>
+                        <div id="painel-cartao-otp" style="display:none; margin-top:10px; border-top:1px solid rgba(186,230,253,.18); padding-top:10px;">
+                            @if($modules['customer_card_otp'] ?? true)
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
+                                <label style="flex:1; min-width:120px; color:#bae6fd; font-size:11px; font-weight:800; text-transform:uppercase;">OTP
+                                    <input id="input-cartao-cliente-otp" type="text" inputmode="numeric" maxlength="6" placeholder="Codigo do cliente" style="width:100%; margin-top:5px; background:#020617; border:1px solid #0ea5e9; color:#fff; padding:9px; border-radius:8px;">
+                                </label>
+                                <button type="button" onclick="solicitarOtpCartaoCliente()" style="background:#facc15; color:#111827; border:0; border-radius:8px; padding:10px 12px; font-weight:900;">Enviar OTP</button>
+                            </div>
+                            @endif
+                            <input id="input-cartao-autorizacao-id" type="hidden">
+                            <div style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:8px;">
+                                <input id="input-cartao-autorizacao-motivo" type="text" maxlength="180" placeholder="Motivo para solicitar autorizacao ao gestor" style="background:#020617; border:1px solid #334155; color:#fff; padding:9px; border-radius:8px;">
+                                <button type="button" onclick="solicitarAutorizacaoCartaoCliente()" style="background:#22c55e; color:#052e16; border:0; border-radius:8px; padding:10px 12px; font-weight:900;">Solicitar</button>
+                            </div>                            <label style="display:flex; gap:8px; align-items:center; color:#e0f2fe; font-size:12px; margin-top:8px;">
+                                <input id="check-cartao-emergencia" type="checkbox" onchange="alternarEmergenciaCartao()">
+                                Emergencia offline com supervisor
+                            </label>
+                            <div id="painel-cartao-emergencia" style="display:none; grid-template-columns:1fr; gap:7px; margin-top:8px;">
+                                <input id="input-cartao-supervisor-pin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN do supervisor" style="background:#020617; border:1px solid #f59e0b; color:#fff; padding:9px; border-radius:8px;">
+                                <input id="input-cartao-supervisor-motivo" type="text" maxlength="180" placeholder="Motivo da emergencia offline" style="background:#020617; border:1px solid #334155; color:#fff; padding:9px; border-radius:8px;">
+                                <div style="color:#fbbf24; font-size:11px;">Limite emergencial: 2.000,00 Kz por venda.</div>
+                            </div>
+                            <div id="txt-cartao-otp-status" style="color:#bae6fd; font-size:11px; margin-top:7px;"></div>
+                            <div id="painel-cartao-autorizacoes" style="display:none; margin-top:10px; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.2); border-radius:8px; padding:8px;">
+                                <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; color:#bbf7d0; font-size:11px; font-weight:900; text-transform:uppercase;">
+                                    <span>Solicitacoes pendentes</span>
+                                    <button type="button" onclick="carregarSolicitacoesCartaoCliente()" style="background:transparent; color:#bbf7d0; border:1px solid rgba(187,247,208,.35); border-radius:7px; padding:4px 8px; font-size:11px; font-weight:900;">Atualizar</button>
+                                </div>
+                                <div id="lista-cartao-autorizacoes" style="display:grid; gap:7px; margin-top:8px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
                     <div id="wrapper-valores-recebidos" style="display: flex; flex-direction: column; gap: 7px;">
                         <div style="flex: 1;">
                             <label id="label-valor-pago"
@@ -849,7 +902,7 @@
                                 style="width: 100%; background: #020617; border: 1px solid #1e293b; color: #fff; padding: 14px; border-radius: 8px; font-size: 20px; font-weight: bold;">
                             <div id="payment-split-wrapper"
                                 style="display: none; margin-top: 6px; background: rgba(2, 6, 23, 0.45); border: 1px solid #1e293b; border-radius: 8px; padding: 8px;">
-                                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;">
+                                <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
                                     <div>
                                         <label style="display: block; color: #94a3b8; font-size: 10px; font-weight: bold; margin-bottom: 4px; text-transform: uppercase;">Dinheiro</label>
                                         <input type="number" id="input-pago-cash" class="payment-split-input" inputmode="decimal" min="0" step="0.01" value="0"
@@ -864,7 +917,13 @@
                                         <label style="display: block; color: #94a3b8; font-size: 10px; font-weight: bold; margin-bottom: 4px; text-transform: uppercase;">Transfer.</label>
                                         <input type="number" id="input-pago-transf" class="payment-split-input" inputmode="decimal" min="0" step="0.01" value="0"
                                             onfocus="selecionarCampoPagamento('transf')" oninput="calcularPagamentoMisto()">
+                                    </div>                                    @if($modules['customer_card'] ?? true)
+                                    <div>
+                                        <label style="display: block; color: #94a3b8; font-size: 10px; font-weight: bold; margin-bottom: 4px; text-transform: uppercase;">Fidelidade</label>
+                                        <input type="number" id="input-pago-customer-card" class="payment-split-input" inputmode="decimal" min="0" step="0.01" value="0"
+                                            onfocus="selecionarCampoPagamento('customer-card')" oninput="calcularPagamentoMisto()">
                                     </div>
+                                    @endif
                                 </div>
                                 <div style="display: grid; gap: 4px; margin-top: 7px;">
                                     <div class="payment-summary-row"><span style="color:#94a3b8;">Recebido</span><strong id="txt-total-recebido" style="color:#fff;">0,00 Kz</strong></div>
@@ -907,8 +966,8 @@
                 <div class="payment-actions" style="margin-top: auto; display: flex; gap: 8px;">
                     <button onclick="fecharModalPagamento()"
                         style="flex: 1; background: #020617; border: 1px solid #1e293b; color: #94a3b8; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.3s;">Cancelar</button>
-                    <button onclick="submeterVendaFinal()"
-                        style="flex: 1; background: #10b981; color: #020617; font-weight: bold; padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-size: 15px; transition: all 0.3s;">✓ Emitir Fatura</button>
+                    <button id="btn-emitir-fatura-pos" class="pos-processing-button" onclick="submeterVendaFinal()"
+                        style="flex: 1; background: #10b981; color: #020617; font-weight: bold; padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-size: 15px; transition: all 0.3s;"><span class="pos-processing-spinner" aria-hidden="true"></span><span class="button-label">Emitir Fatura</span></button>
                 </div>
             </div>
         </div>
@@ -1122,6 +1181,17 @@
         @endforeach
 
         const modulosAtivos = @json($modules ?? ['restaurant' => true, 'supermarket' => true]);
+        const customerCardLookupUrl = @json(route('admin.customer-cards.lookup'));
+        const customerCardOtpUrl = @json(route('admin.customer-cards.otp'));
+        const customerCardAuthorizationRequestUrl = @json(route('admin.customer-cards.authorizations.request'));
+        const customerCardAuthorizationPendingUrl = @json(route('admin.customer-cards.authorizations.pending'));
+        const customerCardAuthorizationStatusUrlTemplate = @json(route('admin.customer-cards.authorizations.status', ['authorization' => '__ID__']));
+        const customerCardAuthorizationApproveUrlTemplate = @json(route('admin.customer-cards.authorizations.approve', ['authorization' => '__ID__']));
+        const customerCardAuthorizationRejectUrlTemplate = @json(route('admin.customer-cards.authorizations.reject', ['authorization' => '__ID__']));
+        let cartaoClienteSelecionado = null;
+        let cartaoAutorizacaoAprovadaId = null;
+        let cartaoAutorizacaoPendenteId = null;
+        let cartaoAutorizacaoTimer = null;
         const directPrintSaleUrlTemplate = @json(route('admin.print.sales', ['sale' => '__SALE_ID__']));
         const directPrintTableUrlTemplate = @json(route('admin.restaurant.print.table', ['table' => '__TABLE_ID__']));
         let modoAtual = modulosAtivos.restaurant ? 'salao' : 'supermercado';
@@ -1132,6 +1202,7 @@
         let ultimaVendaId = null;
         let campoPagamentoAtivo = 'main';
         let caixaAberto = false;
+        let posCheckoutProcessing = false;
 
         // Atalhos de Teclado
         window.addEventListener('keydown', function(event) {
@@ -1708,6 +1779,9 @@
             document.getElementById('input-pago-cash').value = 0;
             document.getElementById('input-pago-card').value = 0;
             document.getElementById('input-pago-transf').value = 0;
+            if (document.getElementById('input-pago-customer-card')) {
+                document.getElementById('input-pago-customer-card').value = 0;
+            }
             selecionarMetodoPagamento('cash');
             
             // Mostrar modal
@@ -1784,6 +1858,7 @@
                 card: 'Valor confirmado no Multicaixa',
                 transf: 'Valor confirmado na transferencia',
                 multi: 'Pagamento misto',
+                customer_card: 'Bonus de fidelidade e saldo do cartao',
                 credit: 'Valor recebido agora'
             };
 
@@ -1800,7 +1875,7 @@
             }
 
             if (inputPrincipal) {
-                inputPrincipal.style.display = metodo === 'multi' || metodo === 'credit' ? 'none' : 'block';
+                inputPrincipal.style.display = metodo === 'multi' || metodo === 'credit' || metodo === 'customer_card' ? 'none' : 'block';
             }
 
             if (metodo === 'multi') {
@@ -1831,6 +1906,9 @@
             document.getElementById('input-pago-cash').value = 0;
             document.getElementById('input-pago-card').value = 0;
             document.getElementById('input-pago-transf').value = 0;
+            if (document.getElementById('input-pago-customer-card')) {
+                document.getElementById('input-pago-customer-card').value = 0;
+            }
             document.getElementById('txt-total-recebido').innerText = '0,00 Kz';
             document.getElementById('txt-total-falta').innerText = '0,00 Kz';
             document.getElementById('txt-troco-calculado').innerText = '0,00 Kz';
@@ -1854,7 +1932,8 @@
                 multi: 'Pagamento Misto',
                 mixed: 'Pagamento Misto',
                 credit: 'Conta Corrente',
-                mixed_credit: 'Misto + Conta'
+                mixed_credit: 'Misto + Conta',
+                customer_card: 'Cartao Cliente'
             };
 
             document.getElementById('sucesso-invoice').innerText = data.invoice || `Venda #${data.sale_id || '-'}`;
@@ -2356,7 +2435,8 @@
                 main: 'input-valor-pago',
                 cash: 'input-pago-cash',
                 card: 'input-pago-card',
-                transf: 'input-pago-transf'
+                transf: 'input-pago-transf',
+                'customer-card': 'input-pago-customer-card'
             };
 
             return document.getElementById(campos[campoPagamentoAtivo] || campos.main);
@@ -2388,7 +2468,8 @@
             return NkamaPOSPayment.sumBreakdown({
                 cash: lerValorPagamento('input-pago-cash'),
                 card: lerValorPagamento('input-pago-card'),
-                transfer: lerValorPagamento('input-pago-transf')
+                transfer: lerValorPagamento('input-pago-transf'),
+                customer_card: lerValorPagamento('input-pago-customer-card')
             });
         }
 
@@ -2396,6 +2477,9 @@
             document.getElementById('input-pago-cash').value = 0;
             document.getElementById('input-pago-card').value = NkamaPOSPayment.roundUp(totalGeralVendaActual, 1);
             document.getElementById('input-pago-transf').value = 0;
+            if (document.getElementById('input-pago-customer-card')) {
+                document.getElementById('input-pago-customer-card').value = 0;
+            }
             calcularPagamentoMisto();
         }
 
@@ -2454,6 +2538,328 @@
             atualizarClienteContaCorrente();
         }
 
+        function consultarCartaoCliente() {
+            const input = document.getElementById('input-cartao-cliente');
+            const numero = (input?.value || '').trim();
+
+            if (!numero) {
+                nkamaAlert('Informe ou leia o cartao cliente.', 'warning');
+                return;
+            }
+
+            const amount = Math.max(Number(totalGeralVendaActual || 0), valorFidelidadeAtual());
+            fetch(`${customerCardLookupUrl}?card_number=${encodeURIComponent(numero)}&amount=${encodeURIComponent(amount)}`, {
+                headers: { 'Accept': 'application/json' }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        limparCartaoCliente(false);
+                        nkamaAlert(data.message || 'Cartao cliente nao encontrado.', 'warning');
+                        return;
+                    }
+
+                    cartaoClienteSelecionado = data.card;
+                    resetarAutorizacaoCartao();
+                    renderizarCartaoCliente();
+
+                    const selectConta = document.getElementById('select-cliente-conta');
+                    if (selectConta) {
+                        selectConta.value = String(data.card.customer_id);
+                    }
+                })
+                .catch(() => nkamaAlert('Nao foi possivel consultar o cartao cliente.', 'error'));
+        }
+
+        function limparCartaoCliente(clearInput = true) {
+            cartaoClienteSelecionado = null;
+            resetarAutorizacaoCartao();
+            const painel = document.getElementById('painel-cartao-cliente');
+            const input = document.getElementById('input-cartao-cliente');
+
+            if (clearInput && input) {
+                input.value = '';
+            }
+
+            if (painel) {
+                painel.style.display = 'none';
+                const painelOtp = document.getElementById('painel-cartao-otp');
+                if (painelOtp) painelOtp.style.display = 'none';
+                painel.innerHTML = '';
+            }
+        }
+
+        function renderizarCartaoCliente() {
+            const painel = document.getElementById('painel-cartao-cliente');
+            if (!painel || !cartaoClienteSelecionado) return;
+
+            painel.style.display = 'block';
+            const painelOtp = document.getElementById('painel-cartao-otp');
+            if (painelOtp) painelOtp.style.display = 'block';
+            const enoughText = cartaoClienteSelecionado.has_enough_for_sale === null
+                ? 'A validar na finalizacao'
+                : (cartaoClienteSelecionado.has_enough_for_sale ? 'Suficiente para esta venda' : 'Insuficiente para esta venda');
+
+            painel.innerHTML = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                    <div><strong>Cliente</strong><br>${cartaoClienteSelecionado.customer_name || '-'}</div>
+                    <div><strong>Cartao</strong><br>${cartaoClienteSelecionado.card_number}</div>
+                    <div><strong>Nivel</strong><br>${cartaoClienteSelecionado.level || '-'}</div>
+                    <div><strong>Validade</strong><br>${cartaoClienteSelecionado.expires_at || '-'}</div>
+                    <div><strong>Disponivel nesta venda</strong><br>${NkamaPOSPayment.format(Number(cartaoClienteSelecionado.available_for_sale || 0))}</div>
+                    <div><strong>Estado</strong><br>${enoughText}</div>
+                </div>`;
+        }
+        function valorFidelidadeAtual() {
+            const metodo = document.getElementById('select-metodo-pagamento').value;
+
+            if (metodo === 'customer_card') {
+                return Number(totalGeralVendaActual || 0);
+            }
+
+            if (metodo === 'multi') {
+                return lerValorPagamento('input-pago-customer-card');
+            }
+
+            return 0;
+        }
+
+        function alternarEmergenciaCartao() {
+            const painel = document.getElementById('painel-cartao-emergencia');
+            const ativo = document.getElementById('check-cartao-emergencia')?.checked;
+            if (painel) painel.style.display = ativo ? 'grid' : 'none';
+        }
+
+        function resetarAutorizacaoCartao() {
+            ['input-cartao-cliente-otp', 'input-cartao-supervisor-pin', 'input-cartao-supervisor-motivo', 'input-cartao-autorizacao-motivo'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            cartaoAutorizacaoAprovadaId = null;
+            cartaoAutorizacaoPendenteId = null;
+            if (cartaoAutorizacaoTimer) clearInterval(cartaoAutorizacaoTimer);
+            cartaoAutorizacaoTimer = null;
+            const authorizationInput = document.getElementById('input-cartao-autorizacao-id');
+            if (authorizationInput) authorizationInput.value = '';
+            const emergency = document.getElementById('check-cartao-emergencia');
+            if (emergency) emergency.checked = false;
+            alternarEmergenciaCartao();
+            const status = document.getElementById('txt-cartao-otp-status');
+            if (status) status.innerText = '';
+        }
+
+        function solicitarOtpCartaoCliente() {
+            if (modulosAtivos.customer_card_otp === false) {
+                nkamaAlert('OTP do Cartao Cliente desativado. Solicite autorizacao do gestor.', 'warning');
+                return;
+            }
+
+            if (!cartaoClienteSelecionado) {
+                nkamaAlert('Leia o cartao cliente antes de solicitar OTP.', 'warning');
+                return;
+            }
+
+            const amount = valorFidelidadeAtual();
+            if (amount <= 0) {
+                nkamaAlert('Informe primeiro o valor de Fidelidade a usar.', 'warning');
+                return;
+            }
+
+            const status = document.getElementById('txt-cartao-otp-status');
+            if (status) status.innerText = 'A enviar OTP...';
+
+            fetch(customerCardOtpUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    card_number: cartaoClienteSelecionado.card_number,
+                    amount: amount
+                })
+            })
+                .then(async response => {
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Nao foi possivel enviar o OTP.');
+                    }
+                    return data;
+                })
+                .then(data => {
+                    if (status) status.innerText = `${data.message} Destino: ${data.sent_to || '-'}`;
+                    nkamaAlert(data.message, 'success');
+                })
+                .catch(error => {
+                    if (status) status.innerText = error.message;
+                    nkamaAlert(error.message, 'warning');
+                });
+        }
+
+        function urlAutorizacaoCartao(template, id) {
+            return template.replace('__ID__', encodeURIComponent(id));
+        }
+
+        function atualizarEstadoAutorizacaoCartao(id, statusText) {
+            cartaoAutorizacaoAprovadaId = id || null;
+            const input = document.getElementById('input-cartao-autorizacao-id');
+            if (input) input.value = id || '';
+            const status = document.getElementById('txt-cartao-otp-status');
+            if (status && statusText) status.innerText = statusText;
+        }
+
+        function solicitarAutorizacaoCartaoCliente() {
+            if (!cartaoClienteSelecionado) {
+                nkamaAlert('Leia o cartao cliente antes de solicitar autorizacao.', 'warning');
+                return;
+            }
+
+            const amount = valorFidelidadeAtual();
+            if (amount <= 0) {
+                nkamaAlert('Informe primeiro o valor de Fidelidade a usar.', 'warning');
+                return;
+            }
+
+            atualizarEstadoAutorizacaoCartao(null, 'A enviar solicitacao ao gestor...');
+
+            fetch(customerCardAuthorizationRequestUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    card_number: cartaoClienteSelecionado.card_number,
+                    amount: amount,
+                    reason: document.getElementById('input-cartao-autorizacao-motivo')?.value || null,
+                    context: {
+                        payment_method: document.getElementById('select-metodo-pagamento')?.value || null,
+                        table_id: mesaSelecionadaId,
+                        total: totalGeralVendaActual
+                    }
+                })
+            })
+                .then(async response => {
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Nao foi possivel solicitar autorizacao.');
+                    }
+                    return data;
+                })
+                .then(data => {
+                    cartaoAutorizacaoPendenteId = data.authorization.id;
+                    atualizarEstadoAutorizacaoCartao(null, `Solicitacao #${data.authorization.id} enviada. Aguardando gestor...`);
+                    if (cartaoAutorizacaoTimer) clearInterval(cartaoAutorizacaoTimer);
+                    cartaoAutorizacaoTimer = setInterval(() => consultarAutorizacaoCartaoCliente(cartaoAutorizacaoPendenteId, true), 5000);
+                    consultarAutorizacaoCartaoCliente(cartaoAutorizacaoPendenteId, true);
+                    nkamaAlert(data.message, 'success');
+                })
+                .catch(error => {
+                    atualizarEstadoAutorizacaoCartao(null, error.message);
+                    nkamaAlert(error.message, 'warning');
+                });
+        }
+
+        function consultarAutorizacaoCartaoCliente(id, silent = false) {
+            if (!id) return;
+
+            fetch(urlAutorizacaoCartao(customerCardAuthorizationStatusUrlTemplate, id), {
+                headers: { 'Accept': 'application/json' }
+            })
+                .then(async response => {
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Nao foi possivel consultar a autorizacao.');
+                    }
+                    return data.authorization;
+                })
+                .then(authorization => {
+                    if (authorization.status === 'approved') {
+                        if (cartaoAutorizacaoTimer) clearInterval(cartaoAutorizacaoTimer);
+                        cartaoAutorizacaoPendenteId = null;
+                        atualizarEstadoAutorizacaoCartao(authorization.id, `Autorizacao #${authorization.id} aprovada por ${authorization.supervisor_name || 'gestor'}.`);
+                        nkamaAlert('Autorizacao do gestor aprovada.', 'success');
+                        return;
+                    }
+
+                    if (['rejected', 'expired', 'used'].includes(authorization.status)) {
+                        if (cartaoAutorizacaoTimer) clearInterval(cartaoAutorizacaoTimer);
+                        cartaoAutorizacaoPendenteId = null;
+                        atualizarEstadoAutorizacaoCartao(null, `Solicitacao #${authorization.id}: ${authorization.status}.`);
+                        if (!silent) nkamaAlert('Solicitacao nao aprovada.', 'warning');
+                        return;
+                    }
+
+                    atualizarEstadoAutorizacaoCartao(null, `Solicitacao #${authorization.id} pendente. Aguardando gestor...`);
+                })
+                .catch(error => {
+                    if (!silent) nkamaAlert(error.message, 'warning');
+                });
+        }
+
+        function carregarSolicitacoesCartaoCliente() {
+            const painel = document.getElementById('painel-cartao-autorizacoes');
+            const lista = document.getElementById('lista-cartao-autorizacoes');
+            if (!painel || !lista) return;
+
+            fetch(customerCardAuthorizationPendingUrl, { headers: { 'Accept': 'application/json' } })
+                .then(async response => {
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'sem permissao');
+                    }
+                    return data.authorizations || [];
+                })
+                .then(authorizations => {
+                    painel.style.display = 'block';
+                    if (!authorizations.length) {
+                        lista.innerHTML = '<div style="color:#94a3b8; font-size:11px;">Sem solicitacoes pendentes.</div>';
+                        return;
+                    }
+
+                    lista.innerHTML = authorizations.map(item => `
+                        <div style="border:1px solid rgba(187,247,208,.18); border-radius:8px; padding:8px; color:#dcfce7; font-size:12px;">
+                            <div><strong>#${item.id}</strong> ${item.customer_name || '-'} | ${item.card_number || '-'}</div>
+                            <div>Operador: ${item.operator_name || '-'} | Valor: ${NkamaPOSPayment.format(Number(item.amount || 0))}</div>
+                            <div style="color:#bbf7d0;">Motivo: ${item.reason || '-'}</div>
+                            <div style="display:flex; gap:6px; margin-top:7px;">
+                                <button type="button" onclick="processarSolicitacaoCartao(${item.id}, 'approve')" style="background:#22c55e; color:#052e16; border:0; border-radius:7px; padding:6px 9px; font-weight:900;">Aprovar</button>
+                                <button type="button" onclick="processarSolicitacaoCartao(${item.id}, 'reject')" style="background:#ef4444; color:#fff; border:0; border-radius:7px; padding:6px 9px; font-weight:900;">Rejeitar</button>
+                            </div>
+                        </div>`).join('');
+                })
+                .catch(() => {
+                    painel.style.display = 'none';
+                });
+        }
+
+        function processarSolicitacaoCartao(id, action) {
+            const template = action === 'approve' ? customerCardAuthorizationApproveUrlTemplate : customerCardAuthorizationRejectUrlTemplate;
+
+            fetch(urlAutorizacaoCartao(template, id), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ note: null })
+            })
+                .then(async response => {
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Nao foi possivel processar a solicitacao.');
+                    }
+                    return data;
+                })
+                .then(data => {
+                    nkamaAlert(data.message, 'success');
+                    carregarSolicitacoesCartaoCliente();
+                })
+                .catch(error => nkamaAlert(error.message, 'warning'));
+        }
+
+        setTimeout(carregarSolicitacoesCartaoCliente, 1200);
+        setInterval(carregarSolicitacoesCartaoCliente, 15000);
         function atualizarClienteContaCorrente() {
             const metodo = document.getElementById('select-metodo-pagamento').value;
             const totalPago = obterTotalPago();
@@ -2470,23 +2876,65 @@
             }
         }
 
+        function setPosProcessingButton(button, processing, label) {
+            if (!button) return;
+            const labelEl = button.querySelector('.button-label');
+            if (labelEl && label) labelEl.textContent = label;
+            button.classList.toggle('is-processing', processing);
+            button.disabled = processing;
+            button.setAttribute('aria-busy', processing ? 'true' : 'false');
+        }
+
         function submeterVendaFinal() {
+            if (posCheckoutProcessing) return;
+            const botaoEmitir = document.getElementById('btn-emitir-fatura-pos');
             const metodo = document.getElementById('select-metodo-pagamento').value;
             const valorPago = obterTotalPago();
             const clienteId = document.getElementById('select-cliente-conta')?.value || '';
+            const clienteCartaoId = cartaoClienteSelecionado ? String(cartaoClienteSelecionado.customer_id) : '';
             const pendente = Math.max(Number(totalGeralVendaActual || 0) - valorPago, 0);
 
+            if (metodo === 'multi' && lerValorPagamento('input-pago-customer-card') > 0 && !cartaoClienteSelecionado) {
+                nkamaAlert('Leia o cartao cliente para usar fidelidade no pagamento misto.', 'warning');
+                return;
+            }
+
+            if (metodo === 'multi' && lerValorPagamento('input-pago-customer-card') > Number(cartaoClienteSelecionado?.available_for_sale || 0) + 0.0001) {
+                nkamaAlert('Valor de fidelidade superior ao disponivel para esta venda.', 'warning');
+                return;
+            }
+            if (metodo === 'customer_card' && !cartaoClienteSelecionado) {
+                nkamaAlert('Leia o cartao cliente antes de pagar por fidelidade.', 'warning');
+                return;
+            }
+
+            if (metodo === 'customer_card' && Number(cartaoClienteSelecionado?.available_for_sale || 0) + 0.0001 < Number(totalGeralVendaActual || 0)) {
+                nkamaAlert('Valor disponivel para esta venda insuficiente.', 'warning');
+                return;
+            }
+
+            const valorFidelidade = valorFidelidadeAtual();
+            const emergenciaFidelidade = document.getElementById('check-cartao-emergencia')?.checked || false;
+            if (valorFidelidade > 0 && !emergenciaFidelidade && !document.getElementById('input-cartao-cliente-otp')?.value.trim() && !cartaoAutorizacaoAprovadaId) {
+                nkamaAlert('Informe o OTP enviado ao cliente ou solicite autorizacao do gestor para usar Fidelidade.', 'warning');
+                return;
+            }
+            if (valorFidelidade > 0 && emergenciaFidelidade && !document.getElementById('input-cartao-supervisor-pin')?.value.trim()) {
+                nkamaAlert('Informe o PIN do supervisor para emergencia offline.', 'warning');
+                return;
+            }
             if (pendente > 0 && !modulosAtivos.current_account) {
                 nkamaAlert('Modulo Conta Corrente desativado pelo super-user.', 'warning');
                 return;
             }
 
-            if (pendente > 0 && !clienteId) {
-                nkamaAlert('Selecione o cliente para lançar o valor em conta corrente.', 'warning');
-                return;
-                nkamaAlert('O valor recebido/confirmado não pode ser menor que o total da venda.', 'warning');
+            if (pendente > 0 && !clienteId && !clienteCartaoId) {
+                nkamaAlert('Selecione o cliente para lancar o valor em conta corrente.', 'warning');
                 return;
             }
+
+            posCheckoutProcessing = true;
+            setPosProcessingButton(botaoEmitir, true, 'A processar...');
 
             const payload = {
                 total: totalGeralVendaActual,
@@ -2494,11 +2942,18 @@
                 payment_breakdown: metodo === 'multi' ? NkamaPOSPayment.buildBreakdown(
                     lerValorPagamento('input-pago-cash'),
                     lerValorPagamento('input-pago-card'),
-                    lerValorPagamento('input-pago-transf')
+                    lerValorPagamento('input-pago-transf'),
+                    lerValorPagamento('input-pago-customer-card')
                 ) : null,
                 items: estadosMesas[mesaSelecionadaId].itens,
                 payment_method: metodo,
-                customer_id: clienteId || null,
+                customer_id: clienteId || clienteCartaoId || null,
+                customer_card_number: cartaoClienteSelecionado?.card_number || null,
+                customer_card_otp: document.getElementById('input-cartao-cliente-otp')?.value || null,
+                customer_card_authorization_id: cartaoAutorizacaoAprovadaId || document.getElementById('input-cartao-autorizacao-id')?.value || null,
+                customer_card_offline_emergency: document.getElementById('check-cartao-emergencia')?.checked || false,
+                supervisor_pin: document.getElementById('input-cartao-supervisor-pin')?.value || null,
+                supervisor_reason: document.getElementById('input-cartao-supervisor-motivo')?.value || null,
                 table_id: modoAtual === 'salao' ? mesaSelecionadaId : null
             };
 
@@ -2513,11 +2968,15 @@
                 .then(res => res.json())
                 .then(data => {
                     if (!data.success) {
+                        posCheckoutProcessing = false;
+                        setPosProcessingButton(botaoEmitir, false, 'Emitir Fatura');
                         nkamaAlert("Erro interno: " + data.message, 'error');
                         return;
                     }
 
                     abrirModalSucessoVenda(data, payload);
+                    posCheckoutProcessing = false;
+                    setPosProcessingButton(botaoEmitir, false, 'Emitir Fatura');
                     fecharModalPagamento();
                     resetarCamposPagamento();
 
@@ -2552,7 +3011,12 @@
                         renderizarCarrinho();
                     }
                 })
-                .catch(err => console.error("Erro ao finalizar venda:", err));
+                .catch(err => {
+                    posCheckoutProcessing = false;
+                    setPosProcessingButton(botaoEmitir, false, 'Emitir Fatura');
+                    console.error("Erro ao finalizar venda:", err);
+                    nkamaAlert('Erro de conexao ao finalizar venda.', 'error');
+                });
         }
 
         document.addEventListener('DOMContentLoaded', function() {

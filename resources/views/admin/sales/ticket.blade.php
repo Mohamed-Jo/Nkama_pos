@@ -318,6 +318,12 @@
             <span>Cliente</span>
             <span>{{ $sale->customer->name ?? 'Consumidor Final' }}</span>
         </div>
+        @if($sale->customerCard || $sale->customer?->card)
+            <div class="row">
+                <span>Cartao Cliente</span>
+                <span>{{ ($sale->customerCard ?? $sale->customer?->card)?->card_number }}</span>
+            </div>
+        @endif
 
         <div class="line"></div>
 
@@ -401,6 +407,7 @@
                 'credit' => 'Conta corrente',
                 'mixed' => 'Pagamento Misto',
                 'mixed_credit' => 'Misto + Conta',
+                'customer_card' => 'Cartao Cliente/Fidelidade',
             ];
             $paymentLines = $sale->payments
                 ->filter(fn ($payment) => (float) $payment->amount > 0)
@@ -444,7 +451,51 @@
                 @endif
             @endforeach
         </table>
-
+        @php
+            $loyaltyCard = $sale->customerCard ?? $sale->customer?->card;
+            $loyaltyEarn = $sale->pointTransactions->where('type', 'earn')->first();
+            $loyaltyRedeem = $sale->pointTransactions->where('type', 'redeem')->first();
+            $loyaltyBalanceUsed = $loyaltyCard?->balanceTransactions?->where('sale_id', $sale->id)->where('type', 'purchase')->first();
+        @endphp
+        @if($loyaltyCard || $loyaltyEarn)
+            <div class="line"></div>
+            <table>
+                <tr>
+                    <td colspan="2"><strong>Cliente Fidelizado</strong></td>
+                </tr>
+                @if($loyaltyCard)
+                    <tr>
+                        <td>Pontos atuais</td>
+                        <td>{{ number_format($loyaltyCard->points, 0, ',', '.') }}</td>
+                    </tr>
+                    <tr>
+                        <td>Nivel</td>
+                        <td>{{ $loyaltyCard->level }}</td>
+                    </tr>
+                    <tr>
+                        <td>Proximo nivel</td>
+                        <td>{{ $loyaltyCard->next_level ?? 'Nivel maximo' }}</td>
+                    </tr>
+                @endif
+                @if($loyaltyRedeem)
+                    <tr>
+                        <td>Bonus usado</td>
+                        <td>{{ number_format(abs($loyaltyRedeem->points), 0, ',', '.') }} pts</td>
+                    </tr>
+                @endif
+                @if($loyaltyBalanceUsed)
+                    <tr>
+                        <td>Saldo usado</td>
+                        <td>{{ number_format(abs($loyaltyBalanceUsed->amount), 2, ',', '.') }}</td>
+                    </tr>
+                @endif                @if($loyaltyEarn)
+                    <tr>
+                        <td>Ganhos nesta compra</td>
+                        <td>+{{ number_format($loyaltyEarn->points, 0, ',', '.') }}</td>
+                    </tr>
+                @endif
+            </table>
+        @endif
         <div class="line"></div>
 
         <div class="center">

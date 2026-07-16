@@ -34,11 +34,12 @@
             return Math.min(Math.max(excess, 0), Math.max(maxCashChange, 0));
         },
 
-        buildBreakdown(cash, card, transfer) {
+        buildBreakdown(cash, card, transfer, customerCard) {
             return {
                 cash: this.parse(cash),
                 card: this.parse(card),
-                transfer: this.parse(transfer)
+                transfer: this.parse(transfer),
+                customer_card: this.parse(customerCard)
             };
         }
     };

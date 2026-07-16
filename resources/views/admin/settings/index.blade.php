@@ -263,6 +263,10 @@
                     </div>
 
                     <div class="settings-field">
+                        <label for="company-bank-name">Banco</label>
+                        <input id="company-bank-name" type="text" name="company[bank_name]" value="{{ old('company.bank_name', $company['bank_name'] ?? '') }}">
+                    </div>
+                    <div class="settings-field">
                         <label for="company-swift">SWIFT</label>
                         <input id="company-swift" type="text" name="company[swift]" value="{{ old('company.swift', $company['swift'] ?? '') }}">
                     </div>
@@ -319,6 +323,41 @@
                 </div>
             </div>
 
+            <div class="settings-section">
+                <div class="settings-title">Dados comerciais da factura</div>
+
+                <div class="settings-grid">
+                    <div class="settings-field">
+                        <label for="invoice-currency">Moeda</label>
+                        <input id="invoice-currency" type="text" name="invoice[currency]" value="{{ old('invoice.currency', $invoice['currency'] ?? 'AOA') }}" maxlength="12" required>
+                    </div>
+
+                    <div class="settings-field">
+                        <label for="invoice-exchange-rate">Cambio</label>
+                        <input id="invoice-exchange-rate" type="number" name="invoice[exchange_rate]" min="0.000001" max="999999999" step="0.000001" value="{{ old('invoice.exchange_rate', $invoice['exchange_rate'] ?? 1) }}" required>
+                    </div>
+
+                    <div class="settings-field">
+                        <label for="invoice-commercial-discount">Desconto comercial (%)</label>
+                        <input id="invoice-commercial-discount" type="number" name="invoice[commercial_discount]" min="0" max="100" step="0.01" value="{{ old('invoice.commercial_discount', $invoice['commercial_discount'] ?? 0) }}" required>
+                    </div>
+
+                    <div class="settings-field">
+                        <label for="invoice-payment-condition">Condicao de pagamento</label>
+                        <input id="invoice-payment-condition" type="text" name="invoice[payment_condition]" value="{{ old('invoice.payment_condition', $invoice['payment_condition'] ?? 'Pronto pagamento') }}" maxlength="120">
+                    </div>
+
+                    <div class="settings-field">
+                        <label for="invoice-due-days">Vencimento (dias)</label>
+                        <input id="invoice-due-days" type="number" name="invoice[due_days]" min="0" max="3650" step="1" value="{{ old('invoice.due_days', $invoice['due_days'] ?? 0) }}" required>
+                    </div>
+
+                    <div class="settings-field">
+                        <label for="invoice-exemption-reason">Motivo de isencao</label>
+                        <input id="invoice-exemption-reason" type="text" name="invoice[exemption_reason]" value="{{ old('invoice.exemption_reason', $invoice['exemption_reason'] ?? '') }}" maxlength="255">
+                    </div>
+                </div>
+            </div>
             <div class="settings-section">
                 <div class="settings-title">Impressao / Ticket</div>
 

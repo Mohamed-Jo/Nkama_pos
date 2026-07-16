@@ -51,4 +51,14 @@ class CreditNote extends Model
     {
         return $this->hasMany(Payments::class);
     }
+
+    public function documentSeries()
+    {
+        return $this->belongsTo(DocumentSeries::class, 'document_series_id');
+    }
+    public function agtDocument()
+    {
+        return $this->morphOne(AgtDocument::class, 'document', 'document_model', 'document_id');
+    }
 }
+

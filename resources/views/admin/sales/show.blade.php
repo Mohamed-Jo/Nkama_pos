@@ -1,6 +1,14 @@
 @extends('layouts.admin')
 
 @section('content')
+    @php
+        $agtBadgeColor = fn ($status) => match ($status) {
+            'submitted' => '#22c55e',
+            'pending' => '#f59e0b',
+            'failed' => '#ef4444',
+            default => '#64748b',
+        };
+    @endphp
     <style>
         .invoice-box {
             background: #0f172a;
@@ -221,6 +229,19 @@
                     {{ optional($sale->created_at)->format('d/m/Y H:i') }}
                 </strong>
             </p>
+
+            <p>
+                Estado AGT:
+                <strong style="color:{{ $agtBadgeColor($sale->agtDocument?->status) }};">
+                    {{ $sale->agtDocument?->status_label ?? 'Nao enviada' }}
+                </strong>
+                @if($sale->agtDocument?->external_id)
+                    <span style="color:#94a3b8; font-size:12px;">RequestID: {{ $sale->agtDocument->external_id }}</span>
+                @endif
+            </p>
+            @if($sale->agtDocument?->last_error)
+                <p style="color:#fca5a5; font-size:12px;">{{ $sale->agtDocument->last_error }}</p>
+            @endif
 
         </div>
 

@@ -10,6 +10,7 @@ class Sale extends Model
         'operator_id',
         'user_id',
         'customer_id',
+        'customer_card_id',
         'shift_id',
 
         'invoice_number',
@@ -27,7 +28,13 @@ class Sale extends Model
         'change',
         'payment_method',
         'payment_status',
-        'status'
+        'status',
+        'currency',
+        'exchange_rate',
+        'exemption_reason',
+        'commercial_discount',
+        'payment_condition',
+        'due_date'
     ];
 
     protected $casts = [
@@ -35,6 +42,9 @@ class Sale extends Model
         'tax_rate' => 'decimal:2',
         'paid' => 'decimal:2',
         'change' => 'decimal:2',
+        'exchange_rate' => 'decimal:6',
+        'commercial_discount' => 'decimal:2',
+        'due_date' => 'date',
     ];
 
 
@@ -51,6 +61,16 @@ class Sale extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function customerCard()
+    {
+        return $this->belongsTo(CustomerCard::class);
+    }
+
+    public function pointTransactions()
+    {
+        return $this->hasMany(PointTransaction::class);
     }
 
     public function operator()
@@ -71,5 +91,9 @@ class Sale extends Model
     public function creditNotes()
     {
         return $this->hasMany(CreditNote::class, 'original_sale_id');
+    }
+    public function agtDocument()
+    {
+        return $this->morphOne(AgtDocument::class, 'document', 'document_model', 'document_id');
     }
 }

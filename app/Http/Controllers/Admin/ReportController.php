@@ -8,7 +8,10 @@ use App\Models\CashMovement;
 use App\Models\CreditNote;
 use App\Models\CurrentAccountEntry;
 use App\Models\Customer;
+use App\Models\CustomerCard;
+use App\Models\CustomerCardBalanceTransaction;
 use App\Models\Payments;
+use App\Models\PointTransaction;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Sale;
@@ -261,6 +264,70 @@ class ReportController extends Controller
                 'total' => (float) $purchases->sum('total'),
             ],
         ], 'relatorio-compras.pdf');
+    }
+
+    public function customerCardsPdf(Request $request)
+    {
+        [$from, $to] = $this->period($request);
+
+        $cardsQuery = CustomerCard::with('customer')->orderBy('card_number');
+
+        if ($request->filled('customer_id')) {
+            $cardsQuery->where('customer_id', $request->integer('customer_id'));
+        }
+
+        if ($request->filled('status')) {
+            $cardsQuery->where('status', $request->status);
+        }
+
+        $cards = $cardsQuery->get();
+        $cardIds = $cards->pluck('id');
+
+        $pointTransactions = PointTransaction::with('card.customer', 'sale')
+            ->whereIn('customer_card_id', $cardIds)
+            ->whereBetween('created_at', [$from, $to])
+            ->orderBy('created_at')
+            ->get();
+
+        $balanceTransactions = CustomerCardBalanceTransaction::with('card.customer', 'sale', 'operator')
+            ->whereIn('customer_card_id', $cardIds)
+            ->whereBetween('created_at', [$from, $to])
+            ->orderBy('created_at')
+            ->get();
+
+        $paymentsQuery = Payments::with('sale.customer')
+            ->where('method', 'customer_card')
+            ->whereBetween('created_at', [$from, $to]);
+
+        if ($cardIds->isNotEmpty()) {
+            $paymentsQuery->whereHas('sale', fn ($query) => $query->whereIn('customer_card_id', $cardIds));
+        } else {
+            $paymentsQuery->whereRaw('1 = 0');
+        }
+
+        $payments = $paymentsQuery->orderBy('created_at')->get();
+
+        return $this->pdf('reports.customer-cards', [
+            'title' => 'Relatorio de Cartao Cliente',
+            'from' => $from,
+            'to' => $to,
+            'cards' => $cards,
+            'pointTransactions' => $pointTransactions,
+            'balanceTransactions' => $balanceTransactions,
+            'payments' => $payments,
+            'totals' => [
+                'cards' => $cards->count(),
+                'active' => $cards->where('status', 'active')->count(),
+                'blocked' => $cards->where('status', 'blocked')->count(),
+                'points_balance' => (int) $cards->sum('points'),
+                'money_balance' => (float) $cards->sum('balance'),
+                'points_earned' => (int) $pointTransactions->where('type', 'earn')->sum('points'),
+                'points_used' => abs((int) $pointTransactions->whereIn('type', ['redeem', 'adjust'])->where('points', '<', 0)->sum('points')),
+                'recharged' => (float) $balanceTransactions->where('type', 'recharge')->sum('amount'),
+                'balance_used' => abs((float) $balanceTransactions->where('type', 'purchase')->sum('amount')),
+                'paid_by_card' => (float) $payments->sum('amount'),
+            ],
+        ], 'relatorio-cartao-cliente.pdf');
     }
 
     public function shiftsPdf(Request $request)

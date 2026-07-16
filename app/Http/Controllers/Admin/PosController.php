@@ -13,11 +13,19 @@ use App\Models\RestaurantTable;
 use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\StockMovement;
+use App\Services\AuditLogger;
+use App\Services\AGTSeriesRequestService;
+use App\Services\AGTElectronicInvoiceService;
 use App\Services\BusinessSettings;
+use App\Services\CustomerCardAuthorizationService;
+use App\Services\CustomerCardOtpService;
+use App\Services\CustomerCardService;
+use App\Services\OperatorPermissions;
 use App\Services\DocumentNumbering;
 use App\Services\ModuleSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 
 class PosController extends Controller
@@ -45,7 +53,7 @@ class PosController extends Controller
                 }])
                 ->orderBy('name')
                 ->get(),
-            'customers' => Customer::where('status', true)->get(),
+            'customers' => Customer::with('card')->where('status', true)->orderBy('name')->get(),
             'operatorName' => Operator::find(session('operator_id'))?->name ?? 'Operador',
             'shift' => Shift::where('operator_id', session('operator_id'))->where('status', 'open')->first(),
             'tables' => RestaurantTable::orderByRaw('LENGTH(name), name')->get(),
@@ -62,6 +70,13 @@ class PosController extends Controller
             'payment_breakdown' => 'nullable|array',
             'table_id' => 'nullable|integer',
             'customer_id' => 'nullable|exists:customers,id',
+            'customer_card_number' => 'nullable|string|max:80',
+            'customer_card_otp' => 'nullable|string|max:12',
+            'customer_card_authorization_token' => 'nullable|string|max:120',
+            'customer_card_authorization_id' => 'nullable|integer',
+            'customer_card_offline_emergency' => 'nullable|boolean',
+            'supervisor_pin' => 'nullable|string|digits:8',
+            'supervisor_reason' => 'nullable|string|max:180',
         ]);
 
         $isRestaurantSale = $request->filled('table_id');
@@ -106,6 +121,75 @@ class PosController extends Controller
                 $change = round(min(max($paid - $total, 0), max($cashPaid, 0)), 2);
                 $outstanding = round(max($total - $paid, 0), 2);
                 $customerId = $request->integer('customer_id') ?: null;
+                $customerCard = null;
+                $customerCardOtp = null;
+                $customerCardAuthorization = null;
+                $customerCardEmergencySupervisor = null;
+
+                $customerCardPayment = round((float) ($breakdown['customer_card'] ?? 0), 2);
+
+                if ((ModuleSettings::enabled('customer_card') && $request->filled('customer_card_number')) || $paymentMethod === 'customer_card' || $customerCardPayment > 0) {
+                    if (!ModuleSettings::enabled('customer_card')) {
+                        throw new \Exception('Modulo Cartao Cliente desativado pelo super-user.');
+                    }
+
+                    if (!$request->filled('customer_card_number')) {
+                        throw new \Exception('Leia ou informe o cartao cliente para pagar por fidelidade.');
+                    }
+
+                    $customerCard = app(CustomerCardService::class)->lookup((string) $request->input('customer_card_number'));
+
+                    if (!$customerCard || !app(CustomerCardService::class)->isUsable($customerCard)) {
+                        throw new \Exception('Cartao cliente nao encontrado, inativo ou expirado.');
+                    }
+
+                    $customerId = $customerCard->customer_id;
+
+                    if ($paymentMethod === 'customer_card' || $customerCardPayment > 0) {
+                        $capacity = app(CustomerCardService::class)->paymentCapacity($customerCard);
+                        $requiredCardAmount = $paymentMethod === 'customer_card' ? $total : $customerCardPayment;
+
+                        if ($capacity['total_available'] + 0.0001 < $requiredCardAmount) {
+                            throw new \Exception('Bonus e saldo do cartao cliente insuficientes para esta compra.');
+                        }
+
+                        if ($requiredCardAmount > 0) {
+                            if ($request->boolean('customer_card_offline_emergency')) {
+                                if ($requiredCardAmount > self::CUSTOMER_CARD_OFFLINE_LIMIT) {
+                                    throw new \Exception('Uso emergencial offline limitado a ' . number_format(self::CUSTOMER_CARD_OFFLINE_LIMIT, 2, ',', '.') . ' Kz por venda.');
+                                }
+
+                                $customerCardEmergencySupervisor = $this->authorizeCustomerCardEmergency($request);
+                            } elseif ($request->filled('customer_card_authorization_id')) {
+                                $customerCardAuthorization = app(CustomerCardAuthorizationService::class)->verifyApproved(
+                                    $customerCard,
+                                    (int) $request->input('customer_card_authorization_id'),
+                                    $requiredCardAmount,
+                                    $operator?->id
+                                );
+                            } else {
+                                if (!ModuleSettings::enabled('customer_card_otp')) {
+                                    throw new \Exception('Solicitacao de OTP desativada. Solicite autorizacao do gestor para usar Fidelidade.');
+                                }
+
+                                if (!$request->filled('customer_card_otp')) {
+                                    throw new \Exception('Informe o OTP enviado ao cliente ou solicite autorizacao do gestor para usar Fidelidade.');
+                                }
+
+                                $customerCardOtp = app(CustomerCardOtpService::class)->verify(
+                                    $customerCard,
+                                    (string) $request->input('customer_card_otp'),
+                                    $requiredCardAmount,
+                                    $operator?->id
+                                );
+                            }
+                        }
+                    }
+                }
+
+                if ($paymentMethod === 'customer_card' && $paid < $total) {
+                    throw new \Exception('Pagamento por Cartao Cliente/Fidelidade deve cobrir o total da venda.');
+                }
 
                 if ($outstanding > 0 && !ModuleSettings::enabled('current_account')) {
                     throw new \Exception('Modulo Conta Corrente desativado pelo super-user.');
@@ -132,6 +216,7 @@ class PosController extends Controller
                     'document_series_id' => $document['document_series_id'],
                     'document_number' => $document['document_number'],
                     'customer_id' => $customerId,
+                    'customer_card_id' => $customerCard?->id,
                     'operator_id' => $operator?->id,
                     'shift_id' => $shift?->id,
                     'user_id' => auth()->id(),
@@ -210,8 +295,40 @@ class PosController extends Controller
                     ]);
                 }
 
+                if ((float) ($paymentAmounts['customer_card'] ?? 0) > 0 && $customerCard) {
+                    app(CustomerCardService::class)->paySale($customerCard, $sale, (float) $paymentAmounts['customer_card']);
+
+                    if ($customerCardOtp) {
+                        app(CustomerCardOtpService::class)->markUsed($customerCardOtp, $sale);
+                    }
+
+                    if ($customerCardAuthorization) {
+                        app(CustomerCardAuthorizationService::class)->markUsed($customerCardAuthorization, $sale);
+                    }
+
+                    if ($customerCardEmergencySupervisor) {
+                        AuditLogger::log('customer_card_emergency_payment', 'CustomerCard', $customerCard->id, [
+                            'sale_id' => $sale->id,
+                            'invoice_number' => $sale->invoice_number,
+                            'card_number' => $customerCard->card_number,
+                            'customer_id' => $customerCard->customer_id,
+                            'amount' => (float) ($paymentAmounts['customer_card'] ?? 0),
+                            'operator_id' => $operator?->id,
+                            'supervisor_id' => $customerCardEmergencySupervisor->id,
+                            'supervisor_name' => $customerCardEmergencySupervisor->name,
+                            'reason' => $request->input('supervisor_reason'),
+                        ]);
+                    }
+                }
+
+                app(CustomerCardService::class)->earnFromSale($sale);
+
+
                 return $sale;
             });
+
+            app(AGTSeriesRequestService::class)->requestForSale($sale);
+            $agtDocument = $this->registerAgtSale($sale);
 
             return response()->json([
                 'success' => true,
@@ -221,6 +338,9 @@ class PosController extends Controller
                 'payment_status' => $sale->payment_status,
                 'outstanding' => round(max((float) $sale->total - (float) $sale->paid, 0), 2),
                 'message' => 'Fatura emitida com sucesso',
+                'agt_status' => $agtDocument?->status,
+                'agt_status_label' => $agtDocument?->status_label,
+                'agt_message' => $agtDocument?->validation_message,
             ]);
         } catch (\Throwable $e) {
             report($e);
@@ -232,6 +352,18 @@ class PosController extends Controller
         }
     }
 
+    private function registerAgtSale(Sale $sale): ?\App\Models\AgtDocument
+    {
+        try {
+            $service = app(AGTElectronicInvoiceService::class);
+
+            return $service->send($service->prepareSale($sale));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
     public function findProductByBarcode(Request $request)
     {
         if (!ModuleSettings::enabled('supermarket')) {
@@ -247,8 +379,48 @@ class PosController extends Controller
         return response()->json(['success' => true, 'data' => $product]);
     }
 
+    private function authorizeCustomerCardEmergency(Request $request): Operator
+    {
+        if (!$request->filled('supervisor_pin')) {
+            throw new \Exception('PIN de supervisor obrigatorio para uso emergencial offline de Fidelidade.');
+        }
+
+        $pinFingerprint = Operator::pinFingerprint((string) $request->input('supervisor_pin'));
+        $supervisor = Operator::where('active', true)->where('pin_fingerprint', $pinFingerprint)->first();
+
+        if (!$supervisor) {
+            $supervisor = Operator::where('active', true)
+                ->whereNull('pin_fingerprint')
+                ->get()
+                ->first(fn (Operator $operator) => Hash::check((string) $request->input('supervisor_pin'), $operator->pin));
+
+            if ($supervisor && !Operator::where('pin_fingerprint', $pinFingerprint)->whereKeyNot($supervisor->id)->exists()) {
+                $supervisor->forceFill(['pin_fingerprint' => $pinFingerprint])->save();
+            }
+        }
+
+        if (!$supervisor || !OperatorPermissions::allowsAny($supervisor->role, ['security.manage', 'cash.audit', 'management.view'])) {
+            AuditLogger::log('customer_card_emergency_authorization_failed', 'CustomerCard', null, [
+                'operator_id' => session('operator_id'),
+                'operator_name' => session('operator_name'),
+                'matched_operator_id' => $supervisor?->id,
+                'matched_operator_role' => $supervisor?->role,
+                'reason' => $supervisor ? 'sem permissao de supervisor' : 'pin invalido',
+            ]);
+
+            throw new \Exception('PIN de supervisor invalido ou sem permissao para uso emergencial offline.');
+        }
+
+        return $supervisor;
+    }
     private function normalizePaymentBreakdown(string $paymentMethod, Request $request, float $total): array
     {
+        if ($paymentMethod === 'customer_card') {
+            return [
+                'customer_card' => round((float) $request->input('amount_paid', $total), 2),
+            ];
+        }
+
         if ($paymentMethod === 'credit') {
             return [
                 'credit' => 0,
@@ -262,6 +434,7 @@ class PosController extends Controller
                 'cash' => round((float) ($breakdown['cash'] ?? 0), 2),
                 'card' => round((float) ($breakdown['card'] ?? 0), 2),
                 'transf' => round((float) ($breakdown['transfer'] ?? $breakdown['transf'] ?? 0), 2),
+                'customer_card' => round((float) ($breakdown['customer_card'] ?? 0), 2),
             ];
         }
 

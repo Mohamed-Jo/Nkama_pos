@@ -14,6 +14,7 @@ class BusinessSettings
         'nif' => '',
         'iban' => '',
         'account_number' => '',
+        'bank_name' => '',
         'swift' => '',
         'logo_path' => '',
         'login_background_path' => '',
@@ -50,6 +51,15 @@ class BusinessSettings
         'printer_name' => '',
     ];
 
+    public const INVOICE_DEFAULTS = [
+        'currency' => 'AOA',
+        'exchange_rate' => 1,
+        'exemption_reason' => '',
+        'commercial_discount' => 0,
+        'payment_condition' => 'Pronto pagamento',
+        'due_days' => 0,
+    ];
+
     public static function company(): array
     {
         return self::setting('company_profile', self::COMPANY_DEFAULTS);
@@ -73,6 +83,11 @@ class BusinessSettings
         ] + self::DIRECT_PRINT_DEFAULTS);
     }
 
+    public static function invoice(): array
+    {
+        return self::setting('invoice_settings', self::INVOICE_DEFAULTS);
+    }
+
     public static function updateCompany(array $company): array
     {
         $values = array_merge(self::COMPANY_DEFAULTS, [
@@ -81,6 +96,7 @@ class BusinessSettings
             'nif' => trim((string) ($company['nif'] ?? '')),
             'iban' => trim((string) ($company['iban'] ?? '')),
             'account_number' => trim((string) ($company['account_number'] ?? '')),
+            'bank_name' => trim((string) ($company['bank_name'] ?? '')),
             'swift' => trim((string) ($company['swift'] ?? '')),
             'logo_path' => (string) ($company['logo_path'] ?? ''),
             'login_background_path' => (string) ($company['login_background_path'] ?? ''),
@@ -155,6 +171,31 @@ class BusinessSettings
 
         AppSetting::updateOrCreate(
             ['key' => 'direct_print_settings'],
+            ['value' => $values]
+        );
+
+        return $values;
+    }
+
+    public static function updateInvoice(array $invoice): array
+    {
+        $currency = strtoupper(trim((string) ($invoice['currency'] ?? self::INVOICE_DEFAULTS['currency'])));
+
+        if ($currency === '') {
+            $currency = self::INVOICE_DEFAULTS['currency'];
+        }
+
+        $values = [
+            'currency' => substr($currency, 0, 12),
+            'exchange_rate' => self::clampNumber($invoice['exchange_rate'] ?? null, 0.000001, 999999999, self::INVOICE_DEFAULTS['exchange_rate'], 6),
+            'exemption_reason' => trim((string) ($invoice['exemption_reason'] ?? '')),
+            'commercial_discount' => self::clampNumber($invoice['commercial_discount'] ?? null, 0, 100, self::INVOICE_DEFAULTS['commercial_discount']),
+            'payment_condition' => trim((string) ($invoice['payment_condition'] ?? self::INVOICE_DEFAULTS['payment_condition'])),
+            'due_days' => (int) self::clampNumber($invoice['due_days'] ?? null, 0, 3650, self::INVOICE_DEFAULTS['due_days']),
+        ];
+
+        AppSetting::updateOrCreate(
+            ['key' => 'invoice_settings'],
             ['value' => $values]
         );
 
@@ -244,10 +285,10 @@ class BusinessSettings
         return array_merge($defaults, $setting?->value ?? []);
     }
 
-    private static function clampNumber(mixed $value, float $min, float $max, float $default): float
+    private static function clampNumber(mixed $value, float $min, float $max, float $default, int $precision = 2): float
     {
         $number = is_numeric($value) ? (float) $value : $default;
 
-        return round(min(max($number, $min), $max), 2);
+        return round(min(max($number, $min), $max), $precision);
     }
 }

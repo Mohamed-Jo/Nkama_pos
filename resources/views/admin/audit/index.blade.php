@@ -3,6 +3,27 @@
 @section('page-title', 'Auditoria')
 
 @section('content')
+    @php
+        $actionLabels = [
+            'customer_card_details_updated' => 'Cartao cliente: dados alterados',
+            'customer_card_status_changed' => 'Cartao cliente: estado alterado',
+            'customer_card_recharged' => 'Cartao cliente: recarga autorizada',
+            'customer_card_points_redeemed' => 'Cartao cliente: pontos resgatados',
+            'customer_card_sale_payment' => 'Cartao cliente: pagamento no POS',
+            'customer_card_otp_sent' => 'Cartao cliente: OTP enviado',
+            'customer_card_otp_failed' => 'Cartao cliente: OTP falhou',
+            'customer_card_otp_used' => 'Cartao cliente: OTP usado',
+            'customer_card_emergency_payment' => 'Cartao cliente: pagamento emergencial offline',
+            'customer_card_emergency_authorization_failed' => 'Cartao cliente: autorizacao emergencial falhada',
+            'customer_card_supervisor_authorization_failed' => 'Cartao cliente: autorizacao de supervisor falhada',
+            'login' => 'Entrada no sistema',
+            'logout' => 'Saida do sistema',
+            'login_failed' => 'Tentativa de entrada falhada',
+            'created' => 'Criado',
+            'updated' => 'Atualizado',
+            'deleted' => 'Eliminado',
+        ];
+    @endphp
     <style>
         .audit-page {
             display: flex;
@@ -192,7 +213,7 @@
                     <select id="action" name="action">
                         <option value="">Todas</option>
                         @foreach($actions as $action)
-                            <option value="{{ $action }}" @selected(request('action') === $action)>{{ ucfirst($action) }}</option>
+                            <option value="{{ $action }}" @selected(request('action') === $action)>{{ $actionLabels[$action] ?? ucfirst(str_replace('_', ' ', $action)) }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -248,7 +269,7 @@
                                     <strong>{{ $log->created_at?->format('d/m/Y H:i') }}</strong>
                                     <div class="audit-muted">{{ $log->created_at?->diffForHumans() }}</div>
                                 </td>
-                                <td><span class="audit-badge">{{ $log->action }}</span></td>
+                                <td><span class="audit-badge">{{ $actionLabels[$log->action] ?? ucfirst(str_replace('_', ' ', $log->action)) }}</span></td>
                                 <td>
                                     <strong>{{ $log->model }}</strong>
                                     <div class="audit-muted">ID: {{ $log->model_id ?? '-' }}</div>

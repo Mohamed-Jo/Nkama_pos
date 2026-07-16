@@ -23,7 +23,9 @@ class AuditLogger
                 return;
             }
 
-            if ($action !== 'modules_updated' && !ModuleSettings::enabled('audit')) {
+            $forcedAction = $action === 'modules_updated' || str_starts_with($action, 'customer_card_');
+
+            if (!$forcedAction && !ModuleSettings::enabled('audit')) {
                 return;
             }
 

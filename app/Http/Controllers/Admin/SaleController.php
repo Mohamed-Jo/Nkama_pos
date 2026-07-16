@@ -5,17 +5,23 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Operator;
 use App\Models\CurrentAccountEntry;
+use App\Models\Customer;
 use App\Models\Payments;
 use App\Models\Shift;
 use App\Models\Sale;
 use App\Models\Product;
 use App\Models\Payment;
 use App\Models\StockMovement;
+use App\Services\AGTSeriesRequestService;
+use App\Services\AGTElectronicInvoiceService;
 use App\Services\BusinessSettings;
+use App\Services\CustomerCardService;
 use App\Services\DocumentNumbering;
 use App\Services\ModuleSettings;
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class SaleController extends Controller
 {
@@ -33,7 +39,7 @@ class SaleController extends Controller
             $baseSalesQuery->where('operator_id', $operatorId);
         }
 
-        $query = (clone $baseSalesQuery)->with('customer', 'operator', 'creditNotes');
+        $query = (clone $baseSalesQuery)->with(['customer', 'operator', 'agtDocument', 'creditNotes.agtDocument']);
 
         // ================= FILTER =================
         if ($request->search) {
@@ -163,12 +169,36 @@ class SaleController extends Controller
             'topProducts' // <-- Passado para a View aqui
         ));
     }
+    public function create()
+    {
+        $products = Product::query()
+            ->where(function ($query) {
+                $query->whereNull('status')->orWhere('status', true);
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'barcode', 'selling_price', 'tax_rate', 'stock_quantity', 'unit']);
 
-     
-    
+        $customers = Customer::query()
+            ->where(function ($query) {
+                $query->whereNull('status')->orWhere('status', true);
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'phone', 'email', 'address']);
+
+        $viewTicket = ModuleSettings::enabled('view_ticket');
+        $shift = Shift::where('operator_id', session('operator_id'))
+            ->where('status', 'open')
+            ->latest()
+            ->first();
+        $canOpenShift = \App\Services\OperatorPermissions::allows(session('operator_role'), 'cash.operate');
+        $invoiceSettings = BusinessSettings::invoice();
+        $invoiceDueDate = now()->addDays((int) ($invoiceSettings['due_days'] ?? 0))->toDateString();
+
+        return view('admin.sales.create', compact('products', 'customers', 'viewTicket', 'shift', 'canOpenShift', 'invoiceSettings', 'invoiceDueDate'));
+    }
     public function show($id)
     {
-        $sale = Sale::with('operator', 'items.product', 'payments', 'creditNotes')
+        $sale = Sale::with('operator', 'items.product', 'payments', 'agtDocument', 'creditNotes.agtDocument', 'customer.card', 'customerCard.balanceTransactions', 'pointTransactions')
             ->findOrFail($id);
 
         if (session('operator_role') === 'cashier' && (int) $sale->operator_id !== (int) session('operator_id')) {
@@ -180,10 +210,27 @@ class SaleController extends Controller
 
         return view('admin.sales.show', compact('sale', 'company', 'logoUrl'));
     }
+    public function invoicePdf($id)
+    {
+        $sale = Sale::with('operator', 'items.product', 'payments', 'agtDocument', 'creditNotes.agtDocument', 'customer.card', 'customerCard.balanceTransactions', 'pointTransactions')
+            ->findOrFail($id);
 
+        if (session('operator_role') === 'cashier' && (int) $sale->operator_id !== (int) session('operator_id')) {
+            abort(403, 'Sem permissao para ver esta venda.');
+        }
+
+        $company = BusinessSettings::company();
+
+        return Pdf::loadView('admin.sales.invoice-a4', [
+            'sale' => $sale,
+            'company' => $company,
+            'logoUrl' => BusinessSettings::logoDataUri($company),
+        ])->setPaper('a4', 'portrait')
+            ->stream('fatura-' . str_replace(['/', ' '], '-', $sale->invoice_number) . '.pdf');
+    }
     public function ticket($id)
     {
-        $sale = Sale::with('operator', 'items.product', 'payments')
+        $sale = Sale::with('operator', 'items.product', 'payments', 'agtDocument', 'customer.card', 'customerCard.balanceTransactions', 'pointTransactions')
             ->findOrFail($id);
 
         if (session('operator_role') === 'cashier' && (int) $sale->operator_id !== (int) session('operator_id')) {
@@ -203,6 +250,13 @@ class SaleController extends Controller
             'payments' => 'required|array',
             'total' => 'required|numeric|min:0',
             'customer_id' => 'nullable|exists:customers,id',
+            'customer_card_number' => 'nullable|string|max:80',
+            'currency' => 'nullable|string|max:12',
+            'exchange_rate' => 'nullable|numeric|min:0.000001|max:999999999',
+            'exemption_reason' => 'nullable|string|max:255',
+            'commercial_discount' => 'nullable|numeric|min:0|max:100',
+            'payment_condition' => 'nullable|string|max:120',
+            'due_date' => 'nullable|date',
         ]);
 
         try {
@@ -238,12 +292,31 @@ class SaleController extends Controller
             $transf = round((float) ($payments['transf'] ?? 0), 2);
             $multi = round((float) ($payments['multi'] ?? 0), 2);
 
+            $invoiceSettings = BusinessSettings::invoice();
+            $commercialDiscount = round((float) $request->input('commercial_discount', $invoiceSettings['commercial_discount'] ?? 0), 2);
+            $currency = strtoupper(trim((string) $request->input('currency', $invoiceSettings['currency'] ?? 'AOA')));
+            $exchangeRate = round(max((float) $request->input('exchange_rate', $invoiceSettings['exchange_rate'] ?? 1), 0.000001), 6);
+            $paymentCondition = trim((string) $request->input('payment_condition', $invoiceSettings['payment_condition'] ?? 'Pronto pagamento'));
+            $exemptionReason = trim((string) $request->input('exemption_reason', $invoiceSettings['exemption_reason'] ?? ''));
+            $dueDate = $request->input('due_date') ?: now()->addDays((int) ($invoiceSettings['due_days'] ?? 0))->toDateString();
+
             $total = round((float) $request->total, 2);
             $totalPaid = $cash + $card + $transf + $multi;
-            $calculated = $this->calculateSaleItems($request->items);
+            $calculated = $this->calculateSaleItems($request->items, $commercialDiscount);
             $total = $calculated['total'];
             $outstanding = round(max($total - $totalPaid, 0), 2);
             $customerId = $request->integer('customer_id') ?: null;
+            $customerCard = null;
+
+            if (ModuleSettings::enabled('customer_card') && $request->filled('customer_card_number')) {
+                $customerCard = app(CustomerCardService::class)->lookup((string) $request->input('customer_card_number'));
+
+                if (!$customerCard || $customerCard->status !== 'active') {
+                    return response()->json(['success' => false, 'error' => 'Cartao cliente nao encontrado ou inativo.'], 422);
+                }
+
+                $customerId = $customerCard->customer_id;
+            }
 
             // ==============================
             // VALIDATION
@@ -267,7 +340,7 @@ class SaleController extends Controller
             // ==============================
             // TRANSACTION
             // ==============================
-            $sale = DB::transaction(function () use ($calculated, $operator, $operatorId, $totalPaid, $change, $cash, $card, $transf, $multi, $outstanding, $customerId) {
+            $sale = DB::transaction(function () use ($calculated, $operator, $operatorId, $totalPaid, $change, $cash, $card, $transf, $multi, $outstanding, $customerId, $customerCard, $currency, $exchangeRate, $paymentCondition, $exemptionReason, $dueDate) {
 
                 // SHIFT
                 $shift = Shift::where('operator_id', $operatorId)
@@ -275,8 +348,8 @@ class SaleController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if (!$shift) {
-                    throw new \Exception('Abra o caixa antes de vender');
+                if ($totalPaid > 0 && !$shift) {
+                    throw new \Exception('Abra o caixa antes de receber pagamentos');
                 }
 
                 // ==============================
@@ -314,10 +387,11 @@ class SaleController extends Controller
                 // ==============================
                 // CREATE SALE
                 // ==============================
-                $sale = Sale::create([
+                $salePayload = [
                     'customer_id' => $customerId,
+                    'customer_card_id' => $customerCard?->id,
                     'operator_id' => $operator->id,
-                    'shift_id' => $shift->id,
+                    'shift_id' => $shift?->id,
                     'invoice_number' => $invoiceNumber,
                     'document_type_code' => $document['document_type_code'],
                     'document_series_id' => $document['document_series_id'],
@@ -326,12 +400,22 @@ class SaleController extends Controller
                     'subtotal' => $calculated['subtotal'],
                     'tax' => $calculated['tax'],
                     'tax_rate' => $calculated['tax_rate'],
+                    'discount' => $calculated['discount_amount'],
                     'total' => $calculated['total'],
                     'paid' => $totalPaid,
                     'change' => $change,
                     'payment_status' => $paymentStatus,
-                ]);
+                    'status' => $paymentStatus,
+                    'currency' => $currency ?: 'AOA',
+                    'exchange_rate' => $exchangeRate,
+                    'exemption_reason' => $exemptionReason,
+                    'commercial_discount' => $calculated['discount_rate'],
+                    'payment_condition' => $paymentCondition,
+                    'due_date' => $dueDate,
+                ];
 
+                $salePayload = array_filter($salePayload, fn ($value, $column) => Schema::hasColumn('sales', $column), ARRAY_FILTER_USE_BOTH);
+                $sale = Sale::create($salePayload);
                 foreach ($calculated['items'] as $item) {
 
                     $product = $item['product'];
@@ -389,7 +473,7 @@ class SaleController extends Controller
 
                     Payments::create([
                         'sale_id' => $sale->id,
-                        'shift_id' => $shift->id,
+                        'shift_id' => $shift?->id,
                         'operator_id' => $operator->id,
                         'method' => $method,
                         'amount' => $amount
@@ -416,8 +500,14 @@ class SaleController extends Controller
                 // ==============================
                 // $shift->increment('total', $total);
 
+                app(CustomerCardService::class)->earnFromSale($sale);
+
+
                 return $sale;
             });
+
+            app(AGTSeriesRequestService::class)->requestForSale($sale);
+            $agtDocument = $this->registerAgtSale($sale);
 
             // ==============================
             // RESPONSE
@@ -431,7 +521,10 @@ class SaleController extends Controller
                 'total' => $sale->total,
                 'paid' => $sale->paid,
                 'change' => $sale->change,
-                'message' => 'Venda concluída muito sucesso'
+                'message' => 'Venda concluida com sucesso',
+                'agt_status' => $agtDocument?->status,
+                'agt_status_label' => $agtDocument?->status_label,
+                'agt_message' => $agtDocument?->validation_message,
             ]);
 
         } catch (\Throwable $e) {
@@ -445,7 +538,19 @@ class SaleController extends Controller
         }
     }
 
-    private function calculateSaleItems(array $items): array
+    private function registerAgtSale(Sale $sale): ?\App\Models\AgtDocument
+    {
+        try {
+            $service = app(AGTElectronicInvoiceService::class);
+
+            return $service->send($service->prepareSale($sale));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+    private function calculateSaleItems(array $items, float $discountPercent = 0): array
     {
         $calculatedItems = [];
         $grossTotal = 0.0;
@@ -486,12 +591,18 @@ class SaleController extends Controller
             ];
         }
 
+        $discountRate = min(max($discountPercent, 0), 100);
+        $discountFactor = max(0, 1 - ($discountRate / 100));
+        $discountAmount = round($grossTotal * ($discountRate / 100), 2);
+
         return [
             'items' => $calculatedItems,
-            'subtotal' => round($netTotal, 2),
-            'tax' => round($taxTotal, 2),
+            'subtotal' => round($netTotal * $discountFactor, 2),
+            'tax' => round($taxTotal * $discountFactor, 2),
             'tax_rate' => count($rates) === 1 ? (float) array_key_first($rates) : 0.0,
-            'total' => round($grossTotal, 2),
+            'total' => round(max($grossTotal - $discountAmount, 0), 2),
+            'discount_rate' => round($discountRate, 2),
+            'discount_amount' => $discountAmount,
         ];
     }
 

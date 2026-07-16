@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'customer_card_whatsapp' => [
+        'enabled' => env('CUSTOMER_CARD_WHATSAPP_ENABLED', false),
+        'endpoint' => env('CUSTOMER_CARD_WHATSAPP_ENDPOINT'),
+        'token' => env('CUSTOMER_CARD_WHATSAPP_TOKEN'),
+        'country_code' => env('CUSTOMER_CARD_WHATSAPP_COUNTRY_CODE', '244'),
+        'phone_key' => env('CUSTOMER_CARD_WHATSAPP_PHONE_KEY', 'phone'),
+        'message_key' => env('CUSTOMER_CARD_WHATSAPP_MESSAGE_KEY', 'message'),
+    ],
 ];

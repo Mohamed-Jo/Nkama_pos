@@ -23,6 +23,7 @@ class SettingController extends Controller
             'tax' => BusinessSettings::tax(),
             'print' => BusinessSettings::print(),
             'directPrint' => BusinessSettings::directPrint(),
+            'invoice' => BusinessSettings::invoice(),
             'logoUrl' => BusinessSettings::logoUrl($company),
             'loginBackgroundUrl' => BusinessSettings::loginBackgroundUrl($company),
         ]);
@@ -36,6 +37,7 @@ class SettingController extends Controller
             'company.nif' => ['nullable', 'string', 'max:80'],
             'company.iban' => ['nullable', 'string', 'max:80'],
             'company.account_number' => ['nullable', 'string', 'max:80'],
+            'company.bank_name' => ['nullable', 'string', 'max:120'],
             'company.swift' => ['nullable', 'string', 'max:80'],
             'company.logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'company.login_background' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
@@ -62,6 +64,12 @@ class SettingController extends Controller
             'print.item_subtotal_width_mm' => ['required', 'numeric', 'min:10', 'max:30'],
             'direct_print.sumatra_path' => ['nullable', 'string', 'max:500'],
             'direct_print.printer_name' => ['nullable', 'string', 'max:255'],
+            'invoice.currency' => ['required', 'string', 'max:12'],
+            'invoice.exchange_rate' => ['required', 'numeric', 'min:0.000001', 'max:999999999'],
+            'invoice.exemption_reason' => ['nullable', 'string', 'max:255'],
+            'invoice.commercial_discount' => ['required', 'numeric', 'min:0', 'max:100'],
+            'invoice.payment_condition' => ['nullable', 'string', 'max:120'],
+            'invoice.due_days' => ['required', 'integer', 'min:0', 'max:3650'],
         ]);
 
         $before = [
@@ -69,6 +77,7 @@ class SettingController extends Controller
             'tax' => BusinessSettings::tax(),
             'print' => BusinessSettings::print(),
             'direct_print' => BusinessSettings::directPrint(),
+            'invoice' => BusinessSettings::invoice(),
         ];
 
         $company = array_merge($before['company'], $validated['company'] ?? []);
@@ -99,6 +108,7 @@ class SettingController extends Controller
             'tax' => BusinessSettings::updateTax($validated['tax'] ?? []),
             'print' => BusinessSettings::updatePrint($validated['print'] ?? []),
             'direct_print' => BusinessSettings::updateDirectPrint($validated['direct_print'] ?? []),
+            'invoice' => BusinessSettings::updateInvoice($validated['invoice'] ?? []),
         ];
 
         AuditLogger::log('business_settings_updated', 'BusinessSettings', null, [

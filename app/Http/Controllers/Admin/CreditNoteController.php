@@ -12,6 +12,8 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\StockMovement;
+use App\Services\AGTSeriesRequestService;
+use App\Services\AGTElectronicInvoiceService;
 use App\Services\BusinessSettings;
 use App\Services\DocumentNumbering;
 use App\Services\DirectPrintService;
@@ -217,6 +219,9 @@ class CreditNoteController extends Controller
                 return $creditNote;
             });
 
+            app(AGTSeriesRequestService::class)->requestForCreditNote($creditNote);
+            $agtDocument = $this->registerAgtCreditNote($creditNote);
+
             if (! ModuleSettings::enabled('view_ticket')) {
                 try {
                     $creditNote->load('originalSale', 'customer', 'operator', 'items.product', 'payments');
@@ -230,7 +235,7 @@ class CreditNoteController extends Controller
 
                     return redirect()
                         ->route('admin.sales.show', $creditNote->original_sale_id)
-                        ->with('success', 'Nota de credito emitida e enviada para impressao.');
+                        ->with('success', 'Nota de credito emitida e enviada para impressao. ' . ($agtDocument?->validation_message ?? ''));
                 } catch (\Throwable $printError) {
                     report($printError);
 
@@ -242,7 +247,7 @@ class CreditNoteController extends Controller
 
             return redirect()
                 ->route('admin.credit-notes.ticket', $creditNote)
-                ->with('success', 'Nota de credito emitida com sucesso.');
+                ->with('success', 'Nota de credito emitida com sucesso. ' . ($agtDocument?->validation_message ?? ''));
         } catch (\Throwable $e) {
             report($e);
 
@@ -252,6 +257,18 @@ class CreditNoteController extends Controller
         }
     }
 
+    private function registerAgtCreditNote(CreditNote $creditNote): ?\App\Models\AgtDocument
+    {
+        try {
+            $service = app(AGTElectronicInvoiceService::class);
+
+            return $service->send($service->prepareCreditNote($creditNote));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
     public function ticket(CreditNote $creditNote): View
     {
         $creditNote->load('originalSale', 'customer', 'operator', 'items.product', 'payments');

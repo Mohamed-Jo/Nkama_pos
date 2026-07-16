@@ -1,6 +1,14 @@
 @extends('layouts.admin')
 
 @section('content')
+    @php
+        $agtBadgeClass = fn ($status) => match ($status) {
+            'submitted' => 'ok',
+            'pending' => 'warn',
+            'failed' => 'danger',
+            default => '',
+        };
+    @endphp
     <style>
         /* CONFIGURAÇÕES GERAIS E PALETA NKAMA */
         :root {
@@ -318,6 +326,46 @@
             margin-top: 7px;
         }
 
+        .invoice-doc-meta {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .invoice-agt-box {
+            align-items: flex-start;
+            background: rgba(255, 255, 255, .025);
+            border: 1px solid rgba(255, 255, 255, .055);
+            border-radius: 8px;
+            display: inline-flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 9px;
+            max-width: 260px;
+            padding: 7px 9px;
+        }
+
+        .invoice-agt-title {
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .invoice-agt-id {
+            color: var(--text-muted);
+            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            font-size: 11px;
+            word-break: break-word;
+        }
+
+        .nc-link small {
+            color: #fca5a5;
+            font-size: 10px;
+            margin-left: 4px;
+            opacity: .9;
+        }
+
         .nc-link {
             background: rgba(239, 68, 68, 0.10);
             border: 1px solid rgba(239, 68, 68, 0.24);
@@ -439,7 +487,12 @@
    
 
         <div class="panel-custom">
-            <h3 class="panel-title">Facturas emitidas</h3>
+            <div style="align-items:center; display:flex; gap:12px; justify-content:space-between; margin-bottom:16px;">
+                <h3 class="panel-title" style="margin-bottom:0;">Facturas emitidas</h3>
+                @if(\App\Services\OperatorPermissions::allows(session('operator_role'), 'sales.create'))
+                    <a class="invoice-action primary" href="{{ route('admin.sales.create') }}">Nova venda</a>
+                @endif
+            </div>
 
             <form method="GET" action="{{ route('admin.sales.index') }}" class="filter-flex" style="margin-bottom: 16px;">
                 <input class="input-dark" type="text" name="search" value="{{ request('search') }}" placeholder="No. factura ou cliente">
@@ -470,7 +523,14 @@
                             <tr>
                                 <td>
                                     <strong style="color:#fff;">{{ $sale->invoice_number }}</strong>
-                                    <div style="color:var(--text-muted); font-size:12px;">{{ $sale->document_type_code ?? 'FR' }} · {{ strtoupper($sale->payment_method ?? '-') }}</div>
+                                    <div class="invoice-doc-meta">{{ $sale->document_type_code ?? 'FR' }} · {{ strtoupper($sale->payment_method ?? '-') }}</div>
+                                    <div class="invoice-agt-box">
+                                        <span class="invoice-agt-title">Estado AGT</span>
+                                        <span class="invoice-badge {{ $agtBadgeClass($sale->agtDocument?->status) }}">{{ $sale->agtDocument?->status_label ?? 'Nao enviada' }}</span>
+                                        @if($sale->agtDocument?->external_id)
+                                            <span class="invoice-agt-id">{{ $sale->agtDocument->external_id }}</span>
+                                        @endif
+                                    </div>
                                     @if($sale->creditNotes->isNotEmpty())
                                         <div class="nc-links">
                                             @foreach($sale->creditNotes as $note)
@@ -481,7 +541,7 @@
                                                 <a class="nc-link"
                                                     href="{{ $viewTicket ? $noteTicketUrl : $notePrintUrl }}"
                                                     @if($viewTicket) target="_blank" @else data-direct-print-url="{{ $notePrintUrl }}" @endif>
-                                                    {{ $viewTicket ? 'NC' : 'Imprimir NC' }} {{ $note->invoice_number }}
+                                                    {{ $viewTicket ? 'NC' : 'Imprimir NC' }} {{ $note->invoice_number }} <small>AGT: {{ $note->agtDocument?->status_label ?? 'Nao enviada' }}</small>
                                                 </a>
                                             @endforeach
                                         </div>

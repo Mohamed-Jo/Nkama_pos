@@ -4,13 +4,15 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Services\CustomerCardService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
     public function index()
     {
-        $customers = Customer::latest()->get();
+        $customers = Customer::with('card')->latest()->get();
 
         return view('admin.customers.index', compact('customers'));
     }
@@ -20,18 +22,62 @@ class CustomerController extends Controller
         return view('admin.customers.create');
     }
 
-    public function store(Request $request)
+    public function store(Request $request, CustomerCardService $cards)
     {
-        Customer::create([
-            'name' => $request->name,
-            'phone' => $request->phone,
-            'email' => $request->email,
-            'address' => $request->address,
-            'status' => true
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:180'],
+            'phone' => ['nullable', 'string', 'max:60'],
+            'email' => ['nullable', 'email', 'max:180', 'unique:customers,email'],
+            'address' => ['nullable', 'string', 'max:500'],
         ]);
+
+        $customer = Customer::create([
+            'name' => $validated['name'],
+            'phone' => $validated['phone'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'status' => true,
+        ]);
+
+        $cards->ensureCard($customer);
 
         return redirect()
             ->route('admin.customers.index')
             ->with('success', 'Cliente criado com sucesso');
+    }
+
+    public function edit(Customer $customer)
+    {
+        $customer->load('card');
+
+        return view('admin.customers.edit', compact('customer'));
+    }
+
+    public function update(Request $request, Customer $customer)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:180'],
+            'phone' => ['nullable', 'string', 'max:60'],
+            'email' => [
+                'nullable',
+                'email',
+                'max:180',
+                Rule::unique('customers', 'email')->ignore($customer->id),
+            ],
+            'address' => ['nullable', 'string', 'max:500'],
+            'status' => ['nullable', 'boolean'],
+        ]);
+
+        $customer->update([
+            'name' => $validated['name'],
+            'phone' => $validated['phone'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'status' => (bool) ($validated['status'] ?? false),
+        ]);
+
+        return redirect()
+            ->route('admin.customers.index')
+            ->with('success', 'Cliente atualizado com sucesso');
     }
 }

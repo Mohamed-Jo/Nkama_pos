@@ -113,6 +113,40 @@
         </form>
         @endif
 
+        @if($modules['customer_card'] ?? true)
+        <form class="report-panel" method="GET" action="{{ route('admin.reports.customer-cards.pdf') }}" target="_blank">
+            <div class="report-grid">
+                <div class="report-field">
+                    <label>De</label>
+                    <input type="date" name="from" value="{{ $from }}">
+                </div>
+                <div class="report-field">
+                    <label>Ate</label>
+                    <input type="date" name="to" value="{{ $to }}">
+                </div>
+                <div class="report-field">
+                    <label>Cliente</label>
+                    <select name="customer_id">
+                        <option value="">Todos</option>
+                        @foreach($customers as $customer)
+                            <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="report-field">
+                    <label>Estado</label>
+                    <select name="status">
+                        <option value="">Todos</option>
+                        <option value="active">Ativos</option>
+                        <option value="blocked">Bloqueados</option>
+                    </select>
+                </div>
+                <div class="report-actions">
+                    <button class="report-btn" type="submit">Cartao Cliente PDF</button>
+                </div>
+            </div>
+        </form>
+        @endif
         @if($modules['current_account'] ?? true)
         <form class="report-panel" method="GET" action="{{ route('admin.reports.current-accounts.pdf') }}" target="_blank">
             <div class="report-grid">
