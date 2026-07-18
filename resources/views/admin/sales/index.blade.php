@@ -592,7 +592,7 @@
         </div>
 
         <div class="panel-custom" style="margin-bottom: 0;">
-            <h3 class="panel-title">🧠 Assistente de Insights Nkama</h3>
+            <h3 class="panel-title">🧠 Assistente de Insights MARIA ERP</h3>
             <div style="margin-top: 12px;">
                 @foreach ($insights as $i)
                     <div class="insight-box">

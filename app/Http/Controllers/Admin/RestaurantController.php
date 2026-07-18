@@ -38,7 +38,18 @@ class RestaurantController extends Controller
             'customers' => Customer::where('status', true)->get(),
             'operatorName' => Operator::find(session('operator_id'))?->name ?? 'Operador',
             'shift' => Shift::where('operator_id', session('operator_id'))->where('status', 'open')->first(),
-            'tables' => RestaurantTable::orderByRaw('LENGTH(name), name')->get(),
+            'tables' => RestaurantTable::with('currentOrder')
+                ->where(function ($query) {
+                    $operatorId = session('operator_id');
+                    $query->whereNull('current_order_id')
+                        ->orWhereDoesntHave('currentOrder')
+                        ->orWhereHas('currentOrder', function ($orderQuery) use ($operatorId) {
+                            $orderQuery->whereIn('status', ['closed', 'cancelled', 'canceled', 'transferred'])
+                                ->when($operatorId, fn ($query) => $query->orWhere('operator_id', $operatorId));
+                        });
+                })
+                ->orderByRaw('LENGTH(name), name')
+                ->get(),
         ]);
     }
 
@@ -50,6 +61,13 @@ class RestaurantController extends Controller
             $order = $table->current_order_id
                 ? RestaurantOrder::with('items.product')->find($table->current_order_id)
                 : null;
+
+            if ($this->isForeignActiveOrder($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta mesa esta ocupada por outro operador.',
+                ], 403);
+            }
 
             if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled'], true)) {
                 $order = RestaurantOrder::create([
@@ -77,9 +95,11 @@ class RestaurantController extends Controller
                 $table->status = 'occupied';
             }
 
+            $tableStatus = $hasItems ? 'occupied' : ($table->status === 'reserved' ? 'reserved' : 'free');
+
             return response()->json([
                 'success' => true,
-                'table_status' => $hasItems ? 'occupied' : 'free',
+                'table_status' => $tableStatus,
                 'order' => $order,
                 'items' => $order ? $order->items : []
             ]);
@@ -92,6 +112,105 @@ class RestaurantController extends Controller
         }
     }
 
+    public function reserveTable($tableId): JsonResponse
+    {
+        try {
+            $operatorId = session('operator_id');
+            $table = RestaurantTable::with('currentOrder.items')->lockForUpdate()->findOrFail($tableId);
+            $order = $table->currentOrder;
+
+            if ($this->isForeignActiveOrder($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta mesa esta ocupada por outro operador.',
+                ], 403);
+            }
+
+            if ($order && $order->items->isNotEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mesa com consumo nao pode ser marcada como reserva.',
+                ], 422);
+            }
+
+            if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled', 'transferred'], true)) {
+                $order = RestaurantOrder::create([
+                    'table_id' => $table->id,
+                    'operator_id' => $operatorId,
+                    'status' => 'open',
+                    'subtotal' => 0,
+                    'total' => 0,
+                    'notes' => 'Reserva de mesa',
+                ]);
+            }
+
+            $table->update([
+                'status' => 'reserved',
+                'current_order_id' => $order->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Mesa reservada com sucesso.',
+                'table_status' => 'reserved',
+                'order' => $order->fresh('items.product'),
+                'items' => [],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao reservar mesa: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function releaseReservation($tableId): JsonResponse
+    {
+        try {
+            $table = RestaurantTable::with('currentOrder.items')->lockForUpdate()->findOrFail($tableId);
+            $order = $table->currentOrder;
+
+            if ($this->isForeignActiveOrder($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta mesa esta ocupada por outro operador.',
+                ], 403);
+            }
+
+            if ($order && $order->items->isNotEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mesa com consumo nao pode libertar reserva.',
+                ], 422);
+            }
+
+            if ($order) {
+                $order->update([
+                    'status' => 'canceled',
+                    'subtotal' => 0,
+                    'total' => 0,
+                ]);
+            }
+
+            $table->update([
+                'status' => 'free',
+                'current_order_id' => null,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Reserva libertada com sucesso.',
+                'table_status' => 'free',
+                'order_id' => null,
+                'items' => [],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao libertar reserva: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
     public function closeOrder($tableId)
     {
         try {
@@ -99,6 +218,12 @@ class RestaurantController extends Controller
 
             if ($table->current_order_id) {
                 $order = RestaurantOrder::find($table->current_order_id);
+                if ($this->isForeignActiveOrder($order)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Esta mesa esta ocupada por outro operador.',
+                    ], 403);
+                }
                 if ($order) {
                     $order->update([
                         'status' => 'closed',
@@ -127,6 +252,13 @@ class RestaurantController extends Controller
         try {
             $table = RestaurantTable::with(['currentOrder.items.product'])->findOrFail($tableId);
             $order = $table->currentOrder;
+
+            if ($this->isForeignActiveOrder($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta mesa esta ocupada por outro operador.',
+                ], 403);
+            }
 
             if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled'], true)) {
                 return response()->json([
@@ -179,6 +311,10 @@ class RestaurantController extends Controller
         $table = RestaurantTable::with(['currentOrder.items.product'])->findOrFail($tableId);
         $order = $table->currentOrder;
 
+        if ($this->isForeignActiveOrder($order)) {
+            abort(403, 'Esta mesa esta ocupada por outro operador.');
+        }
+
         if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled'], true)) {
             abort(404, 'Mesa sem conta aberta.');
         }
@@ -216,6 +352,7 @@ class RestaurantController extends Controller
                 }
 
                 $order = RestaurantOrder::with('items.product')->lockForUpdate()->findOrFail($fromTable->current_order_id);
+                $this->assertOrderBelongsToCurrentOperator($order);
 
                 if ($order->items->isEmpty()) {
                     throw new \Exception('A conta de origem nao tem itens para transferir.');
@@ -365,7 +502,16 @@ class RestaurantController extends Controller
                 'price' => 'required|numeric'
             ]);
 
-            // Procura se o item já existe na sessão/pedido atual
+            
+            $order = RestaurantOrder::findOrFail($request->order_id);
+            if ($this->isForeignActiveOrder($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta mesa esta ocupada por outro operador.',
+                ], 403);
+            }
+
+// Procura se o item já existe na sessão/pedido atual
             $item = RestaurantOrderItem::where('order_id', $request->order_id)
                 ->where('product_id', $request->product_id)
                 ->first();
@@ -430,7 +576,25 @@ class RestaurantController extends Controller
             foreach ($tables as $table) {
                 $activeOrder = $table->currentOrder;
 
+                if ($this->isForeignActiveOrder($activeOrder)) {
+                    $formattedStates[$table->id] = [
+                        'status' => 'hidden',
+                        'order_id' => null,
+                        'itens' => [],
+                    ];
+                    continue;
+                }
+
                 $hasItems = $activeOrder && $activeOrder->items->isNotEmpty();
+
+                if ($table->status === 'reserved' && !$hasItems) {
+                    $formattedStates[$table->id] = [
+                        'status' => 'reserved',
+                        'order_id' => $activeOrder?->id,
+                        'itens' => [],
+                    ];
+                    continue;
+                }
 
                 if ($hasItems || in_array($table->status, ['occupied', 'waiting_payment'], true)) {
                     $formattedStates[$table->id] = [
@@ -477,6 +641,12 @@ class RestaurantController extends Controller
             ]);
 
             $order = RestaurantOrder::findOrFail($request->order_id);
+            if ($this->isForeignActiveOrder($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta mesa esta ocupada por outro operador.',
+                ], 403);
+            }
             $table = RestaurantTable::find($order->table_id);
 
             $item = $order->items()->where('product_id', $request->product_id)->first();
@@ -530,6 +700,12 @@ class RestaurantController extends Controller
             ]);
 
             $order = RestaurantOrder::findOrFail($request->order_id);
+            if ($this->isForeignActiveOrder($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta mesa esta ocupada por outro operador.',
+                ], 403);
+            }
 
             $order->items()->delete();
 
@@ -560,6 +736,23 @@ class RestaurantController extends Controller
         }
     }
 
+    private function isForeignActiveOrder(?RestaurantOrder $order): bool
+    {
+        if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled', 'transferred'], true)) {
+            return false;
+        }
+
+        $operatorId = session('operator_id');
+
+        return $operatorId && (int) $order->operator_id !== (int) $operatorId;
+    }
+
+    private function assertOrderBelongsToCurrentOperator(RestaurantOrder $order): void
+    {
+        if ($this->isForeignActiveOrder($order)) {
+            throw new \RuntimeException('Esta mesa esta ocupada por outro operador.');
+        }
+    }
     private function restaurantOrderTotals(RestaurantOrder $order): array
     {
         $grossTotal = 0.0;

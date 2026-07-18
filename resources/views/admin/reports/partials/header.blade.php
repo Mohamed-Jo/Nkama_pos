@@ -6,7 +6,7 @@
     @endif
 
     <div class="header-company">
-        <div class="company">{{ $company['name'] ?: config('app.name', 'Nkama ERP') }}</div>
+        <div class="company">{{ $company['name'] ?: config('app.name', 'MARIA ERP') }}</div>
         @if(!empty($company['nif']))
             <div class="muted">NIF: {{ $company['nif'] }}</div>
         @endif

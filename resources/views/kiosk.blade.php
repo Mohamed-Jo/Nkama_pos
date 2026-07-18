@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NKAMA POS LOGIN</title>
+    <title>MARIA ERP LOGIN</title>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -369,7 +369,7 @@
     <div class="login-shell">
         <section class="brand-side">
             <div class="brand-top">
-                <div class="brand-mark">NKAMA POS</div>
+                <div class="brand-mark">MARIA ERP</div>
                 <div class="kiosk-actions">
                     <button type="button" class="kiosk-action-btn" onclick="toggleKioskTheme()" id="kiosk-theme-btn">Tema</button>
                 </div>

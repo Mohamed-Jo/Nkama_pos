@@ -9,6 +9,7 @@ use App\Models\Purchase;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Services\ModuleSettings;
+use App\Services\StockWarehouseService;
 use App\Services\OperatorPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,7 @@ class PurchaseController extends Controller
             'due_date' => ['nullable', 'date', 'after_or_equal:purchase_date'],
             'payment_type' => ['required', Rule::in(['direct', 'credit'])],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'warehouse_id' => ['nullable', 'exists:warehouses,id'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
@@ -144,7 +146,14 @@ class PurchaseController extends Controller
         $canApprovePurchase = OperatorPermissions::allows($operatorRole, 'purchases.approve');
         $canReceivePurchase = OperatorPermissions::allows($operatorRole, 'purchases.receive');
 
-        return view('admin.purchases.show', compact('purchase', 'canCreatePurchase', 'canApprovePurchase', 'canReceivePurchase'));
+        return view('admin.purchases.show', [
+            'purchase' => $purchase,
+            'canCreatePurchase' => $canCreatePurchase,
+            'canApprovePurchase' => $canApprovePurchase,
+            'canReceivePurchase' => $canReceivePurchase,
+            'warehouses' => app(StockWarehouseService::class)->warehouses(),
+            'warehouseDefaults' => app(StockWarehouseService::class)->defaults(),
+        ]);
     }
 
     public function approve(Request $request, Purchase $purchase)
@@ -306,20 +315,23 @@ class PurchaseController extends Controller
                         continue;
                     }
 
-                    $stockBefore = (float) $product->stock_quantity;
-                    $product->increment('stock_quantity', $quantityToReceive);
+                    [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->increase($product, (int) $quantityToReceive, 'purchases', $request->integer('warehouse_id') ?: null);
                     $product->update(['purchase_price' => $item->unit_cost]);
-                    $stockAfter = (float) $product->fresh()->stock_quantity;
 
-                    StockMovement::create([
-                        'product_id' => $product->id,
-                        'type' => 'IN',
-                        'quantity' => $quantityToReceive,
-                        'stock_before' => $stockBefore,
-                        'stock_after' => $stockAfter,
-                        'notes' => 'Recebimento compra #' . $purchase->id,
-                        'operator_id' => session('operator_id'),
-                    ]);
+                    if ($product->track_stock ?? true) {
+                        StockMovement::create([
+                            'product_id' => $product->id,
+                            'type' => 'IN',
+                            'reason' => 'Compra recebida',
+                            'quantity' => $quantityToReceive,
+                            'stock_before' => $stockBefore,
+                            'stock_after' => $stockAfter,
+                            'notes' => 'Recebimento compra #' . $purchase->id,
+                            'reference_type' => 'purchase',
+                            'reference_id' => $purchase->id,
+                            'operator_id' => session('operator_id'),
+                        ]);
+                    }
 
                     $item->increment('received_quantity', $quantityToReceive);
                     $receivedAny = true;

@@ -52,4 +52,8 @@
 
 </div>
 
+<div class="table-pagination">
+    {{ $categories->links() }}
+</div>
+
 @endsection

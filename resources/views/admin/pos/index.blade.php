@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('page-title', 'Nkama ERP • POS Multi-Módulos')
+@section('page-title', 'MARIA ERP • POS Multi-Módulos')
 
 @section('content')
     <style>
@@ -529,7 +529,7 @@
             style="display: flex; justify-content: space-between; align-items: center; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; margin-bottom: 20px; background: #0f172a;">
             <div class="flex items-center gap-4" style="display: flex; align-items: center; gap: 15px;">
                 <div class="font-bold text-base tracking-tight text-white" style="font-weight: bold; color: #fff;">
-                    <span style="color: #38bdf8; margin-right: 5px;">●</span> Nkama ERP
+                    <span style="color: #38bdf8; margin-right: 5px;">●</span> MARIA ERP
                 </div>
 
                 <div

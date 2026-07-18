@@ -43,7 +43,6 @@ class AuthController extends Controller
 
         if (!$operator) {
             $operator = Operator::where('active', 1)
-                ->whereNull('pin_fingerprint')
                 ->get()
                 ->first(fn (Operator $operator) => Hash::check($request->pin, $operator->pin));
 

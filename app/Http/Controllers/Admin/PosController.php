@@ -24,6 +24,7 @@ use App\Services\CustomerCardService;
 use App\Services\OperatorPermissions;
 use App\Services\DocumentNumbering;
 use App\Services\ModuleSettings;
+use App\Services\StockWarehouseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -34,6 +35,32 @@ class PosController extends Controller
     public function index()
     {
         $modules = ModuleSettings::all();
+        $operatorId = session('operator_id');
+        $todaySalesQuery = Sale::where('status', 'paid')
+            ->whereDate('created_at', today());
+
+        if ($operatorId) {
+            $todaySalesQuery->where('operator_id', $operatorId);
+        } elseif (auth()->id()) {
+            $todaySalesQuery->where('user_id', auth()->id());
+        }
+
+        $todaySales = (float) $todaySalesQuery->sum('total');
+
+        $todayPaymentsQuery = Payments::whereDate('created_at', today());
+        if ($operatorId) {
+            $todayPaymentsQuery->where('operator_id', $operatorId);
+        } elseif (auth()->id()) {
+            $todayPaymentsQuery->where('user_id', auth()->id());
+        }
+
+        $todayPaymentsByMethod = (clone $todayPaymentsQuery)
+            ->selectRaw('method, SUM(amount) as total')
+            ->groupBy('method')
+            ->pluck('total', 'method');
+        $todayCashSales = (float) ($todayPaymentsByMethod['cash'] ?? 0);
+        $todayCardSales = (float) collect(['card', 'multi'])
+            ->sum(fn ($method) => (float) ($todayPaymentsByMethod[$method] ?? 0));
 
         return view('admin.pos.index', [
             'modules' => $modules,
@@ -56,8 +83,21 @@ class PosController extends Controller
                 ->get(),
             'customers' => Customer::with('card')->where('status', true)->orderBy('name')->get(),
             'operatorName' => Operator::find(session('operator_id'))?->name ?? 'Operador',
+            'todaySales' => $todaySales,
+            'todayCashSales' => $todayCashSales,
+            'todayCardSales' => $todayCardSales,
             'shift' => Shift::where('operator_id', session('operator_id'))->where('status', 'open')->first(),
-            'tables' => RestaurantTable::orderByRaw('LENGTH(name), name')->get(),
+            'tables' => RestaurantTable::with('currentOrder')
+                ->where(function ($query) use ($operatorId) {
+                    $query->whereNull('current_order_id')
+                        ->orWhereDoesntHave('currentOrder')
+                        ->orWhereHas('currentOrder', function ($orderQuery) use ($operatorId) {
+                            $orderQuery->whereIn('status', ['closed', 'cancelled', 'canceled', 'transferred'])
+                                ->orWhere('operator_id', $operatorId);
+                        });
+                })
+                ->orderByRaw('LENGTH(name), name')
+                ->get(),
         ]);
     }
 
@@ -70,6 +110,7 @@ class PosController extends Controller
             'amount_paid' => 'nullable|numeric|min:0',
             'payment_breakdown' => 'nullable|array',
             'table_id' => 'nullable|integer',
+            'split_bill' => 'nullable|boolean',
             'customer_id' => 'nullable|exists:customers,id',
             'customer_card_number' => 'nullable|string|max:80',
             'customer_card_otp' => 'nullable|string|max:12',
@@ -105,6 +146,12 @@ class PosController extends Controller
                     throw new \Exception('Operador invalido ou sessao expirada');
                 }
 
+                if ($request->filled('table_id')) {
+                    $table = RestaurantTable::with('currentOrder')->lockForUpdate()->findOrFail((int) $request->input('table_id'));
+                    if ($this->tableHasForeignActiveOrder($table, (int) $operator->id)) {
+                        throw new \Exception('Esta mesa esta ocupada por outro operador.');
+                    }
+                }
                 $shift = $operatorId
                     ? Shift::where('operator_id', $operatorId)->where('status', 'open')->lockForUpdate()->first()
                     : null;
@@ -114,7 +161,8 @@ class PosController extends Controller
                 }
 
                 $paymentMethod = $request->input('payment_method', 'cash');
-                $calculated = $this->calculateSaleItems($request->items);
+                $stockOperation = $request->filled('table_id') ? 'restaurant' : 'supermarket';
+                $calculated = $this->calculateSaleItems($request->items, $stockOperation);
                 $total = $calculated['total'];
                 $breakdown = $this->normalizePaymentBreakdown($paymentMethod, $request, $total);
                 $paid = round(array_sum($breakdown), 2);
@@ -168,11 +216,7 @@ class PosController extends Controller
                                     $requiredCardAmount,
                                     $operator?->id
                                 );
-                            } else {
-                                if (!ModuleSettings::enabled('customer_card_otp')) {
-                                    throw new \Exception('Solicitacao de OTP desativada. Solicite autorizacao do gestor para usar Fidelidade.');
-                                }
-
+                            } elseif (ModuleSettings::enabled('customer_card_otp')) {
                                 if (!$request->filled('customer_card_otp')) {
                                     throw new \Exception('Informe o OTP enviado ao cliente ou solicite autorizacao do gestor para usar Fidelidade.');
                                 }
@@ -247,18 +291,19 @@ class PosController extends Controller
                         'net_subtotal' => $item['net_subtotal'],
                         'tax_rate' => $item['tax_rate'],
                         'tax_amount' => $item['tax_amount'],
-                    ]);
-
-                    if (Schema::hasColumn('products', 'stock_quantity')) {
-                        $product->decrement('stock_quantity', $item['quantity']);
+                    ]);                    if (Schema::hasColumn('products', 'stock_quantity') && ($product->track_stock ?? true)) {
+                        [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->decrease($product, (int) $item['quantity'], $stockOperation);
 
                         StockMovement::create([
                             'product_id' => $product->id,
                             'type' => 'OUT',
+                            'reason' => 'Venda POS',
                             'quantity' => $item['quantity'],
                             'stock_before' => $stockBefore,
-                            'stock_after' => (float) $product->fresh()->stock_quantity,
+                            'stock_after' => $stockAfter,
                             'notes' => 'Venda ' . $sale->invoice_number,
+                            'reference_type' => 'sale',
+                            'reference_id' => $sale->id,
                             'operator_id' => $operator?->id,
                         ]);
                     }
@@ -324,6 +369,8 @@ class PosController extends Controller
 
                 app(CustomerCardService::class)->earnFromSale($sale);
 
+                $this->applyRestaurantSplitPayment($request, $operator);
+
 
                 return $sale;
             });
@@ -380,7 +427,11 @@ class PosController extends Controller
         $product = Product::where('barcode', $request->barcode)->where('status', true)->first();
 
         if (!$product) {
-            return response()->json(['success' => false, 'message' => 'Produto nao encontrado.'], 404);
+            return response()->json(['success' => false, 'message' => 'Produto nao encontrado no supermercado.'], 404);
+        }
+
+        if (($product->track_stock ?? true) && (float) $product->stock_quantity <= 0) {
+            return response()->json(['success' => false, 'message' => 'Produto sem stock disponivel.'], 422);
         }
 
         return response()->json(['success' => true, 'data' => $product]);
@@ -420,6 +471,101 @@ class PosController extends Controller
 
         return $supervisor;
     }
+
+    private function applyRestaurantSplitPayment(Request $request, Operator $operator): void
+    {
+        if (!$request->boolean('split_bill') || !$request->filled('table_id')) {
+            return;
+        }
+
+        $table = RestaurantTable::with('currentOrder.items')->lockForUpdate()->findOrFail((int) $request->input('table_id'));
+
+        if ($this->tableHasForeignActiveOrder($table, (int) $operator->id)) {
+            throw new \Exception('Esta mesa esta ocupada por outro operador.');
+        }
+
+        $order = $table->currentOrder;
+
+        if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled', 'transferred'], true)) {
+            throw new \Exception('A mesa ja nao tem conta aberta.');
+        }
+
+        $requestedItems = collect($request->input('items', []))
+            ->mapWithKeys(function ($item) {
+                $productId = (int) ($item['id'] ?? $item['product_id'] ?? 0);
+                $qty = (int) max(1, (float) ($item['qty'] ?? $item['quantity'] ?? 1));
+
+                return $productId > 0 ? [$productId => $qty] : [];
+            });
+
+        if ($requestedItems->isEmpty()) {
+            throw new \Exception('Selecione pelo menos um item para dividir a conta.');
+        }
+
+        foreach ($requestedItems as $productId => $qtyPaid) {
+            $orderItem = $order->items()->where('product_id', $productId)->lockForUpdate()->first();
+
+            if (!$orderItem) {
+                throw new \Exception('Um dos itens pagos ja nao existe nesta mesa.');
+            }
+
+            $currentQty = (int) $orderItem->qty;
+
+            if ($qtyPaid > $currentQty) {
+                throw new \Exception('Quantidade paga maior do que a quantidade aberta na mesa.');
+            }
+
+            if ($qtyPaid === $currentQty) {
+                $orderItem->delete();
+                continue;
+            }
+
+            $remainingQty = $currentQty - $qtyPaid;
+            $orderItem->update([
+                'qty' => $remainingQty,
+                'subtotal' => round($remainingQty * (float) $orderItem->price, 2),
+            ]);
+        }
+
+        $remainingTotal = round((float) $order->items()->sum('subtotal'), 2);
+
+        if ($remainingTotal <= 0 || !$order->items()->exists()) {
+            $order->update([
+                'subtotal' => 0,
+                'total' => 0,
+                'status' => 'closed',
+            ]);
+
+            $table->update([
+                'status' => 'free',
+                'current_order_id' => null,
+            ]);
+
+            return;
+        }
+
+        $order->update([
+            'subtotal' => $remainingTotal,
+            'total' => $remainingTotal,
+            'status' => 'open',
+        ]);
+
+        $table->update([
+            'status' => 'occupied',
+            'current_order_id' => $order->id,
+        ]);
+    }
+
+    private function tableHasForeignActiveOrder(RestaurantTable $table, int $operatorId): bool
+    {
+        $order = $table->currentOrder;
+
+        if (!$order || in_array($order->status, ['closed', 'cancelled', 'canceled', 'transferred'], true)) {
+            return false;
+        }
+
+        return (int) $order->operator_id !== $operatorId;
+    }
     private function normalizePaymentBreakdown(string $paymentMethod, Request $request, float $total): array
     {
         if ($paymentMethod === 'customer_card') {
@@ -450,7 +596,7 @@ class PosController extends Controller
         ];
     }
 
-    private function calculateSaleItems(array $items): array
+    private function calculateSaleItems(array $items, string $stockOperation): array
     {
         $calculatedItems = [];
         $grossTotal = 0.0;
@@ -462,7 +608,7 @@ class PosController extends Controller
             $product = Product::lockForUpdate()->findOrFail($item['id']);
             $qty = (int) max(1, (float) ($item['qty'] ?? 1));
 
-            if (Schema::hasColumn('products', 'stock_quantity') && $product->stock_quantity < $qty) {
+            if (Schema::hasColumn('products', 'stock_quantity') && ! app(StockWarehouseService::class)->available($product, $qty, $stockOperation)) {
                 throw new \Exception("Stock insuficiente {$product->name}");
             }
 

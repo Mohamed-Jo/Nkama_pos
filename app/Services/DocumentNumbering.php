@@ -47,7 +47,7 @@ class DocumentNumbering
                 'document_type_code' => $type->code,
                 'document_series_id' => $series->id,
                 'document_number' => $nextNumber,
-                'invoice_number' => sprintf('%s %s/%06d', $type->code, $series->code, $nextNumber),
+                'invoice_number' => sprintf('%s %s/%d', $type->code, $series->code, $nextNumber),
             ];
         });
     }

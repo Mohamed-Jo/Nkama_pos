@@ -12,7 +12,7 @@ class CustomerController extends Controller
 {
     public function index()
     {
-        $customers = Customer::with('card')->latest()->get();
+        $customers = Customer::with('card')->latest()->paginate(20);
 
         return view('admin.customers.index', compact('customers'));
     }

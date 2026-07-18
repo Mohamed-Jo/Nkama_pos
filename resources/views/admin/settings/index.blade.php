@@ -356,6 +356,11 @@
                         <label for="invoice-exemption-reason">Motivo de isencao</label>
                         <input id="invoice-exemption-reason" type="text" name="invoice[exemption_reason]" value="{{ old('invoice.exemption_reason', $invoice['exemption_reason'] ?? '') }}" maxlength="255">
                     </div>
+                    <label class="settings-toggle">
+                        <input type="hidden" name="invoice[show_agt_qr]" value="0">
+                        <input type="checkbox" name="invoice[show_agt_qr]" value="1" @checked(old('invoice.show_agt_qr', $invoice['show_agt_qr'] ?? true))>
+                        Mostrar QR AGT na folha A4
+                    </label>
                 </div>
             </div>
             <div class="settings-section">

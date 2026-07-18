@@ -162,7 +162,7 @@
                     @endif
 
                     <div>
-                        <div class="company-name">{{ $company['name'] ?: config('app.name', 'Nkama ERP') }}</div>
+                        <div class="company-name">{{ $company['name'] ?: config('app.name', 'MARIA ERP') }}</div>
                         <div class="company-meta">
                             @if(!empty($company['location']))
                                 <div>{{ $company['location'] }}</div>

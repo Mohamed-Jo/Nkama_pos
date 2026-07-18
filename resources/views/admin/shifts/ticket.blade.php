@@ -61,7 +61,7 @@
 <body>
     <div class="ticket">
         <div class="center">
-            <div class="company-name">{{ $company['name'] ?: config('app.name', 'Nkama POS') }}</div>
+            <div class="company-name">{{ $company['name'] ?: config('app.name', 'MARIA ERP') }}</div>
             @if(!empty($company['location']))
                 <div class="small">{{ $company['location'] }}</div>
             @endif

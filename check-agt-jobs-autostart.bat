@@ -1,8 +1,8 @@
 @echo off
 setlocal
 
-set "TASK_QUEUE=Nkama POS AGT Queue"
-set "TASK_SCHEDULER=Nkama POS Laravel Scheduler"
+set "TASK_QUEUE=MARIA ERP AGT Queue"
+set "TASK_SCHEDULER=MARIA ERP Laravel Scheduler"
 
 echo Estado das tarefas automaticas dos Jobs AGT
 echo.

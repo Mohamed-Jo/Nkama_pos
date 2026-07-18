@@ -28,7 +28,9 @@ use App\Http\Controllers\Admin\{
     CurrentAccountController,
     PurchaseController,
     SystemDateController,
-    RestaurantController
+    RestaurantController,
+    StockController,
+    WarehouseController
 };
 
 /*
@@ -133,6 +135,19 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
         Route::middleware('operator.permission:catalog.manage')->group(function () {
             Route::resource('categories', CategoryController::class);
             Route::resource('products', ProductController::class);
+            Route::get('stock', [StockController::class, 'index'])->middleware('module.enabled:stock')->name('stock.index');
+            Route::get('stock/movements', [StockController::class, 'movements'])->middleware('module.enabled:stock')->name('stock.movements');
+            Route::get('stock/inventory', [StockController::class, 'inventory'])->middleware('module.enabled:stock')->name('stock.inventory');
+            Route::post('stock/adjust', [StockController::class, 'adjust'])->middleware('module.enabled:stock')->name('stock.adjust');
+            Route::post('stock/inventory', [StockController::class, 'applyInventory'])->middleware('module.enabled:stock')->name('stock.inventory.apply');
+            Route::middleware('module.enabled:stock_warehouses')->group(function () {
+                Route::get('warehouses', [WarehouseController::class, 'index'])->name('warehouses.index');
+                Route::post('warehouses', [WarehouseController::class, 'store'])->name('warehouses.store');
+                Route::put('warehouses/{warehouse}', [WarehouseController::class, 'update'])->whereNumber('warehouse')->name('warehouses.update');
+                Route::post('warehouses/transfer', [WarehouseController::class, 'transfer'])->name('warehouses.transfer');
+                Route::put('warehouses/defaults', [WarehouseController::class, 'updateDefaults'])->name('warehouses.defaults');
+                Route::get('warehouses/transfers', [WarehouseController::class, 'transfers'])->name('warehouses.transfers');
+            });
             Route::resource('customers', CustomerController::class);
             Route::resource('suppliers', SupplierController::class);
         });
@@ -212,6 +227,8 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
 
         // Rotas de controle de Mesa e Pedidos
         Route::post('order/{tableId}/open', [RestaurantController::class, 'openTable'])->middleware(EnsureShiftOpen::class)->name('openTable');
+        Route::post('table/{tableId}/reserve', [RestaurantController::class, 'reserveTable'])->middleware(EnsureShiftOpen::class)->name('reserveTable');
+        Route::post('table/{tableId}/release-reservation', [RestaurantController::class, 'releaseReservation'])->middleware(EnsureShiftOpen::class)->name('releaseReservation');
         Route::get('table/{tableId}/summary', [RestaurantController::class, 'tableSummary'])->name('tableSummary');
         Route::get('table/{tableId}/ticket', [RestaurantController::class, 'tableTicket'])->name('tableTicket');
         Route::post('print/table/{table}', [DirectPrintController::class, 'table'])->name('print.table');

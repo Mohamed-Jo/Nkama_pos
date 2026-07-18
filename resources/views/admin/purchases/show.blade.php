@@ -3,6 +3,12 @@
 @section('page-title', 'Detalhe da Compra')
 
 @section('content')
+@php
+    $warehouses = $warehouses ?? collect();
+    $warehouseDefaults = $warehouseDefaults ?? [];
+    $operations = $operations ?? [];
+@endphp
+
     <style>
         .purchase-wrap { display: grid; gap: 16px; }
         .panel { background: #0f172a; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; padding: 18px; }
@@ -24,6 +30,7 @@
         .items-table th, .items-table td { border-bottom: 1px solid rgba(255,255,255,.06); padding: 12px; }
         .items-table th { color: #94a3b8; font-size: 12px; text-align: left; text-transform: uppercase; }
         .items-table td { color: #e2e8f0; font-size: 13px; }
+        .receive-select { background:#020617; border:1px solid #1e293b; border-radius:8px; color:#fff; min-width:220px; padding:8px; }
         .receive-input { background:#020617; border:1px solid #1e293b; border-radius:8px; color:#fff; max-width:90px; padding:8px; width:100%; }
         .reject-input { background:#020617; border:1px solid #1e293b; border-radius:8px; color:#fff; min-height:42px; padding:8px 10px; width:220px; }
         .summary { display: grid; gap: 7px; justify-content: end; text-align: right; color: #fff; }
@@ -159,7 +166,13 @@
                 <div style="font-size:18px;">Total: <strong>AOA {{ number_format((float) $purchase->total, 2, ',', '.') }}</strong></div>
             </div>
             @if($canReceivePurchase && $purchase->isApproved() && !$purchase->isClosedForReceiving())
-                <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">                @if(\App\Services\ModuleSettings::enabled('stock_warehouses'))
+                    <select class="receive-select" name="warehouse_id">
+                        @foreach($warehouses as $warehouse)
+                            <option value="{{ $warehouse->id }}" @selected(($warehouseDefaults['purchases'] ?? null) == $warehouse->id)>{{ $warehouse->name }}</option>
+                        @endforeach
+                    </select>
+                @endif
                     <button class="btn btn-primary" type="submit">Registar recebimento</button>
                 </div>
             @elseif(!$purchase->isApproved())

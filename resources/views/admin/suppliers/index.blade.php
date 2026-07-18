@@ -106,5 +106,9 @@
                 </tbody>
             </table>
         </div>
+
+        <div class="table-pagination">
+            {{ $suppliers->links() }}
+        </div>
     </div>
 @endsection

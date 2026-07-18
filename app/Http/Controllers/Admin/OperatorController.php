@@ -14,9 +14,24 @@ use Illuminate\View\View;
 
 class OperatorController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $operators = Operator::latest()->paginate(15);
+        $operators = Operator::query()
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = $request->string('search')->toString();
+
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('role', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->filled('status'), function ($query) use ($request) {
+                $query->where('active', $request->input('status') === 'active');
+            })
+            ->latest()
+            ->paginate(25)
+            ->withQueryString();
         $roleOptions = OperatorPermissions::roleOptions();
 
         return view('admin.operators.index', compact('operators', 'roleOptions'));

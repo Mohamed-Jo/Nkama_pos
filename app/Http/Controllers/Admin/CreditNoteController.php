@@ -19,6 +19,7 @@ use App\Services\BusinessSettings;
 use App\Services\DocumentNumbering;
 use App\Services\DirectPrintService;
 use App\Services\ModuleSettings;
+use App\Services\StockWarehouseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -146,12 +147,8 @@ class CreditNoteController extends Controller
                         'tax_amount' => $itemData['tax_amount'],
                     ]);
 
-                    $product = $saleItem->product_id ? Product::lockForUpdate()->find($saleItem->product_id) : null;
-
-                    if ($product && Schema::hasColumn('products', 'stock_quantity')) {
-                        $stockBefore = (float) $product->stock_quantity;
-                        $product->increment('stock_quantity', $itemData['quantity']);
-                        $stockAfter = (float) $product->fresh()->stock_quantity;
+                    $product = $saleItem->product_id ? Product::lockForUpdate()->find($saleItem->product_id) : null;                    if ($product && Schema::hasColumn('products', 'stock_quantity') && ($product->track_stock ?? true)) {
+                        [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->increase($product, (int) $itemData['quantity'], 'credit_notes');
 
                         StockMovement::create([
                             'product_id' => $product->id,
@@ -159,7 +156,10 @@ class CreditNoteController extends Controller
                             'quantity' => $itemData['quantity'],
                             'stock_before' => $stockBefore,
                             'stock_after' => $stockAfter,
+                            'reason' => 'Nota de credito',
                             'notes' => 'NC ' . $creditNote->invoice_number . ' ref. ' . $sale->invoice_number,
+                            'reference_type' => 'credit_note',
+                            'reference_id' => $creditNote->id,
                             'operator_id' => $operator?->id,
                         ]);
                     }

@@ -24,13 +24,19 @@ class DirectPrintController extends Controller
 
         $sale->load('operator', 'items.product', 'payments', 'customer.card', 'customerCard.balanceTransactions', 'pointTransactions');
         $company = BusinessSettings::company();
+        $printSettings = BusinessSettings::print();
+        $invoiceSettings = BusinessSettings::invoice();
+        $agtQrImage = (bool) ($invoiceSettings['show_agt_qr'] ?? true)
+            ? BusinessSettings::agtQrImage($company, $sale->invoice_number, 88)
+            : null;
 
-        return $this->send(function () use ($printer, $sale, $company) {
+        return $this->send(function () use ($printer, $sale, $company, $printSettings, $invoiceSettings, $agtQrImage) {
             $printer->printView('admin.sales.ticket', [
                 'sale' => $sale,
                 'company' => $company,
                 'logoUrl' => BusinessSettings::logoUrl($company),
-                'printSettings' => BusinessSettings::print(),
+                'printSettings' => $printSettings,
+                'agtQrImage' => $agtQrImage,
             ], 'ticket-' . $sale->invoice_number . '.pdf');
         });
     }

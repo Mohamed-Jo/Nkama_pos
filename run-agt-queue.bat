@@ -15,7 +15,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Nkama POS - AGT Queue
+echo MARIA ERP - AGT Queue
 echo Pasta: %APP_DIR%
 echo.
 

@@ -15,7 +15,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Nkama POS - Laravel Scheduler
+echo MARIA ERP - Laravel Scheduler
 echo Pasta: %APP_DIR%
 echo.
 

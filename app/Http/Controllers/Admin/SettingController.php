@@ -70,6 +70,7 @@ class SettingController extends Controller
             'invoice.commercial_discount' => ['required', 'numeric', 'min:0', 'max:100'],
             'invoice.payment_condition' => ['nullable', 'string', 'max:120'],
             'invoice.due_days' => ['required', 'integer', 'min:0', 'max:3650'],
+            'invoice.show_agt_qr' => ['nullable', 'boolean'],
         ]);
 
         $before = [

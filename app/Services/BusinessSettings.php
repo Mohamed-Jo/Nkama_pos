@@ -3,11 +3,17 @@
 namespace App\Services;
 
 use App\Models\AppSetting;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class BusinessSettings
 {
+    private static array $settingsCache = [];
+    private static array $logoDataUriCache = [];
+    private static array $agtQrSvgCache = [];
+    private static ?bool $hasAppSettingsTable = null;
+
     public const COMPANY_DEFAULTS = [
         'name' => '',
         'location' => '',
@@ -58,6 +64,7 @@ class BusinessSettings
         'commercial_discount' => 0,
         'payment_condition' => 'Pronto pagamento',
         'due_days' => 0,
+        'show_agt_qr' => true,
     ];
 
     public static function company(): array
@@ -106,6 +113,7 @@ class BusinessSettings
             ['key' => 'company_profile'],
             ['value' => $values]
         );
+        self::forgetSetting('company_profile');
 
         return $values;
     }
@@ -121,6 +129,7 @@ class BusinessSettings
             ['key' => 'tax_settings'],
             ['value' => $values]
         );
+        self::forgetSetting('tax_settings');
 
         return $values;
     }
@@ -158,6 +167,7 @@ class BusinessSettings
             ['key' => 'print_settings'],
             ['value' => $values]
         );
+        self::forgetSetting('print_settings');
 
         return $values;
     }
@@ -173,6 +183,7 @@ class BusinessSettings
             ['key' => 'direct_print_settings'],
             ['value' => $values]
         );
+        self::forgetSetting('direct_print_settings');
 
         return $values;
     }
@@ -192,12 +203,14 @@ class BusinessSettings
             'commercial_discount' => self::clampNumber($invoice['commercial_discount'] ?? null, 0, 100, self::INVOICE_DEFAULTS['commercial_discount']),
             'payment_condition' => trim((string) ($invoice['payment_condition'] ?? self::INVOICE_DEFAULTS['payment_condition'])),
             'due_days' => (int) self::clampNumber($invoice['due_days'] ?? null, 0, 3650, self::INVOICE_DEFAULTS['due_days']),
+            'show_agt_qr' => (bool) ($invoice['show_agt_qr'] ?? false),
         ];
 
         AppSetting::updateOrCreate(
             ['key' => 'invoice_settings'],
             ['value' => $values]
         );
+        self::forgetSetting('invoice_settings');
 
         return $values;
     }
@@ -229,9 +242,16 @@ class BusinessSettings
             return null;
         }
 
-        $mimeType = mime_content_type($fullPath) ?: 'image/png';
+        $sourcePath = self::optimizedLogoPath($fullPath) ?? $fullPath;
+        $cacheKey = $sourcePath . '|' . filemtime($sourcePath);
 
-        return 'data:' . $mimeType . ';base64,' . base64_encode(file_get_contents($fullPath));
+        if (array_key_exists($cacheKey, self::$logoDataUriCache)) {
+            return self::$logoDataUriCache[$cacheKey];
+        }
+
+        $mimeType = mime_content_type($sourcePath) ?: 'image/png';
+
+        return self::$logoDataUriCache[$cacheKey] = 'data:' . $mimeType . ';base64,' . base64_encode(file_get_contents($sourcePath));
     }
 
     public static function agtDocumentUrl(?array $company, ?string $documentNumber): ?string
@@ -244,7 +264,12 @@ class BusinessSettings
             return null;
         }
 
-        return 'https://quiosqueagt.minfin.gov.ao/facturacao-eletronica/consultar-fe?' . http_build_query([
+        $environment = strtolower((string) config('agt.environment', 'hml'));
+        $baseUrl = $environment === 'prd'
+            ? 'https://quiosqueagt.minfin.gov.ao/facturacao-eletronica/consultar-fe'
+            : 'https://quiosqueagt.hml.minfin.gov.ao/facturacao-eletronica/consultar-fe';
+
+        return $baseUrl . '?' . http_build_query([
             'emissor' => preg_replace('/\s+/', '', $nif),
             'document' => $document,
         ], '', '&', PHP_QUERY_RFC3986);
@@ -258,18 +283,44 @@ class BusinessSettings
             return null;
         }
 
-        try {
-            $svg = (string) \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
-                ->size($size)
-                ->margin(1)
-                ->errorCorrection('M')
-                ->generate($url);
+        $cacheKey = 'agt_qr_svg:' . sha1($url . '|' . $size);
 
-            return preg_replace('/<\?xml[^>]*\?>\s*/', '', $svg) ?: $svg;
+        if (array_key_exists($cacheKey, self::$agtQrSvgCache)) {
+            return self::$agtQrSvgCache[$cacheKey];
+        }
+
+        try {
+            return self::$agtQrSvgCache[$cacheKey] = Cache::remember($cacheKey, now()->addYear(), function () use ($url, $size) {
+                $svg = (string) \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+                    ->size($size)
+                    ->margin(1)
+                    ->errorCorrection('M')
+                    ->generate($url);
+
+                return preg_replace('/<\?xml[^>]*\?>\s*/', '', $svg) ?: $svg;
+            });
         } catch (\Throwable) {
-            return null;
+            try {
+                $svg = (string) \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+                    ->size($size)
+                    ->margin(1)
+                    ->errorCorrection('M')
+                    ->generate($url);
+
+                return self::$agtQrSvgCache[$cacheKey] = preg_replace('/<\?xml[^>]*\?>\s*/', '', $svg) ?: $svg;
+            } catch (\Throwable) {
+                return null;
+            }
         }
     }
+
+    public static function agtQrImage(?array $company, ?string $documentNumber, int $size = 120): ?string
+    {
+        $svg = self::agtQrSvg($company, $documentNumber, $size);
+
+        return $svg ? 'data:image/svg+xml;base64,' . base64_encode($svg) : null;
+    }
+
     public static function loginBackgroundUrl(?array $company = null): ?string
     {
         $company ??= self::company();
@@ -310,15 +361,141 @@ class BusinessSettings
         ];
     }
 
+    public static function amountToWords(float $amount, string $currency = 'AOA'): string
+    {
+        $currency = strtoupper(trim($currency)) ?: 'AOA';
+        $integer = (int) floor(abs($amount));
+        $cents = (int) round((abs($amount) - $integer) * 100);
+        $mainCurrency = $currency === 'AOA' ? ($integer === 1 ? 'kwanza' : 'kwanzas') : $currency;
+        $words = ucfirst(self::numberToWords($integer)) . ' ' . $mainCurrency;
+
+        if ($cents > 0) {
+            $words .= ' e ' . self::numberToWords($cents) . ' ' . ($cents === 1 ? 'centimo' : 'centimos');
+        }
+
+        return $words;
+    }
+
+    private static function numberToWords(int $number): string
+    {
+        $units = ['', 'um', 'dois', 'tres', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez', 'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezasseis', 'dezassete', 'dezoito', 'dezanove'];
+        $tens = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+        $hundreds = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+        if ($number === 0) {
+            return 'zero';
+        }
+
+        if ($number === 100) {
+            return 'cem';
+        }
+
+        if ($number < 20) {
+            return $units[$number];
+        }
+
+        if ($number < 100) {
+            $ten = intdiv($number, 10);
+            $rest = $number % 10;
+
+            return $tens[$ten] . ($rest ? ' e ' . $units[$rest] : '');
+        }
+
+        if ($number < 1000) {
+            $hundred = intdiv($number, 100);
+            $rest = $number % 100;
+
+            return $hundreds[$hundred] . ($rest ? ' e ' . self::numberToWords($rest) : '');
+        }
+
+        if ($number < 1000000) {
+            $thousands = intdiv($number, 1000);
+            $rest = $number % 1000;
+            $prefix = $thousands === 1 ? 'mil' : self::numberToWords($thousands) . ' mil';
+
+            return $prefix . ($rest ? ' e ' . self::numberToWords($rest) : '');
+        }
+
+        $millions = intdiv($number, 1000000);
+        $rest = $number % 1000000;
+        $prefix = $millions === 1 ? 'um milhao' : self::numberToWords($millions) . ' milhoes';
+
+        return $prefix . ($rest ? ' e ' . self::numberToWords($rest) : '');
+    }
+    private static function optimizedLogoPath(string $fullPath): ?string
+    {
+        if (! extension_loaded('gd')) {
+            return null;
+        }
+
+        $info = @getimagesize($fullPath);
+
+        if (! $info) {
+            return null;
+        }
+
+        [$width, $height] = $info;
+        $maxWidth = 420;
+        $maxHeight = 180;
+
+        if ($width <= $maxWidth && $height <= $maxHeight) {
+            return $fullPath;
+        }
+
+        $cacheDir = storage_path('app/pdf-assets');
+
+        if (! is_dir($cacheDir)) {
+            mkdir($cacheDir, 0775, true);
+        }
+
+        $cachePath = $cacheDir . DIRECTORY_SEPARATOR . 'logo-' . sha1($fullPath . '|' . filemtime($fullPath)) . '.png';
+
+        if (is_file($cachePath)) {
+            return $cachePath;
+        }
+
+        $contents = @file_get_contents($fullPath);
+        $source = $contents ? @imagecreatefromstring($contents) : false;
+
+        if (! $source) {
+            return null;
+        }
+
+        $ratio = min($maxWidth / $width, $maxHeight / $height, 1);
+        $targetWidth = max(1, (int) round($width * $ratio));
+        $targetHeight = max(1, (int) round($height * $ratio));
+        $target = imagecreatetruecolor($targetWidth, $targetHeight);
+        imagealphablending($target, false);
+        imagesavealpha($target, true);
+        $transparent = imagecolorallocatealpha($target, 255, 255, 255, 127);
+        imagefilledrectangle($target, 0, 0, $targetWidth, $targetHeight, $transparent);
+        imagecopyresampled($target, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+        imagepng($target, $cachePath, 6);
+        imagedestroy($source);
+        imagedestroy($target);
+
+        return is_file($cachePath) ? $cachePath : null;
+    }
     private static function setting(string $key, array $defaults): array
     {
-        if (!Schema::hasTable('app_settings')) {
+        if (array_key_exists($key, self::$settingsCache)) {
+            return self::$settingsCache[$key];
+        }
+
+        self::$hasAppSettingsTable ??= Schema::hasTable('app_settings');
+
+        if (! self::$hasAppSettingsTable) {
             return $defaults;
         }
 
         $setting = AppSetting::where('key', $key)->first();
 
-        return array_merge($defaults, $setting?->value ?? []);
+        return self::$settingsCache[$key] = array_merge($defaults, $setting?->value ?? []);
+    }
+
+    private static function forgetSetting(string $key): void
+    {
+        unset(self::$settingsCache[$key]);
     }
 
     private static function clampNumber(mixed $value, float $min, float $max, float $default, int $precision = 2): float

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ config('app.name', 'Nkama ERP') }}</title>
+    <title>{{ config('app.name', 'MARIA ERP') }}</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -517,7 +517,7 @@
 
         <aside class="sidebar" id="sidebar">
             <div class="logo">
-                <img src="{{ $sidebarLogoUrl }}" alt="{{ config('app.name', 'Nkama ERP') }}">
+                <img src="{{ $sidebarLogoUrl }}" alt="{{ config('app.name', 'MARIA ERP') }}">
             </div>
             <nav class="menu">
                 <a class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">📊 Dashboard</a>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recuperar acesso - Nkama POS</title>
+    <title>Recuperar acesso - MARIA ERP</title>
     <style>
         body { align-items: center; background: #030712; color: #e5e7eb; display: flex; font-family: system-ui, sans-serif; justify-content: center; min-height: 100vh; margin: 0; }
         .box { background: rgba(17, 24, 39, .92); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; max-width: 420px; padding: 24px; width: 100%; }

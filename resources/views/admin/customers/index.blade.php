@@ -50,4 +50,7 @@
             </tbody>
         </table>
     </div>
+    <div class="table-pagination">
+        {{ $customers->links() }}
+    </div>
 @endsection

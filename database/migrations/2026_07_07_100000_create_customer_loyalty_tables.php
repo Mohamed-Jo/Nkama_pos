@@ -30,10 +30,20 @@ return new class extends Migration
         // Existing customers receive a card immediately so the module starts complete.
         if (Schema::hasTable('customers')) {
             $now = now();
+            $usedCardNumbers = [];
+            $generateCardNumber = function () use (&$usedCardNumbers): string {
+                do {
+                    $cardNumber = 'NK' . (string) random_int(100000000, 999999999);
+                } while (isset($usedCardNumbers[$cardNumber]) || DB::table('customer_cards')->where('card_number', $cardNumber)->exists());
+
+                $usedCardNumbers[$cardNumber] = true;
+
+                return $cardNumber;
+            };
             DB::table('customers')
                 ->orderBy('id')
                 ->select('id')
-                ->chunkById(200, function ($customers) use ($now) {
+                ->chunkById(200, function ($customers) use ($now, $generateCardNumber) {
                     foreach ($customers as $customer) {
                         $exists = DB::table('customer_cards')->where('customer_id', $customer->id)->exists();
 
@@ -41,7 +51,7 @@ return new class extends Migration
                             continue;
                         }
 
-                        $cardNumber = 'NK' . str_pad((string) $customer->id, 9, '0', STR_PAD_LEFT);
+                        $cardNumber = $generateCardNumber();
 
                         DB::table('customer_cards')->insert([
                             'customer_id' => $customer->id,

@@ -174,10 +174,11 @@
                 'supermarket'     => ['title' => 'Supermercado', 'desc' => 'Ativa caixa de retalho, leitura por código de barras e grelha de produtos.'],
                 'sales'           => ['title' => 'Vendas', 'desc' => 'Ativa emissão de vendas, histórico de faturas, tickets e relatórios de vendas.'],
                 'stock'           => ['title' => 'Stocks', 'desc' => 'Ativa validação, entrada, saída e relatórios de stock.'],
+                'stock_warehouses' => ['title' => 'Stock por Armazem', 'desc' => 'Ativa saldos por local e transferencia de artigos entre armazens, loja, bar ou cozinha.'],
                 'transfers'       => ['title' => 'Transferências', 'desc' => 'Ativa transferência de contas e produtos entre mesas do restaurante.'],
                 'current_account' => ['title' => 'Conta Corrente', 'desc' => 'Ativa FT em conta corrente, recebimentos, pagamentos a fornecedores, extratos e relatórios de saldo.'],
                 'customer_card'   => ['title' => 'Cartão Cliente', 'desc' => 'Ativa cadastro, consulta e seleção de clientes para vendas e conta corrente.'],
-                'customer_card_otp' => ['title' => 'OTP Cartao Cliente', 'desc' => 'Permite enviar OTP ao cliente para autorizar pagamento por fidelidade. Se desligado, use autorizacao do gestor.'],
+                'customer_card_otp' => ['title' => 'OTP Cartao Cliente', 'desc' => 'Ativa/desativa solicitar e enviar OTP no POS. Se desligado, o Cartao Fidelidade pode ser usado diretamente.'],
                 'view_ticket'     => ['title' => 'Ver Ticket', 'desc' => 'Quando ativo, abre o ticket para conferir. Quando inativo, envia direto para impressão.'],
                 'audit'           => ['title' => 'Auditoria', 'desc' => 'Ativa trilha de auditoria, relatório de auditoria e fecho diário pela auditoria.'],
                 'purchases'       => ['title' => 'Compras', 'desc' => 'Ativa registo de compras, entrada de mercadoria e atualização de stock.']

@@ -2,14 +2,14 @@
 setlocal
 
 set "APP_DIR=%~dp0"
-set "TASK_QUEUE=Nkama POS AGT Queue"
-set "TASK_SCHEDULER=Nkama POS Laravel Scheduler"
+set "TASK_QUEUE=MARIA ERP AGT Queue"
+set "TASK_SCHEDULER=MARIA ERP Laravel Scheduler"
 
 cd /d "%APP_DIR%"
 
 if not exist artisan (
     echo Nao foi encontrado o ficheiro artisan em "%APP_DIR%".
-    echo Execute este ficheiro a partir da pasta raiz do Nkama POS.
+    echo Execute este ficheiro a partir da pasta raiz do MARIA ERP.
     pause
     exit /b 1
 )

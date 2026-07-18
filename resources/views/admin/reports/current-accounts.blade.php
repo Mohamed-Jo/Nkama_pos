@@ -54,6 +54,6 @@
         </tbody>
     </table>
 
-    <div class="footer">Documento gerado pelo Nkama ERP.</div>
+    <div class="footer">Documento gerado pelo MARIA ERP.</div>
 </body>
 </html>

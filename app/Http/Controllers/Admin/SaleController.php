@@ -18,6 +18,7 @@ use App\Services\BusinessSettings;
 use App\Services\CustomerCardService;
 use App\Services\DocumentNumbering;
 use App\Services\ModuleSettings;
+use App\Services\StockWarehouseService;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
@@ -220,11 +221,16 @@ class SaleController extends Controller
         }
 
         $company = BusinessSettings::company();
+        $invoiceSettings = BusinessSettings::invoice();
+        $agtQrImage = (bool) ($invoiceSettings['show_agt_qr'] ?? true)
+            ? BusinessSettings::agtQrImage($company, $sale->invoice_number, 92)
+            : null;
 
         return Pdf::loadView('admin.sales.invoice-a4', [
             'sale' => $sale,
             'company' => $company,
             'logoUrl' => BusinessSettings::logoDataUri($company),
+            'agtQrImage' => $agtQrImage,
         ])->setPaper('a4', 'portrait')
             ->stream('fatura-' . str_replace(['/', ' '], '-', $sale->invoice_number) . '.pdf');
     }
@@ -240,8 +246,12 @@ class SaleController extends Controller
         $company = BusinessSettings::company();
         $logoUrl = BusinessSettings::logoUrl($company);
         $printSettings = BusinessSettings::print();
+        $invoiceSettings = BusinessSettings::invoice();
+        $agtQrImage = (bool) ($invoiceSettings['show_agt_qr'] ?? true)
+            ? BusinessSettings::agtQrImage($company, $sale->invoice_number, 88)
+            : null;
 
-        return view('admin.sales.ticket', compact('sale', 'company', 'logoUrl', 'printSettings'));
+        return view('admin.sales.ticket', compact('sale', 'company', 'logoUrl', 'printSettings', 'invoiceSettings', 'agtQrImage'));
     }
     public function store(Request $request)
     {
@@ -302,7 +312,7 @@ class SaleController extends Controller
 
             $total = round((float) $request->total, 2);
             $totalPaid = $cash + $card + $transf + $multi;
-            $calculated = $this->calculateSaleItems($request->items, $commercialDiscount);
+            $calculated = $this->calculateSaleItems($request->items, $commercialDiscount, 'sales');
             $total = $calculated['total'];
             $outstanding = round(max($total - $totalPaid, 0), 2);
             $customerId = $request->integer('customer_id') ?: null;
@@ -427,7 +437,7 @@ class SaleController extends Controller
                         throw new \Exception("Quantidade inválida {$product->name}");
                     }
 
-                    if ($product->stock_quantity < $qty) {
+                    if (($product->track_stock ?? true) && $product->stock_quantity < $qty) {
                         throw new \Exception("Stock insuficiente {$product->name}");
                     }
 
@@ -441,21 +451,24 @@ class SaleController extends Controller
                         'net_subtotal' => $item['net_subtotal'],
                         'tax_rate' => $item['tax_rate'],
                         'tax_amount' => $item['tax_amount'],
-                    ]);
+                    ]);                    if ($product->track_stock ?? true) {
+                        [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->decrease($product, (int) ceil($qty), 'sales');
 
-                    $product->decrement('stock_quantity', $qty);
+                        StockMovement::create([
+                            'product_id' => $product->id,
+                            'type' => 'OUT',
+                            'quantity' => $qty,
+                            'stock_before' => $stockBefore,
+                            'stock_after' => $stockAfter,
+                            'reason' => 'Venda',
+                            'notes' => 'Venda ' . $invoiceNumber,
+                            'reference_type' => 'sale',
+                            'reference_id' => $sale->id,
+                            'operator_id' => $operator->id,
+                        ]);
+                    }
 
-                    StockMovement::create([
-                        'product_id' => $product->id,
-                        'type' => 'OUT',
-                        'quantity' => $qty,
-                        'stock_before' => $stockBefore,
-                        'stock_after' => $product->fresh()->stock_quantity,
-                        'notes' => 'Venda ' . $invoiceNumber,
-                        'operator_id' => $operator->id
-                    ]);
                 }
-
                 // ==============================
                 // PAYMENTS SAVE
                 // ==============================
@@ -550,7 +563,7 @@ class SaleController extends Controller
             return null;
         }
     }
-    private function calculateSaleItems(array $items, float $discountPercent = 0): array
+    private function calculateSaleItems(array $items, float $discountPercent = 0, string $stockOperation = 'sales'): array
     {
         $calculatedItems = [];
         $grossTotal = 0.0;
@@ -566,7 +579,7 @@ class SaleController extends Controller
                 throw new \Exception("Quantidade invalida {$product->name}");
             }
 
-            if ($product->stock_quantity < $qty) {
+            if (! app(StockWarehouseService::class)->available($product, (int) ceil($qty), $stockOperation)) {
                 throw new \Exception("Stock insuficiente {$product->name}");
             }
 

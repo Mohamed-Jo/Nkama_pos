@@ -100,7 +100,7 @@
             @if($logoUrl)
                 <div class="logo"><img src="{{ $logoUrl }}" alt="Logotipo"></div>
             @endif
-            <div class="company-name">{{ $company['name'] ?: config('app.name', 'Nkama ERP') }}</div>
+            <div class="company-name">{{ $company['name'] ?: config('app.name', 'MARIA ERP') }}</div>
             @if(!empty($company['nif']))<div class="muted">NIF: {{ $company['nif'] }}</div>@endif
             @if(!empty($company['location']))<div class="muted">{{ $company['location'] }}</div>@endif
         </div>

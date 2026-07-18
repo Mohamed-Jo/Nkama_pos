@@ -9,6 +9,7 @@ use App\Models\CustomerCardBalanceTransaction;
 use App\Models\PointTransaction;
 use App\Models\Sale;
 use App\Models\Shift;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 class CustomerCardService
@@ -28,20 +29,34 @@ class CustomerCardService
         }
 
         return DB::transaction(function () use ($customer) {
-            $cardNumber = $this->generateCardNumber($customer);
+            for ($attempt = 0; $attempt < 100; $attempt++) {
+                if ($customer->card()->exists()) {
+                    return $customer->card()->first();
+                }
 
-            return CustomerCard::create([
-                'customer_id' => $customer->id,
-                'card_number' => $cardNumber,
-                'barcode' => $this->barcodePayload($cardNumber),
-                'qr_code' => $this->qrPayload($cardNumber),
-                'points' => 0,
-                'balance' => 0,
-                'level' => 'Bronze',
-                'status' => 'active',
-                'issued_at' => now(),
-                'expires_at' => now()->addYear(),
-            ]);
+                $cardNumber = $this->generateCardNumber();
+
+                try {
+                    return CustomerCard::create([
+                        'customer_id' => $customer->id,
+                        'card_number' => $cardNumber,
+                        'barcode' => $this->barcodePayload($cardNumber),
+                        'qr_code' => $this->qrPayload($cardNumber),
+                        'points' => 0,
+                        'balance' => 0,
+                        'level' => 'Bronze',
+                        'status' => 'active',
+                        'issued_at' => now(),
+                        'expires_at' => now()->addYear(),
+                    ]);
+                } catch (QueryException $e) {
+                    if ((string) $e->getCode() !== '23000') {
+                        throw $e;
+                    }
+                }
+            }
+
+            throw new \RuntimeException('Nao foi possivel gerar um numero unico para o Cartao Cliente. Tente novamente.');
         });
     }
 
@@ -334,21 +349,16 @@ class CustomerCardService
         return $cardNumber;
     }
 
-    private function generateCardNumber(Customer $customer): string
+    private function generateCardNumber(): string
     {
-        $base = 'NK' . str_pad((string) $customer->id, 9, '0', STR_PAD_LEFT);
+        for ($attempt = 0; $attempt < 100; $attempt++) {
+            $candidate = 'NK' . (string) random_int(100000000, 999999999);
 
-        if (!CustomerCard::where('card_number', $base)->exists()) {
-            return $base;
+            if (!CustomerCard::where('card_number', $candidate)->exists()) {
+                return $candidate;
+            }
         }
 
-        $next = (int) CustomerCard::max('id') + 1;
-
-        do {
-            $candidate = 'NK' . str_pad((string) $next, 9, '0', STR_PAD_LEFT);
-            $next++;
-        } while (CustomerCard::where('card_number', $candidate)->exists());
-
-        return $candidate;
+        throw new \RuntimeException('Nao foi possivel gerar um numero unico para o Cartao Cliente. Tente novamente.');
     }
 }

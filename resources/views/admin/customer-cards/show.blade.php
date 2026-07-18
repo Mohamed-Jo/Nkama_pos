@@ -37,7 +37,7 @@
         <section class="digital-card">
             <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
                 <div>
-                    <div style="color:#94a3b8; font-size:12px; font-weight:800; text-transform:uppercase;">Nkama POS Enterprise</div>
+                    <div style="color:#94a3b8; font-size:12px; font-weight:800; text-transform:uppercase;">MARIA ERP Enterprise</div>
                     <div class="card-number">{{ $card->card_number }}</div>
                     <div style="font-size:18px; font-weight:800;">{{ $card->customer->name ?? 'Cliente removido' }}</div>
                 </div>
