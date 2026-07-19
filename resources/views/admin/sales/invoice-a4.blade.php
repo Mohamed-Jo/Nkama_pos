@@ -211,6 +211,10 @@
         </div>
     </div>
 
+    <div class="info-box">
+        Os bens e/ou serviços foram colocados à disposição em {{ now()->format('d/m/Y') }}.
+    </div>
+
     <div class="footer">
         Obrigado pela preferencia.
     </div>

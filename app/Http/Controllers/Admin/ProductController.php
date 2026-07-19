@@ -76,8 +76,11 @@ class ProductController extends Controller
         }
 
         if ((int) $product->stock_quantity > 0 && $product->track_stock) {
+            $movementWarehouseId = app(StockWarehouseService::class)->warehouseIdFor('adjustments');
+
             StockMovement::create([
                 'product_id' => $product->id,
+                'warehouse_id' => $movementWarehouseId,
                 'type' => 'IN',
                 'reason' => 'Stock inicial',
                 'quantity' => (int) $product->stock_quantity,
@@ -138,8 +141,11 @@ class ProductController extends Controller
                 $stockAfter = (int) $product->fresh()->stock_quantity;
             }
 
+            $movementWarehouseId = app(StockWarehouseService::class)->warehouseIdFor('adjustments');
+
             StockMovement::create([
                 'product_id' => $product->id,
+                'warehouse_id' => $movementWarehouseId,
                 'type' => $stockAfter > $stockBefore ? 'IN' : 'OUT',
                 'reason' => 'Edicao do produto',
                 'quantity' => abs($stockAfter - $stockBefore),

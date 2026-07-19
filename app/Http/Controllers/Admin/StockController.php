@@ -38,11 +38,15 @@ class StockController extends Controller
                 };
             });
 
+        $stockWarehouseService = app(StockWarehouseService::class);
+        $adjustmentWarehouseId = $request->integer('warehouse_id') ?: ($stockWarehouseService->defaults()['adjustments'] ?? null);
+
         $products = (clone $productsQuery)
             ->orderByRaw('CASE WHEN track_stock = 1 AND stock_quantity <= 0 THEN 0 WHEN track_stock = 1 AND stock_quantity <= minimum_stock THEN 1 ELSE 2 END')
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString();
+        $stockWarehouseService->attachQuantities($products->getCollection(), 'adjustments', $adjustmentWarehouseId);
 
         $allProducts = Product::query();
         $last30Days = now()->subDays(30);
@@ -64,8 +68,9 @@ class StockController extends Controller
             ->orderByDesc('stock_quantity')
             ->limit(5)
             ->get();
+        $stockWarehouseService->attachQuantities($dormantProducts, 'adjustments', $adjustmentWarehouseId);
 
-        $recentMovements = StockMovement::with(['product', 'operator'])
+        $recentMovements = StockMovement::with(['product', 'operator', 'warehouse'])
             ->latest()
             ->limit(8)
             ->get();
@@ -88,14 +93,15 @@ class StockController extends Controller
             'topSellers' => $topSellers,
             'dormantProducts' => $dormantProducts,
             'totals' => $totals,
-            'warehouses' => app(StockWarehouseService::class)->warehouses(),
-            'warehouseDefaults' => app(StockWarehouseService::class)->defaults(),
+            'warehouses' => $stockWarehouseService->warehouses(),
+            'warehouseDefaults' => $stockWarehouseService->defaults(),
+            'selectedWarehouseId' => $adjustmentWarehouseId,
         ]);
     }
 
     public function movements(Request $request): View
     {
-        $movements = StockMovement::with(['product.category', 'operator'])
+        $movements = StockMovement::with(['product.category', 'operator', 'warehouse'])
             ->when($request->filled('product_id'), fn ($query) => $query->where('product_id', $request->integer('product_id')))
             ->when($request->filled('type'), fn ($query) => $query->where('type', $request->input('type')))
             ->when($request->filled('date_from'), fn ($query) => $query->whereDate('created_at', '>=', $request->date('date_from')))
@@ -134,8 +140,7 @@ class StockController extends Controller
             } else {
                 [$before, $after] = $stockService->set($product, $requested, 'adjustments', $warehouseId);
             }
-        } catch (
-untimeException $e) {
+        } catch (\RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
 
@@ -144,13 +149,17 @@ untimeException $e) {
             return back()->with('success', 'Stock sem alteração.');
         }
 
-        $this->recordMovement($product, $before, $after, abs($delta), $delta > 0 ? 'IN' : 'OUT', $validated['reason'], $validated['notes'] ?? null, 'manual_adjustment');
+        $movementWarehouseId = $stockService->warehouseIdFor('adjustments', $warehouseId);
+        $this->recordMovement($product, $before, $after, abs($delta), $delta > 0 ? 'IN' : 'OUT', $validated['reason'], $validated['notes'] ?? null, 'manual_adjustment', $movementWarehouseId);
 
         return back()->with('success', 'Ajuste de stock registado.');
     }
 
     public function inventory(Request $request): View
     {
+        $stockWarehouseService = app(StockWarehouseService::class);
+        $inventoryWarehouseId = $request->integer('warehouse_id') ?: ($stockWarehouseService->defaults()['inventory'] ?? null);
+
         $products = Product::with('category')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search')->toString();
@@ -164,12 +173,14 @@ untimeException $e) {
             ->orderBy('name')
             ->paginate(25)
             ->withQueryString();
+        $stockWarehouseService->attachQuantities($products->getCollection(), 'inventory', $inventoryWarehouseId);
 
         return view('admin.stock.inventory', [
             'products' => $products,
             'categories' => Category::orderBy('name')->get(),
-            'warehouses' => app(StockWarehouseService::class)->warehouses(),
-            'warehouseDefaults' => app(StockWarehouseService::class)->defaults(),
+            'warehouses' => $stockWarehouseService->warehouses(),
+            'warehouseDefaults' => $stockWarehouseService->defaults(),
+            'selectedWarehouseId' => $inventoryWarehouseId,
         ]);
     }
 
@@ -195,15 +206,17 @@ untimeException $e) {
                     continue;
                 }
 
+                $stockService = app(StockWarehouseService::class);
                 $warehouseId = (int) ($validated['warehouse_id'] ?? 0) ?: null;
-                [$before, $after] = app(StockWarehouseService::class)->set($product, (int) $countedStock, 'inventory', $warehouseId);
+                [$before, $after] = $stockService->set($product, (int) $countedStock, 'inventory', $warehouseId);
                 $delta = $after - $before;
 
                 if ($delta === 0) {
                     continue;
                 }
 
-                $this->recordMovement($product, $before, $after, abs($delta), $delta > 0 ? 'IN' : 'OUT', 'Inventário físico', $validated['notes'] ?? null, 'physical_inventory');
+                $movementWarehouseId = $stockService->warehouseIdFor('inventory', $warehouseId);
+                $this->recordMovement($product, $before, $after, abs($delta), $delta > 0 ? 'IN' : 'OUT', 'Inventário físico', $validated['notes'] ?? null, 'physical_inventory', $movementWarehouseId);
                 $changed++;
             }
         });
@@ -223,10 +236,11 @@ untimeException $e) {
         return $this->adjust($request);
     }
 
-    private function recordMovement(Product $product, int $before, int $after, int $quantity, string $type, string $reason, ?string $notes, string $referenceType): void
+    private function recordMovement(Product $product, int $before, int $after, int $quantity, string $type, string $reason, ?string $notes, string $referenceType, ?int $warehouseId = null): void
     {
         StockMovement::create([
             'product_id' => $product->id,
+            'warehouse_id' => $warehouseId,
             'type' => $type,
             'reason' => $reason,
             'quantity' => $quantity,

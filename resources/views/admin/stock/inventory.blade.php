@@ -7,6 +7,7 @@
     $warehouses = $warehouses ?? collect();
     $warehouseDefaults = $warehouseDefaults ?? [];
     $operations = $operations ?? [];
+    $selectedWarehouseId = $selectedWarehouseId ?? ($warehouseDefaults['inventory'] ?? null);
 @endphp
 
 <div class="stock-page">
@@ -30,6 +31,13 @@
                 <option value="{{ $category->id }}" @selected(request('category_id') == $category->id)>{{ $category->name }}</option>
             @endforeach
         </select>
+        @if(\App\Services\ModuleSettings::enabled('stock_warehouses'))
+            <select name="warehouse_id">
+                @foreach($warehouses as $warehouse)
+                    <option value="{{ $warehouse->id }}" @selected((int) $selectedWarehouseId === (int) $warehouse->id)>{{ $warehouse->name }}</option>
+                @endforeach
+            </select>
+        @endif
         <button type="submit">Filtrar</button>
     </form>
 
@@ -53,8 +61,13 @@
                             <span class="muted">{{ $product->barcode ?? 'SEM-CODIGO' }}</span>
                         </td>
                         <td>{{ $product->category->name ?? 'Sem categoria' }}</td>
-                        <td>{{ number_format((float) $product->stock_quantity, 0, ',', '.') }}</td>
-                        <td><input type="number" name="counts[{{ $product->id }}]" min="0" placeholder="{{ (int) $product->stock_quantity }}"></td>
+                        <td>
+                            <strong>{{ number_format((float) ($product->operation_stock_quantity ?? $product->stock_quantity), 0, ',', '.') }}</strong>
+                            @if(\App\Services\ModuleSettings::enabled('stock_warehouses'))
+                                <span class="muted">Total: {{ number_format((float) $product->stock_quantity, 0, ',', '.') }}</span>
+                            @endif
+                        </td>
+                        <td><input type="number" name="counts[{{ $product->id }}]" min="0" placeholder="{{ (int) ($product->operation_stock_quantity ?? $product->stock_quantity) }}"></td>
                         <td>{{ $product->unit ?? 'un' }}</td>
                     </tr>
                 @empty
@@ -64,12 +77,9 @@
         </table>
         <div class="inventory-footer">
             @if(\App\Services\ModuleSettings::enabled('stock_warehouses'))
-                <select name="warehouse_id">
-                    @foreach($warehouses as $warehouse)
-                        <option value="{{ $warehouse->id }}" @selected(($warehouseDefaults['inventory'] ?? null) == $warehouse->id)>{{ $warehouse->name }}</option>
-                    @endforeach
-                </select>
-            @endif            <input type="text" name="notes" placeholder="Observacao geral do inventario">
+                <input type="hidden" name="warehouse_id" value="{{ $selectedWarehouseId }}">
+            @endif
+            <input type="text" name="notes" placeholder="Observacao geral do inventario">
             <button type="submit">Aplicar diferencas</button>
         </div>
         <div class="pagination-wrap">{{ $products->links() }}</div>

@@ -12,6 +12,7 @@
         $itemQtyWidth = max((float) $printSettings['item_qty_width_mm'] - 1, 3);
         $itemPriceWidth = max((float) $printSettings['item_price_width_mm'] - 2, 8);
         $itemSubtotalWidth = max((float) $printSettings['item_subtotal_width_mm'] - 4, 10);
+        $amountWords = \App\Services\BusinessSettings::amountToWords((float) $creditNote->total, 'AOA');
     @endphp
     <style>
         @page { margin: {{ $printSettings['page_margin_top_mm'] }}mm {{ $printSettings['page_margin_right_mm'] }}mm {{ $printSettings['page_margin_bottom_mm'] }}mm {{ $printSettings['page_margin_left_mm'] }}mm; size: {{ $printSettings['paper_width_mm'] }}mm auto; }
@@ -22,6 +23,7 @@
         .logo { margin:0 auto 6px; max-height:42px; max-width:120px; object-fit:contain; }
         .company-name { font-size:{{ $printSettings['company_font_size_px'] }}px; font-weight:900; text-transform:uppercase; }
         .muted { color:#000; font-weight:600; }
+        .amount-words { font-size:{{ max((float) $printSettings['content_font_size_px'] - 3, 7) }}px; font-weight:600; line-height:1.15; }
         .line { border-top:1px solid #000; margin:7px 0; }
         .row { display:table; font-size:{{ $printSettings['content_font_size_px'] }}px; table-layout:fixed; width:100%; }
         .row > span, .row > strong { display:table-cell; vertical-align:top; }
@@ -189,6 +191,14 @@
             </table>
         @endif
 
+        <div class="line"></div>
+        <div class="center">
+            <div class="muted amount-words">{{ $amountWords }}</div>
+        </div>
+        <div class="line"></div>
+        <div class="center">
+            <div class="muted">Os bens e/ou serviços foram colocados à disposição em {{ now()->format('d/m/Y') }}.</div>
+        </div>
         <div class="line"></div>
         <div class="center">
             <strong>Documento retificativo</strong>

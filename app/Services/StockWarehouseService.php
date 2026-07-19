@@ -82,6 +82,30 @@ class StockWarehouseService
         return Warehouse::where('active', true)->find($defaultId) ?: $this->defaultWarehouse();
     }
 
+    public function quantityFor(Product $product, string $operation, ?int $warehouseId = null): int
+    {
+        if (! $product->track_stock || ! $this->enabled()) {
+            return (int) $product->stock_quantity;
+        }
+
+        $warehouse = $this->warehouseFor($operation, $warehouseId);
+        $stock = $this->stockRow($product, $warehouse);
+
+        return (int) $stock->quantity;
+    }
+
+    public function warehouseIdFor(string $operation, ?int $warehouseId = null): ?int
+    {
+        return $this->enabled() ? $this->warehouseFor($operation, $warehouseId)->id : null;
+    }
+
+    public function attachQuantities($products, string $operation, ?int $warehouseId = null): void
+    {
+        foreach ($products as $product) {
+            $product->setAttribute('operation_stock_quantity', $this->quantityFor($product, $operation, $warehouseId));
+        }
+    }
+
     public function available(Product $product, int $quantity, string $operation, ?int $warehouseId = null): bool
     {
         if (! $product->track_stock) {
@@ -101,19 +125,21 @@ class StockWarehouseService
     public function increase(Product $product, int $quantity, string $operation, ?int $warehouseId = null): array
     {
         $before = (int) $product->stock_quantity;
+        $after = $before;
 
         if ($product->track_stock) {
             if ($this->enabled()) {
                 $warehouse = $this->warehouseFor($operation, $warehouseId);
                 $stock = $this->stockRow($product, $warehouse);
+                $before = (int) $stock->quantity;
                 $stock->increment('quantity', $quantity);
+                $after = (int) $stock->fresh()->quantity;
                 $this->syncProductTotal($product);
             } else {
                 $product->increment('stock_quantity', $quantity);
+                $after = (int) $product->fresh()->stock_quantity;
             }
         }
-
-        $after = (int) $product->fresh()->stock_quantity;
 
         return [$before, $after];
     }
@@ -121,6 +147,7 @@ class StockWarehouseService
     public function decrease(Product $product, int $quantity, string $operation, ?int $warehouseId = null): array
     {
         $before = (int) $product->stock_quantity;
+        $after = $before;
 
         if ($product->track_stock) {
             if (! $this->available($product, $quantity, $operation, $warehouseId)) {
@@ -130,14 +157,15 @@ class StockWarehouseService
             if ($this->enabled()) {
                 $warehouse = $this->warehouseFor($operation, $warehouseId);
                 $stock = $this->stockRow($product, $warehouse);
+                $before = (int) $stock->quantity;
                 $stock->decrement('quantity', $quantity);
+                $after = (int) $stock->fresh()->quantity;
                 $this->syncProductTotal($product);
             } else {
                 $product->decrement('stock_quantity', $quantity);
+                $after = (int) $product->fresh()->stock_quantity;
             }
         }
-
-        $after = (int) $product->fresh()->stock_quantity;
 
         return [$before, $after];
     }
@@ -145,19 +173,21 @@ class StockWarehouseService
     public function set(Product $product, int $quantity, string $operation, ?int $warehouseId = null): array
     {
         $before = (int) $product->stock_quantity;
+        $after = $before;
 
         if ($product->track_stock) {
             if ($this->enabled()) {
                 $warehouse = $this->warehouseFor($operation, $warehouseId);
                 $stock = $this->stockRow($product, $warehouse);
+                $before = (int) $stock->quantity;
                 $stock->update(['quantity' => $quantity]);
+                $after = (int) $stock->fresh()->quantity;
                 $this->syncProductTotal($product);
             } else {
                 $product->update(['stock_quantity' => $quantity]);
+                $after = (int) $product->fresh()->stock_quantity;
             }
         }
-
-        $after = (int) $product->fresh()->stock_quantity;
 
         return [$before, $after];
     }

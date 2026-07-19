@@ -279,6 +279,7 @@ class PurchaseController extends Controller
         $validated = $request->validate([
             'received' => ['nullable', 'array'],
             'received.*' => ['nullable', 'integer', 'min:0'],
+            'warehouse_id' => ['nullable', 'exists:warehouses,id'],
         ]);
 
         $receivedInput = collect($validated['received'] ?? [])
@@ -288,7 +289,7 @@ class PurchaseController extends Controller
         $receivedAny = false;
 
         try {
-            DB::transaction(function () use ($purchase, $receivedInput, &$receivedAny) {
+            DB::transaction(function () use ($purchase, $receivedInput, &$receivedAny, $request) {
                 $purchase->load('items.product');
 
                 foreach ($purchase->items as $item) {
@@ -315,12 +316,15 @@ class PurchaseController extends Controller
                         continue;
                     }
 
-                    [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->increase($product, (int) $quantityToReceive, 'purchases', $request->integer('warehouse_id') ?: null);
+                    $warehouseId = $request->integer('warehouse_id') ?: null;
+                    [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->increase($product, (int) $quantityToReceive, 'purchases', $warehouseId);
+                    $movementWarehouseId = app(StockWarehouseService::class)->warehouseIdFor('purchases', $warehouseId);
                     $product->update(['purchase_price' => $item->unit_cost]);
 
                     if ($product->track_stock ?? true) {
                         StockMovement::create([
                             'product_id' => $product->id,
+                            'warehouse_id' => $movementWarehouseId,
                             'type' => 'IN',
                             'reason' => 'Compra recebida',
                             'quantity' => $quantityToReceive,

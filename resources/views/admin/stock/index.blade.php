@@ -7,6 +7,7 @@
     $warehouses = $warehouses ?? collect();
     $warehouseDefaults = $warehouseDefaults ?? [];
     $operations = $operations ?? [];
+    $selectedWarehouseId = $selectedWarehouseId ?? ($warehouseDefaults['adjustments'] ?? null);
 @endphp
 
 <div class="stock-page">
@@ -94,7 +95,10 @@
                             <td>{{ $product->category->name ?? 'Sem categoria' }}</td>
                             <td>
                                 <span class="stock-badge {{ $product->stockStatusClass() }}">{{ $product->stockStatusLabel() }}</span>
-                                <strong>{{ number_format((float) $product->stock_quantity, 0, ',', '.') }} {{ $product->unit ?? 'un' }}</strong>
+                                <strong>{{ number_format((float) ($product->operation_stock_quantity ?? $product->stock_quantity), 0, ',', '.') }} {{ $product->unit ?? 'un' }}</strong>
+                                @if(\App\Services\ModuleSettings::enabled('stock_warehouses'))
+                                    <span class="muted">Total: {{ number_format((float) $product->stock_quantity, 0, ',', '.') }} {{ $product->unit ?? 'un' }}</span>
+                                @endif
                             </td>
                             <td>{{ number_format((float) $product->minimum_stock, 0, ',', '.') }}</td>
                             <td>AOA {{ number_format($cost, 2, ',', '.') }}</td>
@@ -102,10 +106,11 @@
                             <td>
                                 <form method="POST" action="{{ route('admin.stock.adjust') }}" class="adjust-form">
                                     @csrf
-                                    <input type="hidden" name="product_id" value="{{ $product->id }}">                                    @if(\App\Services\ModuleSettings::enabled('stock_warehouses'))
+                                    <input type="hidden" name="product_id" value="{{ $product->id }}">
+                                    @if(\App\Services\ModuleSettings::enabled('stock_warehouses'))
                                         <select name="warehouse_id" title="Armazem">
                                             @foreach($warehouses as $warehouse)
-                                                <option value="{{ $warehouse->id }}" @selected(($warehouseDefaults['adjustments'] ?? null) == $warehouse->id)>{{ $warehouse->name }}</option>
+                                                <option value="{{ $warehouse->id }}" @selected((int) $selectedWarehouseId === (int) $warehouse->id)>{{ $warehouse->name }}</option>
                                             @endforeach
                                         </select>
                                     @endif
@@ -146,7 +151,10 @@
                 @forelse($dormantProducts as $product)
                     <div class="side-row">
                         <span>{{ $product->name }}</span>
-                        <strong>{{ number_format((float) $product->stock_quantity, 0, ',', '.') }}</strong>
+                                <strong>{{ number_format((float) ($product->operation_stock_quantity ?? $product->stock_quantity), 0, ',', '.') }} {{ $product->unit ?? 'un' }}</strong>
+                                @if(\App\Services\ModuleSettings::enabled('stock_warehouses'))
+                                    <span class="muted">Total: {{ number_format((float) $product->stock_quantity, 0, ',', '.') }} {{ $product->unit ?? 'un' }}</span>
+                                @endif
                     </div>
                 @empty
                     <p class="muted">Sem produtos parados com stock.</p>

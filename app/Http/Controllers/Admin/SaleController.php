@@ -453,9 +453,11 @@ class SaleController extends Controller
                         'tax_amount' => $item['tax_amount'],
                     ]);                    if ($product->track_stock ?? true) {
                         [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->decrease($product, (int) ceil($qty), 'sales');
+                        $movementWarehouseId = app(StockWarehouseService::class)->warehouseIdFor('sales');
 
                         StockMovement::create([
                             'product_id' => $product->id,
+                            'warehouse_id' => $movementWarehouseId,
                             'type' => 'OUT',
                             'quantity' => $qty,
                             'stock_before' => $stockBefore,

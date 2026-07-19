@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductWarehouseStock;
 use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
+use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\ModuleSettings;
 use App\Services\StockWarehouseService;
@@ -141,6 +142,34 @@ class WarehouseController extends Controller
                     'from_stock_after' => $fromAfter,
                     'to_stock_before' => $toBefore,
                     'to_stock_after' => $toAfter,
+                ]);
+
+                StockMovement::create([
+                    'product_id' => $product->id,
+                    'warehouse_id' => $validated['from_warehouse_id'],
+                    'type' => 'OUT',
+                    'reason' => 'Transferencia entre armazens',
+                    'quantity' => $quantity,
+                    'stock_before' => $fromBefore,
+                    'stock_after' => $fromAfter,
+                    'notes' => $validated['notes'] ?? ('Transferencia ' . $transfer->reference),
+                    'reference_type' => 'stock_transfer',
+                    'reference_id' => $transfer->id,
+                    'operator_id' => session('operator_id'),
+                ]);
+
+                StockMovement::create([
+                    'product_id' => $product->id,
+                    'warehouse_id' => $validated['to_warehouse_id'],
+                    'type' => 'IN',
+                    'reason' => 'Transferencia entre armazens',
+                    'quantity' => $quantity,
+                    'stock_before' => $toBefore,
+                    'stock_after' => $toAfter,
+                    'notes' => $validated['notes'] ?? ('Transferencia ' . $transfer->reference),
+                    'reference_type' => 'stock_transfer',
+                    'reference_id' => $transfer->id,
+                    'operator_id' => session('operator_id'),
                 ]);
             });
         } catch (\RuntimeException $e) {

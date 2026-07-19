@@ -40,6 +40,7 @@
                     <th>Antes</th>
                     <th>Depois</th>
                     <th>Motivo</th>
+                    <th>Armazem</th>
                     <th>Operador</th>
                 </tr>
             </thead>
@@ -53,10 +54,11 @@
                         <td>{{ number_format((float) $movement->stock_before, 0, ',', '.') }}</td>
                         <td>{{ number_format((float) $movement->stock_after, 0, ',', '.') }}</td>
                         <td>{{ $movement->reason ?? $movement->notes ?? '-' }}</td>
+                        <td>{{ $movement->warehouse->name ?? 'Geral' }}</td>
                         <td>{{ $movement->operator->name ?? 'Sistema' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="empty">Sem movimentos no periodo.</td></tr>
+                    <tr><td colspan="9" class="empty">Sem movimentos no periodo.</td></tr>
                 @endforelse
             </tbody>
         </table>

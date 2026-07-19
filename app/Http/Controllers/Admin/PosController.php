@@ -62,25 +62,32 @@ class PosController extends Controller
         $todayCardSales = (float) collect(['card', 'multi'])
             ->sum(fn ($method) => (float) ($todayPaymentsByMethod[$method] ?? 0));
 
+        $stockWarehouseService = app(StockWarehouseService::class);
+        $products = Product::with('category')
+            ->where('status', true)
+            ->where('available_supermarket', true)
+            ->orderBy('category_id')
+            ->orderBy('name')
+            ->get();
+        $stockWarehouseService->attachQuantities($products, 'supermarket');
+
+        $restaurantCategories = Category::where('status', true)
+            ->whereHas('products', function ($query) {
+                $query->where('status', true)->where('available_restaurant', true);
+            })
+            ->with(['products' => function ($query) {
+                $query->where('status', true)
+                    ->where('available_restaurant', true)
+                    ->orderBy('name');
+            }])
+            ->orderBy('name')
+            ->get();
+        $restaurantCategories->each(fn ($category) => $stockWarehouseService->attachQuantities($category->products, 'restaurant'));
+
         return view('admin.pos.index', [
             'modules' => $modules,
-            'products' => Product::with('category')
-                ->where('status', true)
-                ->where('available_supermarket', true)
-                ->orderBy('category_id')
-                ->orderBy('name')
-                ->get(),
-            'restaurantCategories' => Category::where('status', true)
-                ->whereHas('products', function ($query) {
-                    $query->where('status', true)->where('available_restaurant', true);
-                })
-                ->with(['products' => function ($query) {
-                    $query->where('status', true)
-                        ->where('available_restaurant', true)
-                        ->orderBy('name');
-                }])
-                ->orderBy('name')
-                ->get(),
+            'products' => $products,
+            'restaurantCategories' => $restaurantCategories,
             'customers' => Customer::with('card')->where('status', true)->orderBy('name')->get(),
             'operatorName' => Operator::find(session('operator_id'))?->name ?? 'Operador',
             'todaySales' => $todaySales,
@@ -293,9 +300,11 @@ class PosController extends Controller
                         'tax_amount' => $item['tax_amount'],
                     ]);                    if (Schema::hasColumn('products', 'stock_quantity') && ($product->track_stock ?? true)) {
                         [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->decrease($product, (int) $item['quantity'], $stockOperation);
+                        $movementWarehouseId = app(StockWarehouseService::class)->warehouseIdFor($stockOperation);
 
                         StockMovement::create([
                             'product_id' => $product->id,
+                            'warehouse_id' => $movementWarehouseId,
                             'type' => 'OUT',
                             'reason' => 'Venda POS',
                             'quantity' => $item['quantity'],
@@ -430,9 +439,11 @@ class PosController extends Controller
             return response()->json(['success' => false, 'message' => 'Produto nao encontrado no supermercado.'], 404);
         }
 
-        if (($product->track_stock ?? true) && (float) $product->stock_quantity <= 0) {
-            return response()->json(['success' => false, 'message' => 'Produto sem stock disponivel.'], 422);
+        if (($product->track_stock ?? true) && ! app(StockWarehouseService::class)->available($product, 1, 'supermarket')) {
+            return response()->json(['success' => false, 'message' => 'Produto sem stock disponivel no armazem do supermercado.'], 422);
         }
+
+        $product->setAttribute('operation_stock_quantity', app(StockWarehouseService::class)->quantityFor($product, 'supermarket'));
 
         return response()->json(['success' => true, 'data' => $product]);
     }

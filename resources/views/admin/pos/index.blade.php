@@ -135,7 +135,37 @@
         .pos-processing-button.is-processing { cursor: wait !important; opacity: .86; }
         .pos-processing-button.is-processing .pos-processing-spinner { display: inline-block; }
         @keyframes pos-processing-spin { to { transform: rotate(360deg); } }
-        .payment-chip {
+        .bill-split-row {
+            align-items: center;
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            display: grid;
+            gap: 8px;
+            grid-template-columns: minmax(0, 1fr) 78px;
+            min-height: 48px;
+            padding: 8px;
+        }
+        .bill-split-name { color:#fff; font-size:12px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .bill-split-meta { color:#94a3b8; font-size:10px; margin-top:2px; }
+        .bill-split-qty {
+            background:#0f172a !important;
+            border:1px solid #334155 !important;
+            border-radius:7px !important;
+            color:#fff !important;
+            font-weight:900;
+            min-height:34px;
+            padding:6px 8px !important;
+            text-align:center;
+            width:100% !important;
+        }
+        .cliente-conta-row.is-selected { background: rgba(244,63,94,.14) !important; }
+        @media (max-width: 760px) {
+            #modal-divisao-conta > div { flex-direction: column; height: min(680px, 94vh) !important; }
+            #modal-divisao-conta #bill-split-items { grid-template-columns: 1fr !important; }
+            #modal-divisao-conta > div > div:last-child { border-left: 0 !important; border-top: 1px solid #1e293b; flex: 0 0 auto !important; }
+            .pos-cart-actions { grid-template-columns: 1fr !important; }
+        }        .payment-chip {
             background: rgba(148, 163, 184, 0.08);
             border: 1px solid rgba(148, 163, 184, 0.18);
             border-radius: 999px;
@@ -554,6 +584,7 @@
                         style="color: #34d399;">{{ $tables->where('status', 'free')->count() }}</strong></div>
                 <div id="metric-ocupadas" style="color: #94a3b8;">Mesas Ocupadas: <strong
                         style="color: #fbbf24;">{{ $tables->where('status', 'occupied')->count() }}</strong></div>
+                <div id="metric-reservadas" style="color: #94a3b8;">Mesas Reservadas: <strong style="color: #38bdf8;">{{ $tables->where('status', 'reserved')->count() }}</strong></div>
                 <div style="color: #fff;">Vendas Hoje: <strong style="color: #34d399;">1.250.000,00 Kz</strong></div>
 
                 <button id="btn-top-abrir-caixa" onclick="mostrarModalAberturaCaixa()"
@@ -594,6 +625,10 @@
                             style="background: transparent; color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.35); padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;">
                             Ocupadas
                         </button>
+                        <button id="filter-mesas-reserved" onclick="filtrarMesas('reserved')"
+                            style="background: transparent; color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                            Reservadas
+                        </button>
                     </div>
 
                     <div id="view-salao-mesas"
@@ -610,7 +645,11 @@
                                 $styleMesa =
                                     'background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3); color: #f43f5e;';
                             }
-                            $mesaStatusFiltro = $table->status === 'free' ? 'free' : 'occupied';
+                            if ($table->status === 'reserved') {
+                                $styleMesa =
+                                    'background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8;';
+                            }
+                            $mesaStatusFiltro = in_array($table->status, ['free', 'reserved'], true) ? $table->status : 'occupied';
                         @endphp
 
                         <button class="p-4 rounded-xl border transition text-center gap-1 group relative mesa-card"
@@ -621,7 +660,7 @@
                             <div style="font-weight: bold; color: #fff;">🪑 {{ $table->name }}</div>
                             <div style="font-size: 10px; text-transform: uppercase; margin-top: 5px;"
                                 id="status-text-{{ $table->id }}">
-                                {{ $table->status === 'free' ? 'Livre' : 'Ocupada' }}
+                                {{ $table->status === 'free' ? 'Livre' : ($table->status === 'reserved' ? 'Reservada' : 'Ocupada') }}
                             </div>
                         </button>
                     @endforeach
@@ -698,7 +737,7 @@
                             <span class="supermarket-product-name">{{ $p->name }}</span>
                             <span class="supermarket-product-meta">
                                 <span>{{ number_format($p->selling_price, 0, ',', '.') }} Kz</span>
-                                <span>Stock: {{ (int) $p->stock_quantity }}</span>
+                                <span>Stock: {{ (int) ($p->operation_stock_quantity ?? $p->stock_quantity) }}</span>
                             </span>
                         </button>
                     @endforeach
@@ -718,6 +757,14 @@
                         <button type="button" onclick="abrirTransferenciaMesa()"
                             style="flex:1; background:#0f766e; border:1px solid rgba(45,212,191,.35); color:#ccfbf1; padding:8px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer;">
                             Transferir
+                        </button>
+                        <button type="button" id="btn-reservar-mesa" onclick="reservarMesaAtual()"
+                            style="flex:1; background:#075985; border:1px solid rgba(56,189,248,.35); color:#bae6fd; padding:8px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer;">
+                            Reservar
+                        </button>
+                        <button type="button" id="btn-libertar-reserva" onclick="libertarReservaMesaAtual()"
+                            style="display:none; flex:1; background:#334155; border:1px solid rgba(148,163,184,.35); color:#e2e8f0; padding:8px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer;">
+                            Libertar
                         </button>
                     </div>
                 </div>
@@ -740,7 +787,17 @@
                     </div>
                 </div>
 
-                <div class="pos-cart-actions" style="padding: 15px; background: #020617; display: flex; flex-direction: column; gap: 10px;">
+                <div class="pos-cart-actions" style="padding: 15px; background: #020617; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+                    <button id="btn-dividir-conta" type="button" onclick="abrirModalDivisaoConta()"
+                        style="display: {{ ($modules['restaurant'] ?? true) ? 'block' : 'none' }}; width: 100%; background: #0f766e; color: #ccfbf1; font-weight: bold; padding: 12px; border: 1px solid rgba(45,212,191,.35); border-radius: 8px; font-size: 14px; cursor: pointer;">
+                        Dividir Conta
+                    </button>
+                    @if($modules['current_account'] ?? true)
+                    <button id="btn-conta-corrente-pos" type="button" onclick="abrirModalContaCorrente()"
+                        style="width: 100%; background: #7f1d1d; color: #fecdd3; font-weight: bold; padding: 12px; border: 1px solid rgba(248,113,113,.35); border-radius: 8px; font-size: 14px; cursor: pointer;">
+                        Conta Corrente
+                    </button>
+                    @endif
                     <button id="btn-finalizar-venda" onclick="processarFechamentoVenda()"
                         style="width: 100%; background: #10b981; color: #020617; font-weight: bold; padding: 12px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer;">
                         Processar Pagamento (F3)
@@ -761,6 +818,74 @@
             <option value="credit">Conta Corrente</option>
         @endif
     </select>
+
+    <div id="modal-conta-corrente"
+        style="position: fixed; inset: 0; background: rgba(2, 6, 23, 0.88); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 14px; z-index: 49;">
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; width:min(900px,96vw); height:min(620px,92vh); display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #1e293b; background:rgba(244,63,94,.08);">
+                <div>
+                    <h3 style="color:#fff; margin:0; font-size:16px;">Conta Corrente</h3>
+                    <div id="conta-corrente-total" style="color:#fecdd3; font-size:12px; margin-top:3px;">Total: 0,00 Kz</div>
+                </div>
+                <button type="button" onclick="fecharModalContaCorrente()" style="background:transparent; border:0; color:#94a3b8; font-size:26px; cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:12px 14px; border-bottom:1px solid #1e293b; display:flex; gap:10px; align-items:center;">
+                <input id="busca-cliente-conta" type="text" oninput="filtrarClientesContaCorrente()" placeholder="Pesquisar cliente por nome ou telefone" style="flex:1; background:#020617; border:1px solid #334155; color:#fff; padding:10px; border-radius:8px;">
+                <div id="cliente-conta-selecionado-label" style="color:#94a3b8; font-size:12px; min-width:190px; text-align:right;">Nenhum cliente selecionado</div>
+            </div>
+            <div style="flex:1; overflow:auto;">
+                <table style="width:100%; border-collapse:collapse; color:#e2e8f0; font-size:13px;">
+                    <thead style="position:sticky; top:0; background:#111827; z-index:1;">
+                        <tr>
+                            <th style="text-align:left; padding:10px 14px; color:#94a3b8; font-size:11px; text-transform:uppercase;">Cliente</th>
+                            <th style="text-align:left; padding:10px 14px; color:#94a3b8; font-size:11px; text-transform:uppercase;">Telefone</th>
+                            <th style="text-align:right; padding:10px 14px; color:#94a3b8; font-size:11px; text-transform:uppercase; width:150px;">Acao</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-clientes-conta">
+                        @foreach($customers as $customer)
+                            <tr class="cliente-conta-row" data-search="{{ \Illuminate\Support\Str::lower($customer->name . ' ' . ($customer->phone ?? '')) }}" style="border-top:1px solid #1e293b;">
+                                <td style="padding:10px 14px; font-weight:800; color:#fff;">{{ $customer->name }}</td>
+                                <td style="padding:10px 14px; color:#94a3b8;">{{ $customer->phone ?: '-' }}</td>
+                                <td style="padding:10px 14px; text-align:right;">
+                                    <button type="button" data-customer-id="{{ $customer->id }}" data-customer-name="{{ e($customer->name) }}" onclick="selecionarClienteContaCorrente(this)" style="background:#f43f5e; border:0; color:#fff; padding:8px 10px; border-radius:7px; font-weight:900; cursor:pointer;">Selecionar</button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end; padding:12px 14px; border-top:1px solid #1e293b; background:#020617;">
+                <button type="button" onclick="fecharModalContaCorrente()" style="background:#020617; border:1px solid #334155; color:#94a3b8; padding:11px 16px; border-radius:8px; font-weight:900; cursor:pointer;">Cancelar</button>
+                <button id="btn-confirmar-conta-corrente" type="button" onclick="confirmarContaCorrente()" style="background:#f43f5e; border:0; color:#fff; padding:11px 16px; border-radius:8px; font-weight:900; cursor:pointer;">Lancar na conta</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-divisao-conta"
+        style="position: fixed; inset: 0; background: rgba(2, 6, 23, 0.88); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 14px; z-index: 49;">
+        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; width: min(960px, 96vw); height: min(600px, 90vh); display: flex; overflow: hidden;">
+            <div style="flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #1e293b; background:rgba(56,189,248,.08);">
+                    <div>
+                        <h3 style="color:#fff; margin:0; font-size:16px;">Dividir conta da mesa</h3>
+                        <div style="color:#94a3b8; font-size:12px; margin-top:3px;">Selecione os itens e quantidades que esta pessoa vai pagar.</div>
+                    </div>
+                    <button type="button" onclick="fecharModalDivisaoConta()" style="background:transparent; border:0; color:#94a3b8; font-size:26px; cursor:pointer;">&times;</button>
+                </div>
+                <div id="bill-split-items" style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:8px; padding:14px; overflow-y:auto;"></div>
+            </div>
+            <div style="flex:0 0 260px; background:#020617; border-left:1px solid #1e293b; display:flex; flex-direction:column; padding:16px;">
+                <div style="color:#94a3b8; font-size:11px; font-weight:900; text-transform:uppercase;">Total selecionado</div>
+                <div id="bill-split-total" style="color:#34d399; font-size:24px; font-weight:900; margin-top:8px;">0,00 Kz</div>
+                <div id="bill-split-count" style="color:#94a3b8; font-size:12px; margin-top:6px;">0 itens</div>
+                <div style="margin-top:auto; display:grid; gap:10px;">
+                    <button type="button" onclick="fecharModalDivisaoConta()" style="background:#020617; border:1px solid #334155; color:#94a3b8; padding:12px; border-radius:8px; font-weight:900; cursor:pointer;">Cancelar</button>
+                    <button type="button" onclick="confirmarDivisaoConta()" style="background:#10b981; border:0; color:#020617; padding:12px; border-radius:8px; font-weight:900; cursor:pointer;">Continuar para pagamento</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div id="modal-pagamento"
         style="position: fixed; inset: 0; background: rgba(2, 6, 23, 0.9); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 12px; z-index: 50;">
@@ -834,23 +959,6 @@
                     </div>
 
 
-                    @if($modules['current_account'] ?? true)
-                    <div id="wrapper-cliente-conta" style="display: none; background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.25); border-radius: 8px; padding: 10px;">
-                        <label style="display: block; font-size: 11px; color: #fecdd3; text-transform: uppercase; margin-bottom: 6px; font-weight: bold;">Cliente da conta corrente</label>
-                        <select id="select-cliente-conta" style="width: 100%; background: #020617; border: 1px solid #7f1d1d; color: #fff; padding: 11px; border-radius: 8px;">
-                            <option value="">Selecionar cliente</option>
-                            @foreach($customers as $customer)
-                                <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}</option>
-                            @endforeach
-                        </select>
-                        <div id="txt-valor-pendente-conta" style="color:#fecdd3; font-size:12px; margin-top:7px;">Pendente: 0,00 Kz</div>
-                    </div>
-
-                    <button type="button" onclick="selecionarMetodoPagamento('credit')" class="metodo-pagamento" data-metodo="credit" data-cor="#f43f5e" data-label="Conta Corrente" data-desc="Lanca o valor em aberto para o cliente"
-                        style="background: transparent; color: #f43f5e; padding: 12px; border: 2px solid #f43f5e; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
-                        Conta Corrente
-                    </button>
-                    @endif
 
                     @if($modules['customer_card'] ?? true)
                     <div id="wrapper-cartao-cliente" style="background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.24); border-radius: 8px; padding: 10px;">
@@ -1194,16 +1302,22 @@
         let cartaoAutorizacaoTimer = null;
         const directPrintSaleUrlTemplate = @json(route('admin.print.sales', ['sale' => '__SALE_ID__']));
         const directPrintTableUrlTemplate = @json(route('admin.restaurant.print.table', ['table' => '__TABLE_ID__']));
+        const reserveTableUrlTemplate = @json(route('admin.restaurant.reserveTable', ['tableId' => '__TABLE_ID__']));
+        const releaseReservationUrlTemplate = @json(route('admin.restaurant.releaseReservation', ['tableId' => '__TABLE_ID__']));
         let modoAtual = modulosAtivos.restaurant ? 'salao' : 'supermercado';
         let mesaSelecionadaId = modoAtual === 'supermercado' && modulosAtivos.supermarket ? 9999 : null;
         let filtroMesasAtual = 'all';
+        let sincronizacaoMesasEmCurso = false;
         let categoriaSupermercadoAtual = 'all';
         let totalGeralVendaActual = 0;
         let ultimaVendaId = null;
         let campoPagamentoAtivo = 'main';
         let caixaAberto = false;
         let posCheckoutProcessing = false;
-
+        let vendaCheckoutAlertAberto = false;
+        let modoDivisaoConta = 'full';
+        let clienteContaCorrenteSelecionadoId = '';
+        let clienteContaCorrenteSelecionadoNome = '';
         // Atalhos de Teclado
         window.addEventListener('keydown', function(event) {
             if (event.key === 'F3') {
@@ -1259,6 +1373,7 @@
                 mesaSelecionadaId = null;
                 document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
                 document.getElementById('mesa-acoes').style.display = 'flex';
+                { const btn = document.getElementById('btn-dividir-conta'); if (btn) btn.style.display = 'block'; }
                 document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
                 filtrarMesas(filtroMesasAtual);
             } else {
@@ -1281,6 +1396,7 @@
                 mesaSelecionadaId = 9999;
                 document.getElementById('lbl-mesa-ativa').innerText = 'Caixa Aberto 🛒';
                 document.getElementById('mesa-acoes').style.display = 'none';
+                { const btn = document.getElementById('btn-dividir-conta'); if (btn) btn.style.display = 'none'; }
 
                 setTimeout(() => {
                     const inputBc = document.getElementById('inputBarcode');
@@ -1305,7 +1421,8 @@
             const filtros = {
                 all: document.getElementById('filter-mesas-all'),
                 free: document.getElementById('filter-mesas-free'),
-                occupied: document.getElementById('filter-mesas-occupied')
+                occupied: document.getElementById('filter-mesas-occupied'),
+                reserved: document.getElementById('filter-mesas-reserved')
             };
 
             Object.keys(filtros).forEach(tipo => {
@@ -1314,7 +1431,7 @@
 
                 const ativo = tipo === filtro;
                 btn.style.background = ativo ? '#38bdf8' : 'transparent';
-                btn.style.color = ativo ? '#020617' : (tipo === 'free' ? '#34d399' : tipo === 'occupied' ? '#fbbf24' : '#cbd5e1');
+                btn.style.color = ativo ? '#020617' : (tipo === 'free' ? '#34d399' : tipo === 'occupied' ? '#fbbf24' : tipo === 'reserved' ? '#38bdf8' : '#cbd5e1');
             });
         }
 
@@ -1439,7 +1556,13 @@
             const txtStatus = document.getElementById(`status-text-${tableId}`);
 
             if (cardMesa && txtStatus) {
-                if (status === 'occupied' || status === 'busy' || status === 'waiting_payment') {
+                if (status === 'reserved') {
+                    cardMesa.dataset.status = 'reserved';
+                    cardMesa.style.background = "rgba(56, 189, 248, 0.1)";
+                    cardMesa.style.border = "1px solid rgba(56, 189, 248, 0.3)";
+                    cardMesa.style.color = "#38bdf8";
+                    txtStatus.innerText = 'Reservada';
+                } else if (status === 'occupied' || status === 'busy' || status === 'waiting_payment') {
                     cardMesa.dataset.status = 'occupied';
                     cardMesa.style.background = "rgba(251, 191, 36, 0.1)";
                     cardMesa.style.border = "1px solid rgba(251, 191, 36, 0.3)";
@@ -1459,16 +1582,20 @@
         function atualizarContadoresTop() {
             let livres = 0;
             let ocupadas = 0;
+            let reservadas = 0;
             Object.keys(estadosMesas).forEach(id => {
                 if (id != 9999) {
                     if (estadosMesas[id].status === 'free') livres++;
+                    else if (estadosMesas[id].status === 'reserved') reservadas++;
                     else ocupadas++;
                 }
             });
             const mLivres = document.getElementById('metric-livres');
             const mOcupadas = document.getElementById('metric-ocupadas');
+            const mReservadas = document.getElementById('metric-reservadas');
             if (mLivres) mLivres.innerHTML = `Mesas Livres: <strong style="color: #34d399;">${livres}</strong>`;
             if (mOcupadas) mOcupadas.innerHTML = `Mesas Ocupadas: <strong style="color: #fbbf24;">${ocupadas}</strong>`;
+            if (mReservadas) mReservadas.innerHTML = `Mesas Reservadas: <strong style="color: #38bdf8;">${reservadas}</strong>`;
         }
 
         function adicionarItemNoPedido(idProduto, nomeProduto, preco, taxaIva = 0, tentativaAposAbrirMesa = false) {
@@ -1752,6 +1879,111 @@
             }
         }
 
+        function contaPodeSerDividida() {
+            return modoAtual === 'salao' && mesaSelecionadaId && mesaSelecionadaId !== 9999;
+        }
+
+        function abrirModalDivisaoConta() {
+            if (!garantirCaixaAberto()) return;
+            if (!contaPodeSerDividida()) {
+                nkamaAlert('Selecione uma mesa do salao para dividir a conta.', 'warning');
+                return;
+            }
+            const mesaAtual = estadosMesas[mesaSelecionadaId];
+            if (!mesaAtual || !mesaAtual.itens || mesaAtual.itens.length === 0) {
+                nkamaAlert('A mesa nao tem itens para dividir.', 'warning');
+                return;
+            }
+            modoDivisaoConta = 'partial';
+            renderizarDivisaoConta();
+            document.getElementById('modal-divisao-conta').style.display = 'flex';
+        }
+
+        function fecharModalDivisaoConta(reset = true) {
+            document.getElementById('modal-divisao-conta').style.display = 'none';
+            if (reset) modoDivisaoConta = 'full';
+        }
+
+        function confirmarDivisaoConta() {
+            const itens = obterItensPagamentoAtual();
+            if (itens.length === 0) {
+                nkamaAlert('Selecione pelo menos um item para pagar parte da conta.', 'warning');
+                return;
+            }
+            fecharModalDivisaoConta(false);
+            processarFechamentoVenda();
+        }
+
+        function renderizarDivisaoConta() {
+            const container = document.getElementById('bill-split-items');
+            const mesaAtual = estadosMesas[mesaSelecionadaId];
+            if (!container || !mesaAtual) return;
+
+            container.innerHTML = (mesaAtual.itens || []).map((item, index) => {
+                const qty = Number(item.qty || item.quantity || 1);
+                const price = Number(item.price || 0);
+                const name = escaparHtml(item.name || 'Produto');
+                return `
+                    <div class="bill-split-row">
+                        <div style="min-width:0;">
+                            <label style="display:flex; gap:8px; align-items:center; min-width:0; cursor:pointer;">
+                                <input type="checkbox" class="bill-split-check" data-index="${index}" onchange="atualizarTotalDivisaoConta()">
+                                <span style="min-width:0;">
+                                    <span class="bill-split-name">${name}</span>
+                                    <span class="bill-split-meta">Disponivel: ${qty} x ${price.toLocaleString('pt-PT')} Kz</span>
+                                </span>
+                            </label>
+                        </div>
+                        <input type="number" class="bill-split-qty" min="1" max="${qty}" value="1" data-index="${index}" oninput="atualizarTotalDivisaoConta()">
+                    </div>
+                `;
+            }).join('');
+            atualizarTotalDivisaoConta();
+        }
+
+        function atualizarTotalDivisaoConta() {
+            const itens = obterItensPagamentoAtual();
+            const total = itens.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+            const totalEl = document.getElementById('bill-split-total');
+            const countEl = document.getElementById('bill-split-count');
+            if (totalEl) totalEl.innerText = NkamaPOSPayment.format(total);
+            if (countEl) countEl.innerText = `${itens.length} item(ns) selecionado(s)`;
+        }
+
+        function obterItensPagamentoAtual() {
+            const mesaAtual = estadosMesas[mesaSelecionadaId];
+            const itens = mesaAtual?.itens || [];
+            if (modoDivisaoConta !== 'partial') return itens;
+
+            return Array.from(document.querySelectorAll('.bill-split-check:checked')).map((checkbox) => {
+                const index = Number(checkbox.dataset.index);
+                const item = itens[index];
+                if (!item) return null;
+                const qtyInput = document.querySelector(`.bill-split-qty[data-index="${index}"]`);
+                const available = Number(item.qty || item.quantity || 1);
+                const qty = Math.max(1, Math.min(Number(qtyInput?.value || 1), available));
+                if (qtyInput && Number(qtyInput.value) !== qty) qtyInput.value = qty;
+                return { ...item, qty, quantity: qty };
+            }).filter(Boolean);
+        }
+
+        function aplicarPagamentoParcialLocal(itensPagos) {
+            const mesaAtual = estadosMesas[mesaSelecionadaId];
+            if (!mesaAtual) return;
+            const moved = {};
+            itensPagos.forEach(item => {
+                const productId = Number(item.id || item.product_id);
+                moved[productId] = (moved[productId] || 0) + Number(item.qty || item.quantity || 0);
+            });
+            mesaAtual.itens = (mesaAtual.itens || []).map(item => {
+                const productId = Number(item.id || item.product_id);
+                const remaining = Number(item.qty || item.quantity || 0) - Number(moved[productId] || 0);
+                return { ...item, qty: remaining, quantity: remaining };
+            }).filter(item => Number(item.qty || item.quantity || 0) > 0);
+            mesaAtual.status = mesaAtual.itens.length ? 'occupied' : 'free';
+            if (!mesaAtual.itens.length) mesaAtual.order_id = null;
+            atualizarVisualMesaCard(mesaSelecionadaId, mesaAtual.status);
+        }
         function processarFechamentoVenda() {
             if (!garantirCaixaAberto()) return;
 
@@ -1761,9 +1993,16 @@
                 return;
             }
             
+            if (!contaPodeSerDividida()) modoDivisaoConta = 'full';
+
             // Calcular valores
             const mesaCorrente = estadosMesas[mesaSelecionadaId];
-            const totais = calcularTotaisCarrinho(mesaCorrente.itens);
+            const itensPagamento = obterItensPagamentoAtual();
+            if (modoDivisaoConta === 'partial' && itensPagamento.length === 0) {
+                nkamaAlert('Selecione pelo menos um item para pagar parte da conta.', 'warning');
+                return;
+            }
+            const totais = calcularTotaisCarrinho(itensPagamento);
             totalGeralVendaActual = totais.total;
             
             // Atualizar modal com preview
@@ -1798,7 +2037,8 @@
             }
             
             let html = '';
-            const itensPreview = estadosMesas[mesaSelecionadaId].itens.slice(0, 5);
+            const itensPagamentoPreview = obterItensPagamentoAtual();
+            const itensPreview = itensPagamentoPreview.slice(0, 5);
             itensPreview.forEach((item) => {
                 let totalItem = item.price * item.qty;
                 html += `
@@ -1811,7 +2051,7 @@
                 </div>`;
             });
 
-            const itensRestantes = estadosMesas[mesaSelecionadaId].itens.length - itensPreview.length;
+            const itensRestantes = itensPagamentoPreview.length - itensPreview.length;
             if (itensRestantes > 0) {
                 html += `<div style="text-align: center; color: #94a3b8; font-size: 11px; padding: 6px;">+${itensRestantes} item(ns) no carrinho</div>`;
             }
@@ -1914,12 +2154,10 @@
             document.getElementById('txt-troco-calculado').innerText = '0,00 Kz';
             document.getElementById('payment-split-wrapper').style.display = 'none';
             document.getElementById('input-valor-pago').style.display = 'block';
-            if (document.getElementById('wrapper-cliente-conta')) {
-                document.getElementById('wrapper-cliente-conta').style.display = 'none';
-            }
-            if (document.getElementById('select-cliente-conta')) {
-                document.getElementById('select-cliente-conta').value = '';
-            }
+
+            modoDivisaoConta = 'full';
+            clienteContaCorrenteSelecionadoId = '';
+            clienteContaCorrenteSelecionadoNome = '';
             campoPagamentoAtivo = 'main';
             selecionarCampoPagamento('main');
         }
@@ -2023,6 +2261,87 @@
             }
 
             window.nkamaPrintTicket(directPrintTableUrlTemplate.replace('__TABLE_ID__', mesaSelecionadaId));
+        }
+
+        function atualizarBotoesReservaMesa() {
+            const btnReservar = document.getElementById('btn-reservar-mesa');
+            const btnLibertar = document.getElementById('btn-libertar-reserva');
+            const estado = mesaSelecionadaId ? estadosMesas[mesaSelecionadaId] : null;
+            const reservada = estado?.status === 'reserved' && (!estado.itens || estado.itens.length === 0);
+            const podeReservar = modoAtual === 'salao' && mesaSelecionadaId && mesaSelecionadaId !== 9999 && estado && estado.status === 'free';
+
+            if (btnReservar) btnReservar.style.display = podeReservar ? 'block' : 'none';
+            if (btnLibertar) btnLibertar.style.display = reservada ? 'block' : 'none';
+        }
+
+        function reservarMesaAtual() {
+            if (!garantirCaixaAberto()) return;
+            if (modoAtual !== 'salao' || !mesaSelecionadaId || mesaSelecionadaId === 9999) {
+                nkamaAlert('Selecione uma mesa para reservar.', 'warning');
+                return;
+            }
+
+            const mesaAtual = estadosMesas[mesaSelecionadaId];
+            if (mesaAtual?.itens?.length) {
+                nkamaAlert('Mesa com consumo nao pode ser marcada como reserva.', 'warning');
+                return;
+            }
+
+            fetch(reserveTableUrlTemplate.replace('__TABLE_ID__', mesaSelecionadaId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token() }}'
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.message || 'Nao foi possivel reservar mesa.');
+                    estadosMesas[mesaSelecionadaId] = {
+                        ...(estadosMesas[mesaSelecionadaId] || {}),
+                        status: data.table_status || 'reserved',
+                        order_id: data.order_id || estadosMesas[mesaSelecionadaId]?.order_id || null,
+                        itens: []
+                    };
+                    atualizarVisualMesaCard(mesaSelecionadaId, 'reserved');
+                    atualizarContadoresTop();
+                    atualizarBotoesReservaMesa();
+                    carregarEstadoInicialMesas();
+                    nkamaAlert(data.message || 'Mesa reservada com sucesso.', 'success');
+                })
+                .catch(err => nkamaAlert(err.message || 'Erro ao reservar mesa.', 'error'));
+        }
+
+        function libertarReservaMesaAtual() {
+            if (!garantirCaixaAberto()) return;
+            if (modoAtual !== 'salao' || !mesaSelecionadaId || mesaSelecionadaId === 9999) {
+                nkamaAlert('Selecione uma reserva para libertar.', 'warning');
+                return;
+            }
+
+            fetch(releaseReservationUrlTemplate.replace('__TABLE_ID__', mesaSelecionadaId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token() }}'
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.message || 'Nao foi possivel libertar reserva.');
+                    estadosMesas[mesaSelecionadaId] = {
+                        ...(estadosMesas[mesaSelecionadaId] || {}),
+                        status: data.table_status || 'free',
+                        order_id: null,
+                        itens: []
+                    };
+                    atualizarVisualMesaCard(mesaSelecionadaId, 'free');
+                    atualizarContadoresTop();
+                    atualizarBotoesReservaMesa();
+                    carregarEstadoInicialMesas();
+                    nkamaAlert(data.message || 'Reserva libertada com sucesso.', 'success');
+                })
+                .catch(err => nkamaAlert(err.message || 'Erro ao libertar reserva.', 'error'));
         }
 
         function abrirTransferenciaMesa() {
@@ -2563,16 +2882,18 @@
                     resetarAutorizacaoCartao();
                     renderizarCartaoCliente();
 
-                    const selectConta = document.getElementById('select-cliente-conta');
-                    if (selectConta) {
-                        selectConta.value = String(data.card.customer_id);
-                    }
+                    clienteContaCorrenteSelecionadoId = String(data.card.customer_id || '');
+                    clienteContaCorrenteSelecionadoNome = data.card.customer_name || data.card.customer?.name || '';
+                    atualizarClienteContaCorrente();
                 })
                 .catch(() => nkamaAlert('Nao foi possivel consultar o cartao cliente.', 'error'));
         }
 
         function limparCartaoCliente(clearInput = true) {
             cartaoClienteSelecionado = null;
+            clienteContaCorrenteSelecionadoId = '';
+            clienteContaCorrenteSelecionadoNome = '';
+            atualizarClienteContaCorrente();
             resetarAutorizacaoCartao();
             const painel = document.getElementById('painel-cartao-cliente');
             const input = document.getElementById('input-cartao-cliente');
@@ -2861,21 +3182,91 @@
         setTimeout(carregarSolicitacoesCartaoCliente, 1200);
         setInterval(carregarSolicitacoesCartaoCliente, 15000);
         function atualizarClienteContaCorrente() {
-            const metodo = document.getElementById('select-metodo-pagamento').value;
-            const totalPago = obterTotalPago();
-            const pendente = Math.max(Number(totalGeralVendaActual || 0) - totalPago, 0);
-            const wrapper = document.getElementById('wrapper-cliente-conta');
-            const pendenteEl = document.getElementById('txt-valor-pendente-conta');
-
-            if (!wrapper) return;
-
-            wrapper.style.display = (metodo === 'credit' || pendente > 0) ? 'block' : 'none';
-
-            if (pendenteEl) {
-                pendenteEl.innerText = `Pendente: ${NkamaPOSPayment.format(pendente)}`;
-            }
+            const totalLabel = document.getElementById('conta-corrente-total');
+            const label = document.getElementById('cliente-conta-selecionado-label');
+            if (totalLabel) totalLabel.innerText = `Total: ${NkamaPOSPayment.format(Number(totalGeralVendaActual || 0))}`;
+            if (label) label.innerText = clienteContaCorrenteSelecionadoNome || 'Nenhum cliente selecionado';
         }
 
+        function abrirModalContaCorrente() {
+            if (!garantirCaixaAberto()) return;
+            if (!mesaSelecionadaId || !estadosMesas[mesaSelecionadaId] || estadosMesas[mesaSelecionadaId].itens.length === 0) {
+                nkamaAlert('O carrinho esta vazio!', 'warning');
+                return;
+            }
+            if (!modulosAtivos.current_account) {
+                nkamaAlert('Modulo Conta Corrente desativado pelo super-user.', 'warning');
+                return;
+            }
+
+            modoDivisaoConta = 'full';
+            const totais = calcularTotaisCarrinho(estadosMesas[mesaSelecionadaId].itens);
+            totalGeralVendaActual = totais.total;
+            clienteContaCorrenteSelecionadoId = '';
+            clienteContaCorrenteSelecionadoNome = '';
+            const busca = document.getElementById('busca-cliente-conta');
+            if (busca) busca.value = '';
+            filtrarClientesContaCorrente();
+            atualizarClienteContaCorrente();
+            document.getElementById('modal-conta-corrente').style.display = 'flex';
+        }
+
+        function fecharModalContaCorrente() {
+            document.getElementById('modal-conta-corrente').style.display = 'none';
+        }
+
+        function filtrarClientesContaCorrente() {
+            const termo = (document.getElementById('busca-cliente-conta')?.value || '').trim().toLowerCase();
+            document.querySelectorAll('.cliente-conta-row').forEach(row => {
+                row.style.display = !termo || (row.dataset.search || '').includes(termo) ? 'table-row' : 'none';
+            });
+        }
+
+        function selecionarClienteContaCorrente(botao) {
+            clienteContaCorrenteSelecionadoId = String(botao?.dataset?.customerId || '');
+            clienteContaCorrenteSelecionadoNome = botao?.dataset?.customerName || '';
+            document.querySelectorAll('.cliente-conta-row').forEach(row => row.classList.remove('is-selected'));
+            const row = botao ? botao.closest('tr') : null;
+            if (row) row.classList.add('is-selected');
+            atualizarClienteContaCorrente();
+        }
+
+        function confirmarContaCorrente() {
+            if (posCheckoutProcessing) return;
+            if (!clienteContaCorrenteSelecionadoId) {
+                nkamaAlert('Selecione um cliente na tabela.', 'warning');
+                return;
+            }
+            document.getElementById('select-metodo-pagamento').value = 'credit';
+            const inputValor = document.getElementById('input-valor-pago');
+            if (inputValor) inputValor.value = 0;
+            fecharModalContaCorrente();
+            submeterVendaFinal();
+        }
+
+        function mostrarProcessandoVenda() {
+            vendaCheckoutAlertAberto = true;
+            if (!window.Swal) return;
+            Swal.fire({
+                title: 'A finalizar venda...',
+                html: `
+                    <div style="display:grid; gap:12px; justify-items:center; padding:4px 0 2px;">
+                        <span aria-hidden="true" style="width:48px; height:48px; border:4px solid rgba(244,63,94,.18); border-left-color:#f43f5e; border-radius:999px; animation:pos-processing-spin .75s linear infinite;"></span>
+                        <span style="color:#64748b; font-size:13px; font-weight:700;">A processar o pagamento e emitir o documento.</span>
+                    </div>
+                `,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                background: document.body.classList.contains('dark') ? '#111827' : '#ffffff',
+                color: document.body.classList.contains('dark') ? '#e5e7eb' : '#0f172a'
+            });
+        }
+
+        function fecharProcessandoVenda() {
+            if (vendaCheckoutAlertAberto && window.Swal) Swal.close();
+            vendaCheckoutAlertAberto = false;
+        }
         function setPosProcessingButton(button, processing, label) {
             if (!button) return;
             const labelEl = button.querySelector('.button-label');
@@ -2890,9 +3281,16 @@
             const botaoEmitir = document.getElementById('btn-emitir-fatura-pos');
             const metodo = document.getElementById('select-metodo-pagamento').value;
             const valorPago = obterTotalPago();
-            const clienteId = document.getElementById('select-cliente-conta')?.value || '';
+            const clienteId = clienteContaCorrenteSelecionadoId || '';
             const clienteCartaoId = cartaoClienteSelecionado ? String(cartaoClienteSelecionado.customer_id) : '';
             const pendente = Math.max(Number(totalGeralVendaActual || 0) - valorPago, 0);
+            const itensVenda = obterItensPagamentoAtual();
+            const pagamentoParcialMesa = modoDivisaoConta === 'partial' && contaPodeSerDividida();
+
+            if (pagamentoParcialMesa && itensVenda.length === 0) {
+                nkamaAlert('Selecione pelo menos um item para pagar parte da conta.', 'warning');
+                return;
+            }
 
             if (metodo === 'multi' && lerValorPagamento('input-pago-customer-card') > 0 && !cartaoClienteSelecionado) {
                 nkamaAlert('Leia o cartao cliente para usar fidelidade no pagamento misto.', 'warning');
@@ -2923,18 +3321,19 @@
                 nkamaAlert('Informe o PIN do supervisor para emergencia offline.', 'warning');
                 return;
             }
-            if (pendente > 0 && !modulosAtivos.current_account) {
+            if ((pendente > 0 || metodo === 'credit') && !modulosAtivos.current_account) {
                 nkamaAlert('Modulo Conta Corrente desativado pelo super-user.', 'warning');
                 return;
             }
 
-            if (pendente > 0 && !clienteId && !clienteCartaoId) {
-                nkamaAlert('Selecione o cliente para lancar o valor em conta corrente.', 'warning');
+            if ((pendente > 0 || metodo === 'credit') && !clienteId && !clienteCartaoId) {
+                nkamaAlert('Selecione o cliente no botao Conta Corrente antes de lancar o valor.', 'warning');
                 return;
             }
 
             posCheckoutProcessing = true;
             setPosProcessingButton(botaoEmitir, true, 'A processar...');
+            mostrarProcessandoVenda();
 
             const payload = {
                 total: totalGeralVendaActual,
@@ -2945,16 +3344,17 @@
                     lerValorPagamento('input-pago-transf'),
                     lerValorPagamento('input-pago-customer-card')
                 ) : null,
-                items: estadosMesas[mesaSelecionadaId].itens,
+                items: itensVenda,
                 payment_method: metodo,
-                customer_id: clienteId || clienteCartaoId || null,
+                customer_id: ((metodo === 'credit' || pendente > 0) ? clienteId : '') || clienteCartaoId || null,
                 customer_card_number: cartaoClienteSelecionado?.card_number || null,
                 customer_card_otp: document.getElementById('input-cartao-cliente-otp')?.value || null,
                 customer_card_authorization_id: cartaoAutorizacaoAprovadaId || document.getElementById('input-cartao-autorizacao-id')?.value || null,
                 customer_card_offline_emergency: document.getElementById('check-cartao-emergencia')?.checked || false,
                 supervisor_pin: document.getElementById('input-cartao-supervisor-pin')?.value || null,
                 supervisor_reason: document.getElementById('input-cartao-supervisor-motivo')?.value || null,
-                table_id: modoAtual === 'salao' ? mesaSelecionadaId : null
+                table_id: modoAtual === 'salao' ? mesaSelecionadaId : null,
+                split_bill: pagamentoParcialMesa
             };
 
             fetch('/admin/pos/checkout', {
@@ -2970,6 +3370,7 @@
                     if (!data.success) {
                         posCheckoutProcessing = false;
                         setPosProcessingButton(botaoEmitir, false, 'Emitir Fatura');
+                        fecharProcessandoVenda();
                         nkamaAlert("Erro interno: " + data.message, 'error');
                         return;
                     }
@@ -2977,8 +3378,27 @@
                     abrirModalSucessoVenda(data, payload);
                     posCheckoutProcessing = false;
                     setPosProcessingButton(botaoEmitir, false, 'Emitir Fatura');
+                    fecharProcessandoVenda();
                     fecharModalPagamento();
                     resetarCamposPagamento();
+
+                    if (modoAtual === 'salao' && mesaSelecionadaId && mesaSelecionadaId !== 9999 && payload.split_bill) {
+                        aplicarPagamentoParcialLocal(payload.items);
+                        atualizarContadoresTop();
+                        renderizarCarrinho();
+                        carregarEstadoInicialMesas();
+                        if (!estadosMesas[mesaSelecionadaId] || estadosMesas[mesaSelecionadaId].itens.length === 0) {
+                            mesaSelecionadaId = null;
+                            document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
+                            document.getElementById('view-salao-wrapper').style.display = 'flex';
+                            document.getElementById('restaurant-categories').style.display = 'none';
+                            document.getElementById('restaurant-products').style.display = 'none';
+                            document.getElementById('txt-titulo-modulo').innerText = 'Salao Principal';
+                            filtrarMesas(filtroMesasAtual);
+                        }
+                        modoDivisaoConta = 'full';
+                        return;
+                    }
 
                     if (modoAtual === 'salao' && mesaSelecionadaId && mesaSelecionadaId !== 9999) {
                         fetch(`/admin/restaurant/order/${mesaSelecionadaId}/close`, {
@@ -3014,6 +3434,7 @@
                 .catch(err => {
                     posCheckoutProcessing = false;
                     setPosProcessingButton(botaoEmitir, false, 'Emitir Fatura');
+                    fecharProcessandoVenda();
                     console.error("Erro ao finalizar venda:", err);
                     nkamaAlert('Erro de conexao ao finalizar venda.', 'error');
                 });
@@ -3023,17 +3444,22 @@
             verificarCaixaAbertoInicial();
             if (modulosAtivos.restaurant) {
                 carregarEstadoInicialMesas();
+                setInterval(carregarEstadoInicialMesas, 2000);
             } else if (modulosAtivos.supermarket) {
                 mesaSelecionadaId = 9999;
                 document.getElementById('lbl-cliente-tipo').innerText = 'Cliente Geral - Venda Activa';
                 document.getElementById('lbl-mesa-ativa').innerText = 'Caixa Aberto';
                 document.getElementById('mesa-acoes').style.display = 'none';
+                { const btn = document.getElementById('btn-dividir-conta'); if (btn) btn.style.display = 'none'; }
                 selecionarCategoriaSupermercado('all');
                 renderizarCarrinho();
             }
         });
 
         function carregarEstadoInicialMesas() {
+            if (sincronizacaoMesasEmCurso) return;
+            sincronizacaoMesasEmCurso = true;
+
             fetch('/admin/restaurant/tables-state')
                 .then(res => res.json())
                 .then(data => {
@@ -3047,8 +3473,10 @@
                         atualizarVisualMesaCard(mesaId, infoMesa.status);
                     });
                     atualizarContadoresTop();
+                    atualizarBotoesReservaMesa();
                 })
-                .catch(err => console.error("Erro ao sincronizar o salão com a Base de Dados:", err));
+                .catch(err => console.error("Erro ao sincronizar o salão com a Base de Dados:", err))
+                .finally(() => { sincronizacaoMesasEmCurso = false; });
         }
     </script>
 @endsection

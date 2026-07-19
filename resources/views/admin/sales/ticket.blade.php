@@ -12,6 +12,9 @@
         $itemQtyWidth = max((float) $printSettings['item_qty_width_mm'] - 1, 3);
         $itemPriceWidth = max((float) $printSettings['item_price_width_mm'] - 2, 8);
         $itemSubtotalWidth = max((float) $printSettings['item_subtotal_width_mm'] - 4, 10);
+        $documentTypeCode = strtoupper((string) ($sale->document_type_code ?? 'FR'));
+        $docLabel = $documentTypeCode === 'FT' ? 'Factura' : ($documentTypeCode === 'FR' ? 'Factura Recibo' : $documentTypeCode);
+        $amountWords = \App\Services\BusinessSettings::amountToWords((float) $sale->total, (string) ($sale->currency ?: 'AOA'));
     @endphp
     <style>
         @page {
@@ -56,6 +59,12 @@
         .muted {
             color: #000;
             font-weight: 600;
+        }
+
+        .amount-words {
+            font-size: {{ max((float) $printSettings['content_font_size_px'] - 3, 7) }}px;
+            font-weight: 600;
+            line-height: 1.15;
         }
 
         .line {
@@ -323,7 +332,7 @@
         <div class="line"></div>
 
         <div class="row">
-            <span>Ticket</span>
+            <span>{{ $docLabel }}</span>
             <strong>{{ $sale->invoice_number }}</strong>
         </div>
         <div class="row">
@@ -528,6 +537,14 @@
                 @endif
             </table>
         @endif
+        <div class="line"></div>
+        <div class="center">
+            <div class="muted amount-words">{{ $amountWords }}</div>
+        </div>
+        <div class="line"></div>
+        <div class="center">
+            <div class="muted">Os bens e/ou serviços foram colocados à disposição em {{ now()->format('d/m/Y') }}.</div>
+        </div>
         <div class="line"></div>
 
         <div class="center">

@@ -149,9 +149,11 @@ class CreditNoteController extends Controller
 
                     $product = $saleItem->product_id ? Product::lockForUpdate()->find($saleItem->product_id) : null;                    if ($product && Schema::hasColumn('products', 'stock_quantity') && ($product->track_stock ?? true)) {
                         [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->increase($product, (int) $itemData['quantity'], 'credit_notes');
+                        $movementWarehouseId = app(StockWarehouseService::class)->warehouseIdFor('credit_notes');
 
                         StockMovement::create([
                             'product_id' => $product->id,
+                            'warehouse_id' => $movementWarehouseId,
                             'type' => 'IN',
                             'quantity' => $itemData['quantity'],
                             'stock_before' => $stockBefore,
