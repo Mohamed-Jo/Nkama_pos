@@ -95,13 +95,15 @@ class PosController extends Controller
             'todayCardSales' => $todayCardSales,
             'shift' => Shift::where('operator_id', session('operator_id'))->where('status', 'open')->first(),
             'tables' => RestaurantTable::with('currentOrder')
-                ->where(function ($query) use ($operatorId) {
-                    $query->whereNull('current_order_id')
-                        ->orWhereDoesntHave('currentOrder')
-                        ->orWhereHas('currentOrder', function ($orderQuery) use ($operatorId) {
-                            $orderQuery->whereIn('status', ['closed', 'cancelled', 'canceled', 'transferred'])
-                                ->orWhere('operator_id', $operatorId);
-                        });
+                ->when(!$this->currentOperatorCanReleaseAnyTable(), function ($query) use ($operatorId) {
+                    $query->where(function ($query) use ($operatorId) {
+                        $query->whereNull('current_order_id')
+                            ->orWhereDoesntHave('currentOrder')
+                            ->orWhereHas('currentOrder', function ($orderQuery) use ($operatorId) {
+                                $orderQuery->whereIn('status', ['closed', 'cancelled', 'canceled', 'transferred'])
+                                    ->orWhere('operator_id', $operatorId);
+                            });
+                    });
                 })
                 ->orderByRaw('LENGTH(name), name')
                 ->get(),
@@ -575,8 +577,17 @@ class PosController extends Controller
             return false;
         }
 
+        if ($this->currentOperatorCanReleaseAnyTable()) {
+            return false;
+        }
+
         return (int) $order->operator_id !== $operatorId;
     }
+    private function currentOperatorCanReleaseAnyTable(): bool
+    {
+        return OperatorPermissions::allows(session('operator_role'), 'security.manage');
+    }
+
     private function normalizePaymentBreakdown(string $paymentMethod, Request $request, float $total): array
     {
         if ($paymentMethod === 'customer_card') {

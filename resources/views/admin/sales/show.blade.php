@@ -235,9 +235,7 @@
                 <strong style="color:{{ $agtBadgeColor($sale->agtDocument?->status) }};">
                     {{ $sale->agtDocument?->status_label ?? 'Nao enviada' }}
                 </strong>
-                @if($sale->agtDocument?->external_id)
-                    <span style="color:#94a3b8; font-size:12px;">RequestID: {{ $sale->agtDocument->external_id }}</span>
-                @endif
+
             </p>
             @if($sale->agtDocument?->last_error)
                 <p style="color:#fca5a5; font-size:12px;">{{ $sale->agtDocument->last_error }}</p>

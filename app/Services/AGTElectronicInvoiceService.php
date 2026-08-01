@@ -64,7 +64,7 @@ class AGTElectronicInvoiceService
             $requestId = $newRequestId ?: null;
             $statusResponse = $newRequestId ? $agt->consultarEstado($newRequestId) : null;
             $agtStatus = $this->agtDocumentStatus($statusResponse ?: $registrationResponse);
-            $status = $this->localStatus($registrationResponse, $agtStatus, $newRequestId);
+            $status = $this->localStatus($registrationResponse, $agtStatus, $newRequestId, $statusResponse);
             $success = in_array($status, ['submitted', 'pending'], true);
             $responseBody = array_filter([
                 'registration' => $registrationResponse,
@@ -161,7 +161,7 @@ class AGTElectronicInvoiceService
             $agt = app(AGTApiService::class);
             $statusResponse = $agt->consultarEstado((string) $document->external_id);
             $agtStatus = $this->agtDocumentStatus($statusResponse);
-            $status = $this->localStatus(['resultCode' => 1], $agtStatus, (string) $document->external_id);
+            $status = $this->localStatus(['resultCode' => 1], $agtStatus, (string) $document->external_id, $statusResponse);
             $failed = $status === 'failed';
 
             $document->forceFill([
@@ -396,8 +396,12 @@ class AGTElectronicInvoiceService
         return $status ? strtoupper((string) $status) : null;
     }
 
-    private function localStatus(array $registrationResponse, ?string $agtStatus, ?string $requestId): string
+    private function localStatus(array $registrationResponse, ?string $agtStatus, ?string $requestId, ?array $statusResponse = null): string
     {
+        if ($this->extractResponseErrors($statusResponse ?: $registrationResponse) !== []) {
+            return 'failed';
+        }
+
         if ($agtStatus === 'V') {
             return 'submitted';
         }
@@ -459,7 +463,21 @@ class AGTElectronicInvoiceService
             }
         }
 
-        return array_values(array_filter($errors, fn ($error) => trim((string) $error) !== ''));
+        return collect($errors)
+            ->map(function ($error): string {
+                if (is_array($error)) {
+                    return trim(implode(' ', array_filter([
+                        $error['idError'] ?? null,
+                        $error['descriptionError'] ?? null,
+                        json_encode(array_diff_key($error, array_flip(['idError', 'descriptionError'])), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: null,
+                    ])));
+                }
+
+                return trim((string) $error);
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
     private function documentHash(Model $document): string
     {

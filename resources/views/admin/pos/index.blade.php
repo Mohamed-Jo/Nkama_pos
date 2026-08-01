@@ -411,6 +411,49 @@
             color: #020617;
         }
 
+        .pos-list-toolbar {
+            align-items: center;
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            flex-wrap: wrap;
+        }
+
+        .pos-list-search {
+            background: #020617 !important;
+            border: 1px solid #334155 !important;
+            border-radius: 8px !important;
+            color: #fff !important;
+            flex: 1 1 220px;
+            font-size: 14px !important;
+            min-height: 40px;
+            padding: 10px 12px !important;
+        }
+
+        .pos-list-more {
+            background: rgba(56, 189, 248, 0.14);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            border-radius: 12px;
+            color: #e0f2fe;
+            cursor: pointer;
+            display: none;
+            font-size: 15px;
+            font-weight: 900;
+            min-height: 52px;
+            padding: 13px 16px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .pos-list-more.secondary {
+            background: rgba(148, 163, 184, 0.1);
+            border-color: rgba(148, 163, 184, 0.28);
+            color: #cbd5e1;
+        }
+
         .supermarket-grid {
             align-content: start;
             display: grid;
@@ -585,7 +628,7 @@
                 <div id="metric-ocupadas" style="color: #94a3b8;">Mesas Ocupadas: <strong
                         style="color: #fbbf24;">{{ $tables->where('status', 'occupied')->count() }}</strong></div>
                 <div id="metric-reservadas" style="color: #94a3b8;">Mesas Reservadas: <strong style="color: #38bdf8;">{{ $tables->where('status', 'reserved')->count() }}</strong></div>
-                <div style="color: #fff;">Vendas Hoje: <strong style="color: #34d399;">1.250.000,00 Kz</strong></div>
+                <div style="color: #fff;">Vendas Hoje: <strong style="color: #34d399;">{{ number_format($todaySales ?? 0, 2, ',', '.') }} Kz</strong></div>
 
                 <button id="btn-top-abrir-caixa" onclick="mostrarModalAberturaCaixa()"
                     style="display: none; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer;">
@@ -610,8 +653,8 @@
                 <div style="font-size: 18px; font-weight: bold; color: #fff;" id="txt-titulo-modulo">{{ ($modules['restaurant'] ?? true) ? 'Salao Principal' : 'Caixa Registadora - Supermercado' }}</div>
 
                 <div id="view-salao-wrapper" style="display: {{ ($modules['restaurant'] ?? true) ? 'flex' : 'none' }}; flex-direction: column; gap: 10px;">
-                    <div
-                        style="background: #020617; border: 1px solid #1e293b; padding: 10px; border-radius: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <div class="pos-list-toolbar">
+                        <input class="pos-list-search" type="text" id="inputBuscaMesas" oninput="mesasListaInicio = 0; filtrarMesas(filtroMesasAtual)" placeholder="Pesquisar mesa por nome ou numero...">
                         <span style="font-size: 12px; color: #94a3b8; margin-right: 4px;">Filtrar mesas:</span>
                         <button id="filter-mesas-all" onclick="filtrarMesas('all')"
                             style="background: #38bdf8; color: #020617; border: 1px solid rgba(56, 189, 248, 0.5); padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;">
@@ -654,6 +697,7 @@
 
                         <button class="p-4 rounded-xl border transition text-center gap-1 group relative mesa-card"
                             data-status="{{ $mesaStatusFiltro }}"
+                            data-search="{{ \Illuminate\Support\Str::lower($table->name) }}"
                             style="{{ $styleMesa }} padding: 15px; border-radius: 10px; cursor: pointer; height: 72px; overflow: hidden;"
                             id="card-mesa-{{ $table->id }}"
                             onclick="selecionarMesa({{ $table->id }}, '{{ $table->name }}')">
@@ -665,6 +709,10 @@
                         </button>
                     @endforeach
                 </div>
+                    <div style="display:grid; gap:8px; grid-template-columns: repeat(2, minmax(0, 1fr));">
+                        <button type="button" id="btn-voltar-mesas" class="pos-list-more secondary" onclick="voltarListaMesas()">Voltar lista anterior</button>
+                        <button type="button" id="btn-ver-mais-mesas" class="pos-list-more" onclick="verMaisMesas()">Ver proximas mesas</button>
+                    </div>
                 </div>
 
                 <div id="restaurant-categories"
@@ -689,11 +737,11 @@
 
                 <div id="view-supermercado" class="{{ ($modules['restaurant'] ?? true) ? 'hidden' : '' }}"
                     style="background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 12px; flex-direction: column; gap: 12px; display: {{ !($modules['restaurant'] ?? true) && ($modules['supermarket'] ?? true) ? 'flex' : 'none' }};">
-                    <div class="supermarket-toolbar">
+                    <div class="supermarket-toolbar pos-list-toolbar">
                         <div style="font-family: monospace; color: #475569; font-size: 20px; letter-spacing: -2px;">█║▌│█│║▌
                         </div>
-                        <input type="text" id="inputBarcode" oninput="filtrarProdutosSupermercado()" onkeypress="verificarInputBarcode(event)"
-                            style="flex: 1; background: #020617; border: 1px solid #1e293b; color: #fff; padding: 10px; border-radius: 8px; font-size: 14px;"
+                        <input class="pos-list-search" type="text" id="inputBarcode" oninput="supermercadoListaInicio = 0; filtrarProdutosSupermercado()" onkeypress="verificarInputBarcode(event)"
+                            style="flex: 1;"
                             placeholder="Passe o leitor de código de barras ou digite o nome do produto...">
                     </div>
 
@@ -742,6 +790,10 @@
                         </button>
                     @endforeach
                 </div>
+                <div style="display:grid; gap:8px; grid-template-columns: repeat(2, minmax(0, 1fr));">
+                    <button type="button" id="btn-voltar-supermercado" class="pos-list-more secondary" onclick="voltarListaProdutosSupermercado()">Voltar lista anterior</button>
+                    <button type="button" id="btn-ver-mais-supermercado" class="pos-list-more" onclick="verMaisProdutosSupermercado()">Ver proximos artigos</button>
+                </div>
             </div>
 
             <div class="pos-cart-panel">
@@ -766,6 +818,12 @@
                             style="display:none; flex:1; background:#334155; border:1px solid rgba(148,163,184,.35); color:#e2e8f0; padding:8px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer;">
                             Libertar
                         </button>
+                        @if(session('operator_role') === 'super_user')
+                        <button type="button" id="btn-libertar-mesa" onclick="libertarMesaAtual()"
+                            style="display:none; flex:1; background:#7f1d1d; border:1px solid rgba(248,113,113,.45); color:#fecdd3; padding:8px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer;">
+                            Liberar Mesa
+                        </button>
+                        @endif
                     </div>
                 </div>
 
@@ -1183,11 +1241,11 @@
                 de Fecho de Turno</h3>
             <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; margin: 15px 0;">
                 <div style="display: flex; justify-content: space-between;"><span style="color:#94a3b8;">Faturamento
-                        Total:</span><strong style="color:#fff;">1.250.000,00 Kz</strong></div>
+                        Total:</span><strong style="color:#fff;">{{ number_format($todaySales ?? 0, 2, ',', '.') }} Kz</strong></div>
                 <div style="display: flex; justify-content: space-between;"><span style="color:#94a3b8;">Caixa
-                        (Dinheiro):</span><strong style="color:#34d399;">450.000,00 Kz</strong></div>
+                        (Dinheiro):</span><strong style="color:#34d399;">{{ number_format($todayCashSales ?? 0, 2, ',', '.') }} Kz</strong></div>
                 <div style="display: flex; justify-content: space-between;"><span style="color:#94a3b8;">TPA
-                        (Multicaixa):</span><strong style="color:#38bdf8;">800.000,00 Kz</strong></div>
+                        (Multicaixa):</span><strong style="color:#38bdf8;">{{ number_format($todayCardSales ?? 0, 2, ',', '.') }} Kz</strong></div>
             </div>
             <div style="display: flex; gap: 10px;">
                 <button onclick="document.getElementById('modal-fecho').style.display = 'none'"
@@ -1296,6 +1354,7 @@
         const customerCardAuthorizationStatusUrlTemplate = @json(route('admin.customer-cards.authorizations.status', ['authorization' => '__ID__']));
         const customerCardAuthorizationApproveUrlTemplate = @json(route('admin.customer-cards.authorizations.approve', ['authorization' => '__ID__']));
         const customerCardAuthorizationRejectUrlTemplate = @json(route('admin.customer-cards.authorizations.reject', ['authorization' => '__ID__']));
+        const customerCardOtpAtivo = modulosAtivos.customer_card_otp !== false;
         let cartaoClienteSelecionado = null;
         let cartaoAutorizacaoAprovadaId = null;
         let cartaoAutorizacaoPendenteId = null;
@@ -1304,6 +1363,11 @@
         const directPrintTableUrlTemplate = @json(route('admin.restaurant.print.table', ['table' => '__TABLE_ID__']));
         const reserveTableUrlTemplate = @json(route('admin.restaurant.reserveTable', ['tableId' => '__TABLE_ID__']));
         const releaseReservationUrlTemplate = @json(route('admin.restaurant.releaseReservation', ['tableId' => '__TABLE_ID__']));
+        const closeOrderUrlTemplate = @json(route('admin.restaurant.closeOrder', ['tableId' => '__TABLE_ID__']));
+        const currentOperatorCanReleaseAnyTable = @json(session('operator_role') === 'super_user');
+        const POS_LIST_LIMIT = 20;
+        let mesasListaInicio = 0;
+        let supermercadoListaInicio = 0;
         let modoAtual = modulosAtivos.restaurant ? 'salao' : 'supermercado';
         let mesaSelecionadaId = modoAtual === 'supermercado' && modulosAtivos.supermarket ? 9999 : null;
         let filtroMesasAtual = 'all';
@@ -1368,6 +1432,8 @@
                 document.getElementById('restaurant-categories').style.display = 'none';
                 document.getElementById('restaurant-products').style.display = 'none';
                 document.getElementById('supermarket-products').style.display = 'none';
+                { const btn = document.getElementById('btn-voltar-supermercado'); if (btn) btn.style.display = 'none'; }
+                { const btn = document.getElementById('btn-ver-mais-supermercado'); if (btn) btn.style.display = 'none'; }
                 document.getElementById('txt-titulo-modulo').innerText = 'Salão Principal';
                 document.getElementById('lbl-cliente-tipo').innerText = 'Selecione uma mesa no salão';
                 mesaSelecionadaId = null;
@@ -1375,6 +1441,7 @@
                 document.getElementById('mesa-acoes').style.display = 'flex';
                 { const btn = document.getElementById('btn-dividir-conta'); if (btn) btn.style.display = 'block'; }
                 document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
+            mesasListaInicio = 0;
                 filtrarMesas(filtroMesasAtual);
             } else {
                 if (tabSupermercado) {
@@ -1391,6 +1458,7 @@
                 document.getElementById('restaurant-categories').style.display = 'none';
                 document.getElementById('restaurant-products').style.display = 'none';
                 document.getElementById('supermarket-products').style.display = 'grid';
+                supermercadoListaInicio = 0;
                 document.getElementById('txt-titulo-modulo').innerText = 'Caixa Registadora • Supermercado';
                 document.getElementById('lbl-cliente-tipo').innerText = 'Cliente Geral • Venda Activa';
                 mesaSelecionadaId = 9999;
@@ -1411,12 +1479,34 @@
         }
 
         function filtrarMesas(filtro) {
+            if (filtro !== filtroMesasAtual) {
+            mesasListaInicio = 0;
+            }
             filtroMesasAtual = filtro;
-
-            document.querySelectorAll('.mesa-card').forEach(card => {
-                const deveMostrar = filtro === 'all' || card.dataset.status === filtro;
-                card.style.display = deveMostrar ? 'block' : 'none';
+            const termo = (document.getElementById('inputBuscaMesas')?.value || '').toLowerCase().trim();
+            const mesas = Array.from(document.querySelectorAll('.mesa-card'));
+            const mesasFiltradas = mesas.filter(card => {
+                const matchesStatus = filtro === 'all' || card.dataset.status === filtro;
+                const matchesSearch = !termo || (card.dataset.search || '').includes(termo);
+                return card.dataset.status !== 'hidden' && matchesStatus && matchesSearch;
             });
+
+            if (mesasListaInicio >= mesasFiltradas.length) {
+                mesasListaInicio = Math.max(Math.floor((mesasFiltradas.length - 1) / POS_LIST_LIMIT) * POS_LIST_LIMIT, 0);
+            }
+
+            const limiteFinal = mesasListaInicio + POS_LIST_LIMIT;
+            mesas.forEach(card => card.style.display = 'none');
+            mesasFiltradas.slice(mesasListaInicio, limiteFinal).forEach(card => card.style.display = 'block');
+
+            const btnVoltar = document.getElementById('btn-voltar-mesas');
+            const btnMais = document.getElementById('btn-ver-mais-mesas');
+            if (btnVoltar) btnVoltar.style.display = mesasListaInicio > 0 ? 'block' : 'none';
+            if (btnMais) {
+                const restantes = Math.max(mesasFiltradas.length - limiteFinal, 0);
+                btnMais.style.display = restantes > 0 ? 'block' : 'none';
+                btnMais.innerText = restantes > 0 ? `Ver proximas mesas (${restantes})` : 'Ver proximas mesas';
+            }
 
             const filtros = {
                 all: document.getElementById('filter-mesas-all'),
@@ -1435,8 +1525,19 @@
             });
         }
 
+        function verMaisMesas() {
+            mesasListaInicio += POS_LIST_LIMIT;
+            filtrarMesas(filtroMesasAtual);
+        }
+
+        function voltarListaMesas() {
+            mesasListaInicio = Math.max(mesasListaInicio - POS_LIST_LIMIT, 0);
+            filtrarMesas(filtroMesasAtual);
+        }
+
         function selecionarCategoriaSupermercado(category) {
             categoriaSupermercadoAtual = category;
+            supermercadoListaInicio = 0;
 
             document.querySelectorAll('.supermarket-category-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.category === category);
@@ -1447,15 +1548,40 @@
 
         function filtrarProdutosSupermercado() {
             const termo = (document.getElementById('inputBarcode')?.value || '').toLowerCase().trim();
-
-            document.querySelectorAll('.supermarket-product').forEach(productButton => {
+            const produtos = Array.from(document.querySelectorAll('.supermarket-product'));
+            const produtosFiltrados = produtos.filter(productButton => {
                 const matchesCategory = categoriaSupermercadoAtual === 'all' || productButton.dataset.category === categoriaSupermercadoAtual;
                 const matchesSearch = !termo || (productButton.dataset.search || '').includes(termo);
-
-                productButton.style.display = matchesCategory && matchesSearch ? 'block' : 'none';
+                return matchesCategory && matchesSearch;
             });
+
+            if (supermercadoListaInicio >= produtosFiltrados.length) {
+                supermercadoListaInicio = Math.max(Math.floor((produtosFiltrados.length - 1) / POS_LIST_LIMIT) * POS_LIST_LIMIT, 0);
+            }
+
+            const limiteFinal = supermercadoListaInicio + POS_LIST_LIMIT;
+            produtos.forEach(productButton => productButton.style.display = 'none');
+            produtosFiltrados.slice(supermercadoListaInicio, limiteFinal).forEach(productButton => productButton.style.display = 'block');
+
+            const btnVoltar = document.getElementById('btn-voltar-supermercado');
+            const btnMais = document.getElementById('btn-ver-mais-supermercado');
+            if (btnVoltar) btnVoltar.style.display = supermercadoListaInicio > 0 ? 'block' : 'none';
+            if (btnMais) {
+                const restantes = Math.max(produtosFiltrados.length - limiteFinal, 0);
+                btnMais.style.display = restantes > 0 ? 'block' : 'none';
+                btnMais.innerText = restantes > 0 ? `Ver proximos artigos (${restantes})` : 'Ver proximos artigos';
+            }
         }
 
+        function verMaisProdutosSupermercado() {
+            supermercadoListaInicio += POS_LIST_LIMIT;
+            filtrarProdutosSupermercado();
+        }
+
+        function voltarListaProdutosSupermercado() {
+            supermercadoListaInicio = Math.max(supermercadoListaInicio - POS_LIST_LIMIT, 0);
+            filtrarProdutosSupermercado();
+        }
         function voltarParaMesas() {
             mesaSelecionadaId = null;
             document.getElementById('view-salao-wrapper').style.display = 'flex';
@@ -1466,6 +1592,7 @@
             document.getElementById('lbl-cliente-tipo').innerText = 'Selecione uma mesa no salao';
             document.getElementById('mesa-acoes').style.display = 'flex';
             document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
+            mesasListaInicio = 0;
             document.querySelectorAll('.restaurant-product').forEach(productButton => {
                 productButton.style.display = 'none';
             });
@@ -2174,11 +2301,17 @@
                 customer_card: 'Cartao Cliente'
             };
 
+            ultimaVendaId = data.sale_id || null;
+
+            if (!modulosAtivos.view_ticket && ultimaVendaId) {
+                mostrarProcessandoVenda('A processar factura...', 'Factura emitida. A enviar para impressao direta.');
+                return window.nkamaPrintTicket(directPrintSaleUrlTemplate.replace('__SALE_ID__', ultimaVendaId));
+            }
+
             document.getElementById('sucesso-invoice').innerText = data.invoice || `Venda #${data.sale_id || '-'}`;
             document.getElementById('sucesso-total').innerText = NkamaPOSPayment.format(payload.total);
             document.getElementById('sucesso-recebido').innerText = NkamaPOSPayment.format(payload.amount_paid);
             document.getElementById('sucesso-metodo').innerText = labels[data.payment_method || payload.payment_method] || payload.payment_method;
-            ultimaVendaId = data.sale_id || null;
             document.getElementById('modal-sucesso-venda').style.display = 'flex';
         }
 
@@ -2201,6 +2334,15 @@
                 nkamaAlert('Selecione uma mesa para consultar.', 'warning');
                 return;
             }
+
+            if (!modulosAtivos.view_ticket) {
+                mostrarProcessandoVenda('A imprimir consulta...', 'A enviar a consulta da mesa para impressao direta.');
+                window.nkamaPrintTicket(directPrintTableUrlTemplate.replace('__TABLE_ID__', mesaSelecionadaId))
+                    ?.finally(() => fecharProcessandoVenda());
+                return;
+            }
+
+            mostrarProcessandoVenda('A consultar factura...', 'A preparar os dados da mesa. Aguarde um instante.');
 
             fetch(`/admin/restaurant/table/${mesaSelecionadaId}/summary`)
                 .then(res => res.json())
@@ -2246,7 +2388,8 @@
                 .catch(err => {
                     console.error('Erro ao consultar mesa:', err);
                     nkamaAlert('Erro de conexão ao consultar a mesa.', 'error');
-                });
+                })
+                .finally(() => fecharProcessandoVenda());
         }
 
         function imprimirConsultaMesa() {
@@ -2266,12 +2409,15 @@
         function atualizarBotoesReservaMesa() {
             const btnReservar = document.getElementById('btn-reservar-mesa');
             const btnLibertar = document.getElementById('btn-libertar-reserva');
+            const btnLibertarMesa = document.getElementById('btn-libertar-mesa');
             const estado = mesaSelecionadaId ? estadosMesas[mesaSelecionadaId] : null;
             const reservada = estado?.status === 'reserved' && (!estado.itens || estado.itens.length === 0);
             const podeReservar = modoAtual === 'salao' && mesaSelecionadaId && mesaSelecionadaId !== 9999 && estado && estado.status === 'free';
+            const podeLibertarMesa = currentOperatorCanReleaseAnyTable && modoAtual === 'salao' && mesaSelecionadaId && mesaSelecionadaId !== 9999 && estado && estado.status !== 'free' && !reservada;
 
             if (btnReservar) btnReservar.style.display = podeReservar ? 'block' : 'none';
             if (btnLibertar) btnLibertar.style.display = reservada ? 'block' : 'none';
+            if (btnLibertarMesa) btnLibertarMesa.style.display = podeLibertarMesa ? 'block' : 'none';
         }
 
         function reservarMesaAtual() {
@@ -2342,6 +2488,41 @@
                     nkamaAlert(data.message || 'Reserva libertada com sucesso.', 'success');
                 })
                 .catch(err => nkamaAlert(err.message || 'Erro ao libertar reserva.', 'error'));
+        }
+
+        async function libertarMesaAtual() {
+            if (modoAtual !== 'salao' || !mesaSelecionadaId || mesaSelecionadaId === 9999) {
+                nkamaAlert('Selecione uma mesa para libertar.', 'warning');
+                return;
+            }
+
+            if (!currentOperatorCanReleaseAnyTable) {
+                nkamaAlert('Apenas o super-user pode libertar mesas de outros operadores.', 'warning');
+                return;
+            }
+
+            const confirmado = await nkamaConfirm('Libertar esta mesa e deixa-la livre?', 'Liberar mesa');
+            if (!confirmado) return;
+
+            fetch(closeOrderUrlTemplate.replace('__TABLE_ID__', mesaSelecionadaId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token() }}'
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.message || 'Nao foi possivel libertar a mesa.');
+                    estadosMesas[mesaSelecionadaId] = { status: 'free', order_id: null, itens: [] };
+                    atualizarVisualMesaCard(mesaSelecionadaId, 'free');
+                    atualizarContadoresTop();
+                    atualizarBotoesReservaMesa();
+                    renderizarCarrinho();
+                    carregarEstadoInicialMesas();
+                    nkamaAlert('Mesa libertada com sucesso.', 'success');
+                })
+                .catch(err => nkamaAlert(err.message || 'Erro ao libertar mesa.', 'error'));
         }
 
         function abrirTransferenciaMesa() {
@@ -2916,7 +3097,7 @@
 
             painel.style.display = 'block';
             const painelOtp = document.getElementById('painel-cartao-otp');
-            if (painelOtp) painelOtp.style.display = 'block';
+            if (painelOtp) painelOtp.style.display = customerCardOtpAtivo ? 'block' : 'none';
             const enoughText = cartaoClienteSelecionado.has_enough_for_sale === null
                 ? 'A validar na finalizacao'
                 : (cartaoClienteSelecionado.has_enough_for_sale ? 'Suficiente para esta venda' : 'Insuficiente para esta venda');
@@ -3244,15 +3425,15 @@
             submeterVendaFinal();
         }
 
-        function mostrarProcessandoVenda() {
+        function mostrarProcessandoVenda(titulo = 'A finalizar venda...', mensagem = 'A processar o pagamento e emitir o documento.') {
             vendaCheckoutAlertAberto = true;
             if (!window.Swal) return;
             Swal.fire({
-                title: 'A finalizar venda...',
+                title: escaparHtml(titulo),
                 html: `
                     <div style="display:grid; gap:12px; justify-items:center; padding:4px 0 2px;">
                         <span aria-hidden="true" style="width:48px; height:48px; border:4px solid rgba(244,63,94,.18); border-left-color:#f43f5e; border-radius:999px; animation:pos-processing-spin .75s linear infinite;"></span>
-                        <span style="color:#64748b; font-size:13px; font-weight:700;">A processar o pagamento e emitir o documento.</span>
+                        <span style="color:#64748b; font-size:13px; font-weight:700;">${escaparHtml(mensagem)}</span>
                     </div>
                 `,
                 allowOutsideClick: false,
@@ -3313,7 +3494,7 @@
 
             const valorFidelidade = valorFidelidadeAtual();
             const emergenciaFidelidade = document.getElementById('check-cartao-emergencia')?.checked || false;
-            if (valorFidelidade > 0 && !emergenciaFidelidade && !document.getElementById('input-cartao-cliente-otp')?.value.trim() && !cartaoAutorizacaoAprovadaId) {
+            if (valorFidelidade > 0 && customerCardOtpAtivo && !emergenciaFidelidade && !document.getElementById('input-cartao-cliente-otp')?.value.trim() && !cartaoAutorizacaoAprovadaId) {
                 nkamaAlert('Informe o OTP enviado ao cliente ou solicite autorizacao do gestor para usar Fidelidade.', 'warning');
                 return;
             }
@@ -3375,10 +3556,14 @@
                         return;
                     }
 
-                    abrirModalSucessoVenda(data, payload);
+                    const processamentoFinal = abrirModalSucessoVenda(data, payload);
                     posCheckoutProcessing = false;
                     setPosProcessingButton(botaoEmitir, false, 'Emitir Fatura');
-                    fecharProcessandoVenda();
+                    if (processamentoFinal && typeof processamentoFinal.finally === 'function') {
+                        processamentoFinal.finally(() => fecharProcessandoVenda());
+                    } else {
+                        fecharProcessandoVenda();
+                    }
                     fecharModalPagamento();
                     resetarCamposPagamento();
 

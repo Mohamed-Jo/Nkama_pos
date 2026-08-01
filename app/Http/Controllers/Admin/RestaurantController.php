@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\{Category, Customer, Operator, Product, RestaurantOrder, RestaurantOrderItem, RestaurantTable, Shift};
 use App\Services\BusinessSettings;
 use App\Services\ModuleSettings;
+use App\Services\OperatorPermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,14 +40,16 @@ class RestaurantController extends Controller
             'operatorName' => Operator::find(session('operator_id'))?->name ?? 'Operador',
             'shift' => Shift::where('operator_id', session('operator_id'))->where('status', 'open')->first(),
             'tables' => RestaurantTable::with('currentOrder')
-                ->where(function ($query) {
-                    $operatorId = session('operator_id');
-                    $query->whereNull('current_order_id')
-                        ->orWhereDoesntHave('currentOrder')
-                        ->orWhereHas('currentOrder', function ($orderQuery) use ($operatorId) {
-                            $orderQuery->whereIn('status', ['closed', 'cancelled', 'canceled', 'transferred'])
-                                ->when($operatorId, fn ($query) => $query->orWhere('operator_id', $operatorId));
-                        });
+                ->when(!$this->currentOperatorCanReleaseAnyTable(), function ($query) {
+                    $query->where(function ($query) {
+                        $operatorId = session('operator_id');
+                        $query->whereNull('current_order_id')
+                            ->orWhereDoesntHave('currentOrder')
+                            ->orWhereHas('currentOrder', function ($orderQuery) use ($operatorId) {
+                                $orderQuery->whereIn('status', ['closed', 'cancelled', 'canceled', 'transferred'])
+                                    ->when($operatorId, fn ($query) => $query->orWhere('operator_id', $operatorId));
+                            });
+                    });
                 })
                 ->orderByRaw('LENGTH(name), name')
                 ->get(),
@@ -742,9 +745,18 @@ class RestaurantController extends Controller
             return false;
         }
 
+        if ($this->currentOperatorCanReleaseAnyTable()) {
+            return false;
+        }
+
         $operatorId = session('operator_id');
 
         return $operatorId && (int) $order->operator_id !== (int) $operatorId;
+    }
+
+    private function currentOperatorCanReleaseAnyTable(): bool
+    {
+        return OperatorPermissions::allows(session('operator_role'), 'security.manage');
     }
 
     private function assertOrderBelongsToCurrentOperator(RestaurantOrder $order): void

@@ -12,6 +12,7 @@ use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\Supplier;
 use App\Observers\AuditableObserver;
+use App\Services\AgtSettings;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,6 +30,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        AgtSettings::apply();
+
         foreach ([
             Category::class,
             Customer::class,

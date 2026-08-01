@@ -511,6 +511,7 @@
                             <th>Data</th>
                             <th>Total</th>
                             <th>Estado</th>
+                            <th>AGT</th>
                             <th style="text-align:right;">Ações</th>
                         </tr>
                     </thead>
@@ -519,18 +520,21 @@
                             @php
                                 $creditedTotal = (float) $sale->creditNotes->sum('total');
                                 $availableToCredit = max((float) $sale->total - $creditedTotal, 0);
+                                $paymentLabels = [
+                                    'cash' => 'Dinheiro',
+                                    'card' => 'Multicaixa',
+                                    'multi' => 'Multicaixa',
+                                    'transfer' => 'Transferencia',
+                                    'customer_card' => 'Cartao Fidelidade Maria',
+                                    'mixed' => 'Pagamento misto',
+                                ];
+                                $paymentMethodLabel = $paymentLabels[$sale->payment_method] ?? strtoupper($sale->payment_method ?? '-');
                             @endphp
                             <tr>
                                 <td>
                                     <strong style="color:#fff;">{{ $sale->invoice_number }}</strong>
-                                    <div class="invoice-doc-meta">{{ $sale->document_type_code ?? 'FR' }} · {{ strtoupper($sale->payment_method ?? '-') }}</div>
-                                    <div class="invoice-agt-box">
-                                        <span class="invoice-agt-title">Estado AGT</span>
-                                        <span class="invoice-badge {{ $agtBadgeClass($sale->agtDocument?->status) }}">{{ $sale->agtDocument?->status_label ?? 'Nao enviada' }}</span>
-                                        @if($sale->agtDocument?->external_id)
-                                            <span class="invoice-agt-id">{{ $sale->agtDocument->external_id }}</span>
-                                        @endif
-                                    </div>
+                                    <div class="invoice-doc-meta">{{ $sale->document_type_code ?? 'FR' }} · {{ $paymentMethodLabel }}</div>
+
                                     @if($sale->creditNotes->isNotEmpty())
                                         <div class="nc-links">
                                             @foreach($sale->creditNotes as $note)
@@ -560,6 +564,9 @@
                                     @endif
                                 </td>
                                 <td>
+                                    <span class="invoice-badge {{ $agtBadgeClass($sale->agtDocument?->status) }}">{{ $sale->agtDocument?->status_label ?? 'Nao enviada' }}</span>
+                                </td>
+                                <td>
                                     <div class="invoice-actions">
                                         <a class="invoice-action" href="{{ route('admin.sales.show', $sale) }}">Ver</a>
                                         @php
@@ -579,7 +586,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" style="text-align:center; color:var(--text-muted); padding:28px;">Nenhuma factura encontrada.</td>
+                                <td colspan="7" style="text-align:center; color:var(--text-muted); padding:28px;">Nenhuma factura encontrada.</td>
                             </tr>
                         @endforelse
                     </tbody>
