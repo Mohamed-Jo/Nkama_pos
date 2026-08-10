@@ -63,7 +63,7 @@
         </section>
 
         <section class="panel">
-            <h2>Transferir artigo</h2>
+            <h2>Solicitar transferencia</h2>
             <form method="POST" action="{{ route('admin.warehouses.transfer') }}" class="stack-form">
                 @csrf
                 <div class="row-2">
@@ -88,9 +88,14 @@
                 </select>
                 <div class="row-2">
                     <input type="number" name="quantity" min="1" placeholder="Quantidade" required>
+                    <input name="lot_number" placeholder="Lote">
+                </div>
+                <div class="row-3">
+                    <input type="date" name="expires_at" title="Validade">
+                    <input name="serial_number" placeholder="Serie">
                     <input name="notes" placeholder="Observacao">
                 </div>
-                <button type="submit">Transferir</button>
+                <button type="submit">Solicitar aprovacao</button>
             </form>
         </section>
     </div>
@@ -165,7 +170,7 @@
 
 <style>
     .warehouse-page { max-width: 1400px; margin: 0 auto; color: #cbd5e1; }
-    .page-header, .header-actions, .filter-bar, .row-2, .card-head, .card-foot { display: flex; align-items: center; gap: 10px; }
+    .page-header, .header-actions, .filter-bar, .row-2, .row-3, .card-head, .card-foot { display: flex; align-items: center; gap: 10px; }
     .page-header { justify-content: space-between; margin-bottom: 20px; }
     .page-header h1 { color: #fff; margin: 0; font-size: 2rem; }
     .page-header p { color: #94a3b8; }
@@ -182,7 +187,7 @@
     .panel h2 { color: #fff; margin: 0 0 14px; font-size: 1rem; }
     .stack-form { display: grid; gap: 10px; }
     input, select { background: #020617; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; padding: 10px; width: 100%; }
-    .row-2 > * { flex: 1; }
+    .row-2 > *, .row-3 > * { flex: 1; }
     .warehouse-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
     .warehouse-card { background: #020617; border: 1px solid #1e293b; border-radius: 8px; display: grid; gap: 10px; padding: 12px; }
     .card-head { justify-content: space-between; }

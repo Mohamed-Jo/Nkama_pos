@@ -9,11 +9,18 @@ class StockTransferItem extends Model
     protected $fillable = [
         'stock_transfer_id',
         'product_id',
+        'lot_number',
+        'expires_at',
+        'serial_number',
         'quantity',
         'from_stock_before',
         'from_stock_after',
         'to_stock_before',
         'to_stock_after',
+    ];
+
+    protected $casts = [
+        'expires_at' => 'date',
     ];
 
     public function transfer()

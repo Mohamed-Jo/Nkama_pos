@@ -13,6 +13,16 @@ class StockTransfer extends Model
         'operator_id',
         'status',
         'notes',
+        'approved_by',
+        'approved_at',
+        'rejected_by',
+        'rejected_at',
+        'rejection_reason',
+    ];
+
+    protected $casts = [
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
     ];
 
     public function fromWarehouse()

@@ -471,6 +471,12 @@ class PurchaseController extends Controller
         $validated = $request->validate([
             'received' => ['nullable', 'array'],
             'received.*' => ['nullable', 'integer', 'min:0'],
+            'lot_number' => ['nullable', 'array'],
+            'lot_number.*' => ['nullable', 'string', 'max:80'],
+            'expires_at' => ['nullable', 'array'],
+            'expires_at.*' => ['nullable', 'date'],
+            'serial_number' => ['nullable', 'array'],
+            'serial_number.*' => ['nullable', 'string', 'max:120'],
             'warehouse_id' => ['nullable', 'exists:warehouses,id'],
         ]);
 
@@ -503,7 +509,11 @@ class PurchaseController extends Controller
                     }
 
                     $warehouseId = $request->integer('warehouse_id') ?: null;
+                    $lotNumber = $validated['lot_number'][$item->id] ?? null;
+                    $expiresAt = $validated['expires_at'][$item->id] ?? null;
+                    $serialNumber = $validated['serial_number'][$item->id] ?? null;
                     [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->increase($product, (int) $quantityToReceive, 'purchases', $warehouseId);
+                    app(StockWarehouseService::class)->increaseBatch($product, (int) $quantityToReceive, 'purchases', $warehouseId, $lotNumber, $expiresAt, $serialNumber);
                     $movementWarehouseId = app(StockWarehouseService::class)->warehouseIdFor('purchases', $warehouseId);
                     $product->update(['purchase_price' => $item->unit_cost]);
 
@@ -511,6 +521,9 @@ class PurchaseController extends Controller
                         StockMovement::create([
                             'product_id' => $product->id,
                             'warehouse_id' => $movementWarehouseId,
+                            'lot_number' => $lotNumber,
+                            'expires_at' => $expiresAt,
+                            'serial_number' => $serialNumber,
                             'type' => 'IN',
                             'reason' => 'Compra recebida',
                             'quantity' => $quantityToReceive,

@@ -41,6 +41,7 @@
                     <th>Depois</th>
                     <th>Motivo</th>
                     <th>Armazem</th>
+                    <th>Lote/Serie</th>
                     <th>Operador</th>
                 </tr>
             </thead>
@@ -55,10 +56,11 @@
                         <td>{{ number_format((float) $movement->stock_after, 0, ',', '.') }}</td>
                         <td>{{ $movement->reason ?? $movement->notes ?? '-' }}</td>
                         <td>{{ $movement->warehouse->name ?? 'Geral' }}</td>
+                        <td><span class="muted-line">{{ $movement->lot_number ?: '-' }} @if($movement->serial_number) / {{ $movement->serial_number }} @endif @if($movement->expires_at) <br>Val. {{ $movement->expires_at->format('d/m/Y') }} @endif</span></td>
                         <td>{{ $movement->operator->name ?? 'Sistema' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="empty">Sem movimentos no periodo.</td></tr>
+                    <tr><td colspan="10" class="empty">Sem movimentos no periodo.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -83,6 +85,7 @@
     td { padding: 12px; border-bottom: 1px solid #1e293b; }
     .positive { color: #86efac; font-weight: 800; }
     .negative { color: #fca5a5; font-weight: 800; }
+    .muted-line { color: #94a3b8; font-size: .78rem; }
     .empty { text-align: center; color: #94a3b8; padding: 36px; }
     .pagination-wrap { padding: 12px; }
 </style>

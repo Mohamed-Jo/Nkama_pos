@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AppSetting;
 use App\Models\Product;
+use App\Models\ProductStockBatch;
 use App\Models\ProductWarehouseStock;
 use App\Models\Warehouse;
 use Illuminate\Support\Collection;
@@ -190,6 +191,57 @@ class StockWarehouseService
         }
 
         return [$before, $after];
+    }
+
+
+    public function increaseBatch(Product $product, int $quantity, string $operation, ?int $warehouseId = null, ?string $lotNumber = null, ?string $expiresAt = null, ?string $serialNumber = null): void
+    {
+        if (! $product->track_stock || (! $lotNumber && ! $expiresAt && ! $serialNumber)) {
+            return;
+        }
+
+        $batch = ProductStockBatch::firstOrCreate(
+            [
+                'product_id' => $product->id,
+                'warehouse_id' => $this->warehouseIdFor($operation, $warehouseId),
+                'serial_number' => $serialNumber ?: null,
+                'lot_number' => $lotNumber ?: null,
+            ],
+            [
+                'expires_at' => $expiresAt ?: null,
+                'quantity' => 0,
+                'operator_id' => session('operator_id'),
+            ]
+        );
+
+        if ($expiresAt && ! $batch->expires_at) {
+            $batch->update(['expires_at' => $expiresAt]);
+        }
+
+        $batch->increment('quantity', $quantity);
+    }
+
+    public function decreaseBatch(Product $product, int $quantity, string $operation, ?int $warehouseId = null, ?string $lotNumber = null, ?string $serialNumber = null): void
+    {
+        if (! $product->track_stock || (! $lotNumber && ! $serialNumber)) {
+            return;
+        }
+
+        $query = ProductStockBatch::where('product_id', $product->id)
+            ->where('warehouse_id', $this->warehouseIdFor($operation, $warehouseId));
+
+        if ($serialNumber) {
+            $query->where('serial_number', $serialNumber);
+        } else {
+            $query->where('lot_number', $lotNumber);
+        }
+
+        $batch = $query->lockForUpdate()->first();
+        if (! $batch || (int) $batch->quantity < $quantity) {
+            throw new \RuntimeException('Stock insuficiente no lote/serie informado.');
+        }
+
+        $batch->decrement('quantity', $quantity);
     }
 
     public function stockRow(Product $product, Warehouse $warehouse): ProductWarehouseStock

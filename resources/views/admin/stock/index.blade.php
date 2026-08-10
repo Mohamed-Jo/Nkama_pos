@@ -21,6 +21,7 @@
                 <a href="{{ route('admin.warehouses.index') }}" class="btn-secondary">Armazens</a>
             @endif
             <a href="{{ route('admin.stock.movements') }}" class="btn-secondary">Movimentos</a>
+            <a href="{{ route('admin.stock.labels') }}" class="btn-secondary">Etiquetas</a>
             <a href="{{ route('admin.stock.inventory') }}" class="btn-primary">Inventario fisico</a>
         </div>
     </div>
@@ -120,6 +121,9 @@
                                         <option value="set">Definir</option>
                                     </select>
                                     <input type="number" name="quantity" min="0" placeholder="Qtd." required>
+                                    <input type="text" name="lot_number" placeholder="Lote">
+                                    <input type="date" name="expires_at" title="Validade">
+                                    <input type="text" name="serial_number" placeholder="Serie">
                                     <input type="text" name="reason" placeholder="Motivo" required>
                                     <button type="submit">Gravar</button>
                                 </form>
@@ -210,8 +214,10 @@
     .stock-out { background: #7f1d1d; color: #fecaca; }
     .stock-muted { background: #334155; color: #cbd5e1; }
     .adjust-form { flex-wrap: wrap; }
-    .adjust-form input[name="quantity"] { width: 78px; }
-    .adjust-form input[name="reason"] { width: 130px; }
+    .adjust-form input[name="quantity"] { width: 70px; }
+    .adjust-form input[name="lot_number"], .adjust-form input[name="serial_number"] { width: 88px; }
+    .adjust-form input[name="expires_at"] { width: 126px; }
+    .adjust-form input[name="reason"] { width: 120px; }
     .stock-side { display: grid; gap: 16px; }
     .stock-side section { padding: 14px; }
     .stock-side h2 { color: #fff; margin: 0 0 12px; font-size: .95rem; }

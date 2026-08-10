@@ -6,6 +6,8 @@ use App\Models\Category;
 use App\Models\Operator;
 use App\Models\Payments;
 use App\Models\Product;
+use App\Models\ProductStockBatch;
+use App\Models\ProductWarehouseStock;
 use App\Models\Purchase;
 use App\Models\PurchaseAttachment;
 use App\Models\PurchaseExpense;
@@ -13,10 +15,13 @@ use App\Models\PurchaseReturn;
 use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\StockMovement;
+use App\Models\StockTransfer;
 use App\Models\Supplier;
+use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ModuleSettings;
 use Tests\TestCase;
 
 class OperationalFlowTest extends TestCase
@@ -201,6 +206,90 @@ class OperationalFlowTest extends TestCase
         $this->assertSame(1, StockMovement::where('product_id', $product->id)->where('type', 'OUT')->where('reference_type', 'purchase_return')->count());
     }
 
+    public function test_stock_adjustment_records_batch_and_traceability(): void
+    {
+        $operator = $this->operator('Gestor Stock', 'admin');
+        $product = $this->product(['stock_quantity' => 5]);
+
+        $this->withSession(['operator_id' => $operator->id])
+            ->post('/admin/stock/adjust', [
+                'product_id' => $product->id,
+                'mode' => 'in',
+                'quantity' => 3,
+                'reason' => 'Entrada lote QA',
+                'lot_number' => 'LT-2026-A',
+                'expires_at' => '2026-12-31',
+                'serial_number' => 'SER-001',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $product->refresh();
+
+        $this->assertSame(8, (int) $product->stock_quantity);
+        $this->assertDatabaseHas('product_stock_batches', [
+            'product_id' => $product->id,
+            'lot_number' => 'LT-2026-A',
+            'serial_number' => 'SER-001',
+            'quantity' => 3,
+        ]);
+        $this->assertDatabaseHas('stock_movements', [
+            'product_id' => $product->id,
+            'type' => 'IN',
+            'lot_number' => 'LT-2026-A',
+            'serial_number' => 'SER-001',
+        ]);
+    }
+
+    public function test_warehouse_transfer_requires_approval_before_moving_stock(): void
+    {
+        ModuleSettings::update(array_merge(ModuleSettings::all(), ['stock_warehouses' => true]));
+
+        $creator = $this->operator('Solicitante Armazem', 'admin');
+        $approver = $this->operator('Aprovador Armazem', 'manager');
+        $product = $this->product(['stock_quantity' => 10]);
+        $source = Warehouse::create(['name' => 'Origem QA', 'code' => 'ORGQA', 'active' => true, 'is_default' => true]);
+        $target = Warehouse::create(['name' => 'Destino QA', 'code' => 'DSTQA', 'active' => true, 'is_default' => false]);
+
+        ProductWarehouseStock::create(['product_id' => $product->id, 'warehouse_id' => $source->id, 'quantity' => 10, 'minimum_stock' => 0]);
+        ProductWarehouseStock::create(['product_id' => $product->id, 'warehouse_id' => $target->id, 'quantity' => 0, 'minimum_stock' => 0]);
+        ProductStockBatch::create([
+            'product_id' => $product->id,
+            'warehouse_id' => $source->id,
+            'lot_number' => 'LT-TRF',
+            'expires_at' => '2026-11-30',
+            'quantity' => 4,
+            'operator_id' => $creator->id,
+        ]);
+
+        $this->withSession(['operator_id' => $creator->id])
+            ->post('/admin/warehouses/transfer', [
+                'from_warehouse_id' => $source->id,
+                'to_warehouse_id' => $target->id,
+                'product_id' => $product->id,
+                'quantity' => 2,
+                'lot_number' => 'LT-TRF',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $transfer = StockTransfer::firstOrFail();
+        $this->assertSame('pending', $transfer->status);
+        $this->assertSame(10, (int) ProductWarehouseStock::where('warehouse_id', $source->id)->where('product_id', $product->id)->value('quantity'));
+        $this->assertSame(0, (int) ProductWarehouseStock::where('warehouse_id', $target->id)->where('product_id', $product->id)->value('quantity'));
+
+        $this->withSession(['operator_id' => $approver->id])
+            ->patch("/admin/warehouses/transfers/{$transfer->id}/approve")
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $transfer->refresh();
+
+        $this->assertSame('completed', $transfer->status);
+        $this->assertSame(8, (int) ProductWarehouseStock::where('warehouse_id', $source->id)->where('product_id', $product->id)->value('quantity'));
+        $this->assertSame(2, (int) ProductWarehouseStock::where('warehouse_id', $target->id)->where('product_id', $product->id)->value('quantity'));
+        $this->assertSame(2, StockMovement::where('reference_type', 'stock_transfer')->where('reference_id', $transfer->id)->count());
+    }
     private function operator(string $name, string $role): Operator
     {
         $pin = str_pad((string) random_int(1, 99999999), 8, '0', STR_PAD_LEFT);

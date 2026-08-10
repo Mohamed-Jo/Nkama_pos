@@ -4,28 +4,23 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class StockMovement extends Model
+class ProductStockBatch extends Model
 {
-    protected $casts = [
-        'expires_at' => 'date',
-    ];
-
     protected $fillable = [
         'product_id',
         'warehouse_id',
         'lot_number',
         'expires_at',
         'serial_number',
-        'type',
-        'reason',
         'quantity',
-        'stock_before',
-        'stock_after',
-        'notes',
-        'reference_type',
-        'reference_id',
-        'user_id',
-        'operator_id'
+        'reserved_quantity',
+        'operator_id',
+    ];
+
+    protected $casts = [
+        'expires_at' => 'date',
+        'quantity' => 'integer',
+        'reserved_quantity' => 'integer',
     ];
 
     public function product()
@@ -38,13 +33,13 @@ class StockMovement extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
-
     public function operator()
     {
         return $this->belongsTo(Operator::class);
+    }
+
+    public function getAvailableQuantityAttribute(): int
+    {
+        return max((int) $this->quantity - (int) $this->reserved_quantity, 0);
     }
 }

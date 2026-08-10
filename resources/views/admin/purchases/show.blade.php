@@ -32,6 +32,9 @@
         .items-table td { color: #e2e8f0; font-size: 13px; }
         .receive-select { background:#020617; border:1px solid #1e293b; border-radius:8px; color:#fff; min-width:220px; padding:8px; }
         .receive-input { background:#020617; border:1px solid #1e293b; border-radius:8px; color:#fff; max-width:90px; padding:8px; width:100%; }
+        .receive-grid { display:grid; gap:6px; grid-template-columns:70px 92px 126px 92px; }
+        .receive-input.wide { max-width:92px; }
+        .receive-input.date { max-width:126px; }
         .reject-input { background:#020617; border:1px solid #1e293b; border-radius:8px; color:#fff; min-height:42px; padding:8px 10px; width:220px; }
         .summary { display: grid; gap: 7px; justify-content: end; text-align: right; color: #fff; }
         @media (max-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } .head { flex-direction: column; } }
@@ -159,7 +162,12 @@
                             <td>AOA {{ number_format((float) $item->total, 2, ',', '.') }}</td>
                             @if($canReceivePurchase && $purchase->isApproved() && !$purchase->isClosedForReceiving())
                                 <td>
-                                    <input class="receive-input" type="number" name="received[{{ $item->id }}]" min="0" max="{{ $pending }}" value="{{ $pending }}">
+                                    <div class="receive-grid">
+                                        <input class="receive-input" type="number" name="received[{{ $item->id }}]" min="0" max="{{ $pending }}" value="{{ $pending }}">
+                                        <input class="receive-input wide" name="lot_number[{{ $item->id }}]" placeholder="Lote">
+                                        <input class="receive-input date" type="date" name="expires_at[{{ $item->id }}]" title="Validade">
+                                        <input class="receive-input wide" name="serial_number[{{ $item->id }}]" placeholder="Serie">
+                                    </div>
                                 </td>
                             @endif
                         </tr>

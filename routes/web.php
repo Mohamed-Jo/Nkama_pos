@@ -151,6 +151,7 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             Route::get('stock', [StockController::class, 'index'])->middleware('module.enabled:stock')->name('stock.index');
             Route::get('stock/movements', [StockController::class, 'movements'])->middleware('module.enabled:stock')->name('stock.movements');
             Route::get('stock/inventory', [StockController::class, 'inventory'])->middleware('module.enabled:stock')->name('stock.inventory');
+            Route::get('stock/labels', [StockController::class, 'labels'])->middleware('module.enabled:stock')->name('stock.labels');
             Route::post('stock/adjust', [StockController::class, 'adjust'])->middleware('module.enabled:stock')->name('stock.adjust');
             Route::post('stock/inventory', [StockController::class, 'applyInventory'])->middleware('module.enabled:stock')->name('stock.inventory.apply');
             Route::middleware('module.enabled:stock_warehouses')->group(function () {
@@ -160,6 +161,8 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
                 Route::post('warehouses/transfer', [WarehouseController::class, 'transfer'])->name('warehouses.transfer');
                 Route::put('warehouses/defaults', [WarehouseController::class, 'updateDefaults'])->name('warehouses.defaults');
                 Route::get('warehouses/transfers', [WarehouseController::class, 'transfers'])->name('warehouses.transfers');
+                Route::patch('warehouses/transfers/{transfer}/approve', [WarehouseController::class, 'approveTransfer'])->whereNumber('transfer')->name('warehouses.transfers.approve');
+                Route::patch('warehouses/transfers/{transfer}/reject', [WarehouseController::class, 'rejectTransfer'])->whereNumber('transfer')->name('warehouses.transfers.reject');
             });
             Route::resource('customers', CustomerController::class);
             Route::resource('suppliers', SupplierController::class);

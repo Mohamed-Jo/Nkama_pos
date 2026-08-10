@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductStockBatch;
 use App\Models\PurchaseItem;
 use App\Models\SaleItem;
 use App\Models\StockMovement;
@@ -125,6 +126,9 @@ class StockController extends Controller
             'reason' => ['required', 'string', 'max:120'],
             'warehouse_id' => ['nullable', 'exists:warehouses,id'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'lot_number' => ['nullable', 'string', 'max:80'],
+            'expires_at' => ['nullable', 'date'],
+            'serial_number' => ['nullable', 'string', 'max:120'],
         ]);
 
         $product = Product::lockForUpdate()->findOrFail($validated['product_id']);
@@ -135,8 +139,10 @@ class StockController extends Controller
         try {
             if ($validated['mode'] === 'in') {
                 [$before, $after] = $stockService->increase($product, $requested, 'adjustments', $warehouseId);
+                $stockService->increaseBatch($product, $requested, 'adjustments', $warehouseId, $validated['lot_number'] ?? null, $validated['expires_at'] ?? null, $validated['serial_number'] ?? null);
             } elseif ($validated['mode'] === 'out') {
                 [$before, $after] = $stockService->decrease($product, $requested, 'adjustments', $warehouseId);
+                $stockService->decreaseBatch($product, $requested, 'adjustments', $warehouseId, $validated['lot_number'] ?? null, $validated['serial_number'] ?? null);
             } else {
                 [$before, $after] = $stockService->set($product, $requested, 'adjustments', $warehouseId);
             }
@@ -150,7 +156,7 @@ class StockController extends Controller
         }
 
         $movementWarehouseId = $stockService->warehouseIdFor('adjustments', $warehouseId);
-        $this->recordMovement($product, $before, $after, abs($delta), $delta > 0 ? 'IN' : 'OUT', $validated['reason'], $validated['notes'] ?? null, 'manual_adjustment', $movementWarehouseId);
+        $this->recordMovement($product, $before, $after, abs($delta), $delta > 0 ? 'IN' : 'OUT', $validated['reason'], $validated['notes'] ?? null, 'manual_adjustment', $movementWarehouseId, $validated['lot_number'] ?? null, $validated['expires_at'] ?? null, $validated['serial_number'] ?? null);
 
         return back()->with('success', 'Ajuste de stock registado.');
     }
@@ -191,6 +197,9 @@ class StockController extends Controller
             'counts.*' => ['nullable', 'integer', 'min:0'],
             'warehouse_id' => ['nullable', 'exists:warehouses,id'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'lot_number' => ['nullable', 'string', 'max:80'],
+            'expires_at' => ['nullable', 'date'],
+            'serial_number' => ['nullable', 'string', 'max:120'],
         ]);
 
         $changed = 0;
@@ -236,11 +245,36 @@ class StockController extends Controller
         return $this->adjust($request);
     }
 
-    private function recordMovement(Product $product, int $before, int $after, int $quantity, string $type, string $reason, ?string $notes, string $referenceType, ?int $warehouseId = null): void
+    public function labels(Request $request): View
+    {
+        $products = Product::query()
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = $request->string('search')->toString();
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%");
+            })
+            ->where('status', true)
+            ->orderBy('name')
+            ->paginate(48)
+            ->withQueryString();
+
+        return view('admin.stock.labels', [
+            'products' => $products,
+            'batches' => ProductStockBatch::with('product', 'warehouse')
+                ->where('quantity', '>', 0)
+                ->orderBy('expires_at')
+                ->limit(80)
+                ->get(),
+        ]);
+    }
+    private function recordMovement(Product $product, int $before, int $after, int $quantity, string $type, string $reason, ?string $notes, string $referenceType, ?int $warehouseId = null, ?string $lotNumber = null, ?string $expiresAt = null, ?string $serialNumber = null): void
     {
         StockMovement::create([
             'product_id' => $product->id,
             'warehouse_id' => $warehouseId,
+            'lot_number' => $lotNumber,
+            'expires_at' => $expiresAt,
+            'serial_number' => $serialNumber,
             'type' => $type,
             'reason' => $reason,
             'quantity' => $quantity,
