@@ -670,7 +670,7 @@ class RestaurantController extends Controller
                 ]);
             }
 
-            // --- LÓGICA DE LIBERTAÇÃO DA MESA ---
+            // --- LOGICA DE LIBERTACAO DA MESA ---
             // Se o pedido ficar vazio após a remoção, limpa a mesa e o pedido na BD
             if ($order->items()->count() === 0) {
                 if ($table) {

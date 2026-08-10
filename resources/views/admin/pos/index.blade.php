@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('page-title', 'MARIA ERP • POS Multi-Módulos')
+@section('page-title', 'MARIA ERP - POS Multi-Modulos')
 
 @section('content')
     <style>
@@ -654,7 +654,7 @@
 
                 <div id="view-salao-wrapper" style="display: {{ ($modules['restaurant'] ?? true) ? 'flex' : 'none' }}; flex-direction: column; gap: 10px;">
                     <div class="pos-list-toolbar">
-                        <input class="pos-list-search" type="text" id="inputBuscaMesas" oninput="mesasListaInicio = 0; filtrarMesas(filtroMesasAtual)" placeholder="Pesquisar mesa por nome ou numero...">
+                        <input class="pos-list-search" type="search" id="inputBuscaMesas" name="nkama_table_search_{{ time() }}" autocomplete="new-password" data-lpignore="true" data-form-type="other" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="search" onfocus="limparAutofillPesquisaMesas()" oninput="mesasListaInicio = 0; filtrarMesas(filtroMesasAtual)" placeholder="Pesquisar mesa por nome ou numero...">
                         <span style="font-size: 12px; color: #94a3b8; margin-right: 4px;">Filtrar mesas:</span>
                         <button id="filter-mesas-all" onclick="filtrarMesas('all')"
                             style="background: #38bdf8; color: #020617; border: 1px solid rgba(56, 189, 248, 0.5); padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;">
@@ -1382,6 +1382,17 @@
         let modoDivisaoConta = 'full';
         let clienteContaCorrenteSelecionadoId = '';
         let clienteContaCorrenteSelecionadoNome = '';
+        function limparAutofillPesquisaMesas() {
+            const input = document.getElementById('inputBuscaMesas');
+            if (!input) return;
+
+            input.setAttribute('autocomplete', 'new-password');
+            if (input.value && input.value.includes('@')) {
+                input.value = '';
+                mesasListaInicio = 0;
+                filtrarMesas(filtroMesasAtual);
+            }
+        }
         // Atalhos de Teclado
         window.addEventListener('keydown', function(event) {
             if (event.key === 'F3') {
@@ -1438,6 +1449,7 @@
                 document.getElementById('lbl-cliente-tipo').innerText = 'Selecione uma mesa no salão';
                 mesaSelecionadaId = null;
                 document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
+                limparAutofillPesquisaMesas();
                 document.getElementById('mesa-acoes').style.display = 'flex';
                 { const btn = document.getElementById('btn-dividir-conta'); if (btn) btn.style.display = 'block'; }
                 document.querySelectorAll('[id^="card-mesa-"]').forEach(c => c.style.outline = 'none');
@@ -2832,8 +2844,9 @@
                     document.getElementById('fecho-card').innerText = NkamaPOSPayment.format(data.card_sales_total);
                     document.getElementById('fecho-transf').innerText = NkamaPOSPayment.format(data.transf_sales_total);
                     document.getElementById('fecho-total').innerText = NkamaPOSPayment.format(data.total_sales);
-                    document.getElementById('fecho-expected').innerText = NkamaPOSPayment.format(data.expected);
-                    document.getElementById('fecho-counted-cash').value = NkamaPOSPayment.roundUp(data.expected, 1);
+                    const expectedCash = NkamaPOSPayment.parse(data.expected);
+                    document.getElementById('fecho-expected').innerText = NkamaPOSPayment.format(expectedCash);
+                    document.getElementById('fecho-counted-cash').value = Math.max(NkamaPOSPayment.roundUp(expectedCash, 1), 0);
                     document.getElementById('btn-confirmar-fecho').disabled = false;
                     calcularDiferencaFecho();
                 })
@@ -2860,6 +2873,11 @@
         async function confirmarFechoCaixa() {
             const counted = NkamaPOSPayment.parse(document.getElementById('fecho-counted-cash').value);
             const btn = document.getElementById('btn-confirmar-fecho');
+
+            if (counted < 0) {
+                nkamaAlert('O dinheiro contado deve ser pelo menos 0.', 'warning');
+                return;
+            }
 
             const confirmado = await nkamaConfirm('Confirmar fecho de caixa? Depois disso o turno fica encerrado.', 'Fechar caixa');
             if (!confirmado) {
@@ -2891,7 +2909,7 @@
                     nkamaAlert(`Diferença: ${NkamaPOSPayment.format(data.difference)}`, 'success', 'Caixa fechado com sucesso')
                         .then(() => window.location.reload());
                 })
-                .catch(() => nkamaAlert('Erro de conexão ao fechar caixa.', 'error'))
+                .catch(error => nkamaAlert(error.message || 'Erro de conexao ao fechar caixa.', 'error'))
                 .finally(() => {
                     btn.disabled = false;
                     btn.innerText = 'Confirmar Fecho';
@@ -3575,6 +3593,7 @@
                         if (!estadosMesas[mesaSelecionadaId] || estadosMesas[mesaSelecionadaId].itens.length === 0) {
                             mesaSelecionadaId = null;
                             document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
+                limparAutofillPesquisaMesas();
                             document.getElementById('view-salao-wrapper').style.display = 'flex';
                             document.getElementById('restaurant-categories').style.display = 'none';
                             document.getElementById('restaurant-products').style.display = 'none';
@@ -3604,6 +3623,7 @@
                                 atualizarContadoresTop();
                                 mesaSelecionadaId = null;
                                 document.getElementById('lbl-mesa-ativa').innerText = 'Nenhuma Selecionada';
+                limparAutofillPesquisaMesas();
                                 document.getElementById('view-salao-wrapper').style.display = 'flex';
                                 document.getElementById('restaurant-categories').style.display = 'none';
                                 document.getElementById('restaurant-products').style.display = 'none';
@@ -3626,6 +3646,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            limparAutofillPesquisaMesas();
+            setTimeout(limparAutofillPesquisaMesas, 250);
+            setTimeout(limparAutofillPesquisaMesas, 1000);
             verificarCaixaAbertoInicial();
             if (modulosAtivos.restaurant) {
                 carregarEstadoInicialMesas();

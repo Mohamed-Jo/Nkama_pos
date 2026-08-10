@@ -12,6 +12,10 @@ return new class extends Migration
             return;
         }
 
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement("ALTER TABLE restaurant_tables MODIFY status ENUM('free','occupied','reserved','waiting_payment') NOT NULL DEFAULT 'free'");
     }
 
@@ -24,6 +28,10 @@ return new class extends Migration
         DB::table('restaurant_tables')
             ->whereIn('status', ['reserved', 'waiting_payment'])
             ->update(['status' => 'free']);
+
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return;
+        }
 
         DB::statement("ALTER TABLE restaurant_tables MODIFY status ENUM('free','occupied') NOT NULL DEFAULT 'free'");
     }

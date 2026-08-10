@@ -11,7 +11,7 @@
         font-family: system-ui, -apple-system, sans-serif;
     }
 
-    /* BOTÃO VOLTAR */
+    /* BOTAO VOLTAR */
     .btn-back {
         display: inline-flex;
         align-items: center;

@@ -19,8 +19,9 @@ return new class extends Migration {
                 ->nullOnDelete();
 
             $table->foreignId('user_id')
+                ->nullable()
                 ->constrained()
-                ->cascadeOnDelete();
+                ->nullOnDelete();
 
             $table->string('invoice_number')->unique();
 

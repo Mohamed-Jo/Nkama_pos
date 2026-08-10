@@ -242,7 +242,7 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
         Route::post('remove-item', [RestaurantController::class, 'removeItem'])->name('removeItem');
         Route::post('clear-cart', [RestaurantController::class, 'clearCart'])->name('clearCart');
     });
-    // Rotas de MesasRoute [admin.restaurant.create] not defined.
+    // Rotas de Mesas
 
 
     // Logout Interno do Operador

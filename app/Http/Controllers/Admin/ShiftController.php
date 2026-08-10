@@ -96,7 +96,7 @@ class ShiftController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | 💰 RESUMO FINANCEIRO (PREVISÃO)
+    | RESUMO FINANCEIRO (PREVISAO)
     |--------------------------------------------------------------------------
     */
     public function summary()
@@ -141,7 +141,7 @@ class ShiftController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | 🔴 FECHAR TURNO (COM CORRECÇÃO DE AUDITORIA)
+    | FECHAR TURNO (COM CORRECCAO DE AUDITORIA)
     |--------------------------------------------------------------------------
     */
     public function closeShift(Request $request, DirectPrintService $printer)
@@ -169,7 +169,7 @@ class ShiftController extends Controller
         $multiTotal  = $this->methodTotal($shift->id, 'multi');
         $transfTotal = $this->methodTotal($shift->id, 'transf');
 
-        // CORRECÇÃO FINANCEIRA: O operador só conta dinheiro vivo. O esperado é Abertura + Vendas Dinheiro.
+        // CORRECCAO FINANCEIRA: o operador so conta dinheiro vivo. O esperado e abertura + vendas em dinheiro.
         $expectedCashPhysical = $shift->opening_cash + $cashTotal;
         $countedCash          = (float) $request->counted_cash;
         $difference           = $countedCash - $expectedCashPhysical;

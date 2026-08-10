@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Stock;
 use App\Models\Product;
 use App\Models\StockMovement;
 

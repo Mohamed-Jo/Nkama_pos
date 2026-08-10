@@ -15,9 +15,8 @@ return new class extends Migration {
             $table->string('name');
             $table->text('description')->nullable();
             $table->boolean('status')->default(true);
-
-            // 🔥 A MÁGICA DA UNIFICAÇÃO:
-            // Cria a coluna parent_id. Se a categoria pai for eliminada, as subcategorias também vão (cascade)
+            // Hierarquia de categorias.
+            // Se a categoria pai for eliminada, as subcategorias tambem sao removidas.
             $table->foreignId('parent_id')
                 ->nullable()
                 ->constrained('categories')

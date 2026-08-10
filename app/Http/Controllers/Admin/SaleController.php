@@ -10,7 +10,6 @@ use App\Models\Payments;
 use App\Models\Shift;
 use App\Models\Sale;
 use App\Models\Product;
-use App\Models\Payment;
 use App\Models\StockMovement;
 use App\Services\AGTSeriesRequestService;
 use App\Services\AGTElectronicInvoiceService;
@@ -97,32 +96,6 @@ class SaleController extends Controller
             ->orderBy('date')
             ->get();
 
-        // separar corretamente (SEM map no Blade)
-        $chartLabels = $chart->pluck('date');
-        $chartData = $chart->pluck('total');
-
-        // ================= INSIGHTS =================
-        $insights = [];
-
-        if ($todaySales < ($avgTicket * 2)) {
-            $insights[] = "📉 Performance abaixo do esperado hoje.";
-        }
-
-        if ($growth < 0) {
-            $insights[] = "⚠️ Queda de faturação mensal.";
-        }
-
-        if (empty($insights)) {
-            $insights[] = "📊 Sistema financeiro estável.";
-        }
-
-        // ================= CHART (SEGURO) =================
-        $chart = (clone $baseSalesQuery)->selectRaw('DATE(created_at) as date, SUM(total) as total')
-            ->whereDate('created_at', '>=', now()->subDays(6))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-
         $chartLabels = $chart->pluck('date');
         $chartData = $chart->pluck('total');
 
@@ -142,15 +115,15 @@ class SaleController extends Controller
         $insights = [];
 
         if ($todaySales < ($avgTicket * 2)) {
-            $insights[] = "📉 Performance abaixo do esperado hoje.";
+            $insights[] = "Performance abaixo do esperado hoje.";
         }
 
         if ($growth < 0) {
-            $insights[] = "⚠️ Queda de faturação mensal.";
+            $insights[] = "Queda de faturacao mensal.";
         }
 
         if (empty($insights)) {
-            $insights[] = "📊 Sistema financeiro estável.";
+            $insights[] = "Sistema financeiro estavel.";
         }
 
         return view('admin.sales.index', compact(
