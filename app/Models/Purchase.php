@@ -10,6 +10,9 @@ class Purchase extends Model
     public const STATUS_ORDERED = 'ordered';
     public const STATUS_PARTIAL = 'partial';
     public const STATUS_RECEIVED = 'received';
+    public const TYPE_QUOTATION = 'quotation';
+    public const TYPE_ORDER = 'order';
+    public const TYPE_PURCHASE = 'purchase';
     public const APPROVAL_PENDING = 'pending';
     public const APPROVAL_APPROVED = 'approved';
     public const APPROVAL_REJECTED = 'rejected';
@@ -20,6 +23,10 @@ class Purchase extends Model
         'approved_by',
         'rejected_by',
         'document_number',
+        'document_type',
+        'quotation_reference',
+        'order_number',
+        'supplier_invoice_number',
         'purchase_date',
         'due_date',
         'status',
@@ -29,6 +36,7 @@ class Purchase extends Model
         'rejection_reason',
         'subtotal',
         'tax',
+        'expenses_total',
         'total',
         'paid_amount',
         'payment_type',
@@ -46,6 +54,7 @@ class Purchase extends Model
         'received_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
+        'expenses_total' => 'decimal:2',
         'total' => 'decimal:2',
         'paid_amount' => 'decimal:2',
     ];
@@ -78,6 +87,30 @@ class Purchase extends Model
     public function currentAccountEntry()
     {
         return $this->belongsTo(CurrentAccountEntry::class);
+    }
+
+    public function expenses()
+    {
+        return $this->hasMany(PurchaseExpense::class);
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(PurchaseAttachment::class);
+    }
+
+    public function returns()
+    {
+        return $this->hasMany(PurchaseReturn::class);
+    }
+
+    public function documentTypeLabel(): string
+    {
+        return match ($this->document_type) {
+            self::TYPE_QUOTATION => 'Cotacao',
+            self::TYPE_ORDER => 'Ordem de compra',
+            default => 'Compra/Fatura',
+        };
     }
 
     public function statusLabel(): string

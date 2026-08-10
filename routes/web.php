@@ -123,6 +123,9 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             Route::get('purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
             Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
             Route::patch('purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->whereNumber('purchase')->name('purchases.status');
+            Route::post('purchases/{purchase}/expenses', [PurchaseController::class, 'storeExpense'])->whereNumber('purchase')->name('purchases.expenses.store');
+            Route::post('purchases/{purchase}/attachments', [PurchaseController::class, 'storeAttachment'])->whereNumber('purchase')->name('purchases.attachments.store');
+            Route::get('purchase-attachments/{attachment}', [PurchaseController::class, 'downloadAttachment'])->whereNumber('attachment')->name('purchases.attachments.download');
         });
         Route::middleware(['module.enabled:purchases', 'operator.permission:purchases.approve'])->group(function () {
             Route::patch('purchases/{purchase}/approve', [PurchaseController::class, 'approve'])->whereNumber('purchase')->name('purchases.approve');
@@ -132,6 +135,10 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             ->whereNumber('purchase')
             ->middleware(['module.enabled:purchases', 'operator.permission:purchases.receive'])
             ->name('purchases.receive');
+        Route::post('purchases/{purchase}/returns', [PurchaseController::class, 'returnToSupplier'])
+            ->whereNumber('purchase')
+            ->middleware(['module.enabled:purchases', 'operator.permission:purchases.receive'])
+            ->name('purchases.returns.store');
         Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])
             ->whereNumber('purchase')
             ->middleware(['module.enabled:purchases', 'operator.permission:purchases.create,purchases.approve,purchases.receive'])

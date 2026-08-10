@@ -7,11 +7,16 @@ use App\Models\Operator;
 use App\Models\Payments;
 use App\Models\Product;
 use App\Models\Purchase;
+use App\Models\PurchaseAttachment;
+use App\Models\PurchaseExpense;
+use App\Models\PurchaseReturn;
 use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class OperationalFlowTest extends TestCase
@@ -112,6 +117,88 @@ class OperationalFlowTest extends TestCase
         $this->assertSame(Purchase::STATUS_RECEIVED, $purchase->status);
         $this->assertSame(7, (int) $product->stock_quantity);
         $this->assertSame(1, StockMovement::where('product_id', $product->id)->where('type', 'IN')->where('reference_type', 'purchase')->count());
+    }
+
+
+    public function test_professional_purchase_records_expenses_and_attachment(): void
+    {
+        Storage::fake('public');
+
+        $creator = $this->operator('Comprador Profissional', 'admin');
+        $supplier = Supplier::create(['company_name' => 'Fornecedor Pro', 'status' => true]);
+        $product = $this->product(['purchase_price' => 100]);
+
+        $this->withSession(['operator_id' => $creator->id])
+            ->post('/admin/purchases', [
+                'supplier_id' => $supplier->id,
+                'document_type' => Purchase::TYPE_ORDER,
+                'document_number' => 'DOC-PRO-001',
+                'quotation_reference' => 'COT-44',
+                'order_number' => 'OC-44',
+                'supplier_invoice_number' => 'FT-FORN-44',
+                'purchase_date' => now()->toDateString(),
+                'payment_type' => 'direct',
+                'items' => [
+                    ['product_id' => $product->id, 'quantity' => 2, 'unit_cost' => 100, 'tax_rate' => 0],
+                ],
+                'expenses' => [
+                    ['description' => 'Transporte', 'category' => 'Logistica', 'amount' => 50],
+                ],
+                'attachments' => [UploadedFile::fake()->create('fatura.pdf', 32, 'application/pdf')],
+            ])
+            ->assertRedirect();
+
+        $purchase = Purchase::firstOrFail();
+
+        $this->assertSame(Purchase::TYPE_ORDER, $purchase->document_type);
+        $this->assertSame('OC-44', $purchase->order_number);
+        $this->assertSame(50.0, (float) $purchase->expenses_total);
+        $this->assertSame(250.0, (float) $purchase->total);
+        $this->assertSame(1, PurchaseExpense::where('purchase_id', $purchase->id)->count());
+        $this->assertSame(1, PurchaseAttachment::where('purchase_id', $purchase->id)->count());
+        Storage::disk('public')->assertExists(PurchaseAttachment::firstOrFail()->path);
+    }
+
+    public function test_purchase_return_to_supplier_decreases_stock(): void
+    {
+        $creator = $this->operator('Comprador Retorno', 'admin');
+        $approver = $this->operator('Aprovador Retorno', 'manager');
+        $supplier = Supplier::create(['company_name' => 'Fornecedor Retorno', 'status' => true]);
+        $product = $this->product(['stock_quantity' => 5, 'purchase_price' => 100]);
+
+        $this->withSession(['operator_id' => $creator->id])->post('/admin/purchases', [
+            'supplier_id' => $supplier->id,
+            'document_type' => Purchase::TYPE_PURCHASE,
+            'document_number' => 'RET-001',
+            'purchase_date' => now()->toDateString(),
+            'payment_type' => 'direct',
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 4, 'unit_cost' => 100, 'tax_rate' => 0],
+            ],
+        ])->assertRedirect();
+
+        $purchase = Purchase::firstOrFail();
+        $item = $purchase->items()->firstOrFail();
+
+        $this->withSession(['operator_id' => $approver->id])->patch("/admin/purchases/{$purchase->id}/approve")->assertRedirect();
+        $this->withSession(['operator_id' => $approver->id])->post("/admin/purchases/{$purchase->id}/receive", [
+            'received' => [$item->id => 4],
+        ])->assertRedirect();
+
+        $this->withSession(['operator_id' => $approver->id])->post("/admin/purchases/{$purchase->id}/returns", [
+            'return_date' => now()->toDateString(),
+            'document_number' => 'DEV-001',
+            'reason' => 'Produto danificado',
+            'returned' => [$item->id => 2],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $product->refresh();
+        $item->refresh();
+
+        $this->assertSame(7, (int) $product->stock_quantity);
+        $this->assertSame(2, (int) $item->returned_quantity);
+        $this->assertSame(1, PurchaseReturn::where('purchase_id', $purchase->id)->count());
+        $this->assertSame(1, StockMovement::where('product_id', $product->id)->where('type', 'OUT')->where('reference_type', 'purchase_return')->count());
     }
 
     private function operator(string $name, string $role): Operator

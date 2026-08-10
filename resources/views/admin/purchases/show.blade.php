@@ -90,8 +90,12 @@
         </div>
 
         <div class="panel grid">
+            <div><div class="label">Tipo</div><div class="value">{{ $purchase->documentTypeLabel() }}</div></div>
             <div><div class="label">Fornecedor</div><div class="value">{{ $purchase->supplier->company_name ?? 'Fornecedor removido' }}</div></div>
             <div><div class="label">Data</div><div class="value">{{ optional($purchase->purchase_date)->format('d/m/Y') }}</div></div>
+            <div><div class="label">Cotacao</div><div class="value">{{ $purchase->quotation_reference ?: '-' }}</div></div>
+            <div><div class="label">Ordem</div><div class="value">{{ $purchase->order_number ?: '-' }}</div></div>
+            <div><div class="label">Fatura fornecedor</div><div class="value">{{ $purchase->supplier_invoice_number ?: '-' }}</div></div>
             <div><div class="label">Registada por</div><div class="value">{{ $purchase->operator->name ?? 'Sistema' }}</div></div>
             <div><div class="label">Vencimento</div><div class="value">{{ optional($purchase->due_date)->format('d/m/Y') ?: '-' }}</div></div>
             <div>
@@ -129,6 +133,7 @@
                         <th>Produto</th>
                         <th>Pedida</th>
                         <th>Recebida</th>
+                        <th>Devolvida</th>
                         <th>Pendente</th>
                         <th>Custo</th>
                         <th>IVA</th>
@@ -147,6 +152,7 @@
                             <td>{{ $item->product->name ?? 'Produto removido' }}</td>
                             <td>{{ $item->quantity }}</td>
                             <td>{{ $item->received_quantity }}</td>
+                            <td>{{ $item->returned_quantity }}</td>
                             <td>{{ $pending }}</td>
                             <td>AOA {{ number_format((float) $item->unit_cost, 2, ',', '.') }}</td>
                             <td>{{ number_format((float) $item->tax_rate, 2, ',', '.') }}%</td>
@@ -163,6 +169,7 @@
             <div class="summary">
                 <div>Subtotal: <strong>AOA {{ number_format((float) $purchase->subtotal, 2, ',', '.') }}</strong></div>
                 <div>IVA: <strong>AOA {{ number_format((float) $purchase->tax, 2, ',', '.') }}</strong></div>
+                <div>Despesas: <strong>AOA {{ number_format((float) $purchase->expenses_total, 2, ',', '.') }}</strong></div>
                 <div style="font-size:18px;">Total: <strong>AOA {{ number_format((float) $purchase->total, 2, ',', '.') }}</strong></div>
             </div>
             @if($canReceivePurchase && $purchase->isApproved() && !$purchase->isClosedForReceiving())
@@ -180,6 +187,96 @@
             @endif
         </form>
 
+
+        <div class="panel">
+            <div style="display:flex; justify-content:space-between; gap:12px; align-items:start; margin-bottom:12px; flex-wrap:wrap;">
+                <div><div class="label">Despesas de compra</div><div class="muted">Transporte, despacho, seguro e outros custos ligados ao fornecedor.</div></div>
+                @if($canCreatePurchase && !$purchase->isApproved())
+                    <form method="POST" action="{{ route('admin.purchases.expenses.store', $purchase) }}" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
+                        @csrf
+                        <input class="receive-select" name="description" placeholder="Descricao" required>
+                        <input class="receive-input" name="category" placeholder="Categoria" value="Geral">
+                        <input class="receive-input" type="number" step="0.01" min="0.01" name="amount" placeholder="Valor" required>
+                        <button class="btn btn-warning" type="submit">Adicionar</button>
+                    </form>
+                @endif
+            </div>
+            <table class="items-table">
+                <thead><tr><th>Descricao</th><th>Categoria</th><th>Valor</th><th>Operador</th></tr></thead>
+                <tbody>
+                    @forelse($purchase->expenses as $expense)
+                        <tr><td>{{ $expense->description }}</td><td>{{ $expense->category }}</td><td>AOA {{ number_format((float) $expense->amount, 2, ',', '.') }}</td><td>{{ $expense->operator?->name ?? 'Sistema' }}</td></tr>
+                    @empty
+                        <tr><td colspan="4" class="muted">Sem despesas de compra.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div class="panel">
+            <div style="display:flex; justify-content:space-between; gap:12px; align-items:start; margin-bottom:12px; flex-wrap:wrap;">
+                <div><div class="label">Anexos</div><div class="muted">Fatura do fornecedor, cotacoes, guias e comprovativos.</div></div>
+                @if($canCreatePurchase)
+                    <form method="POST" action="{{ route('admin.purchases.attachments.store', $purchase) }}" enctype="multipart/form-data" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
+                        @csrf
+                        <input class="receive-select" name="label" placeholder="Rotulo">
+                        <input class="receive-select" type="file" name="attachment" required>
+                        <button class="btn btn-info" type="submit">Anexar</button>
+                    </form>
+                @endif
+            </div>
+            <table class="items-table">
+                <thead><tr><th>Ficheiro</th><th>Rotulo</th><th>Tamanho</th><th>Acao</th></tr></thead>
+                <tbody>
+                    @forelse($purchase->attachments as $attachment)
+                        <tr><td>{{ $attachment->original_name }}</td><td>{{ $attachment->label ?: '-' }}</td><td>{{ number_format($attachment->size / 1024, 1, ',', '.') }} KB</td><td><a class="btn btn-ghost" href="{{ route('admin.purchases.attachments.download', $attachment) }}">Baixar</a></td></tr>
+                    @empty
+                        <tr><td colspan="4" class="muted">Sem anexos.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        @if($canReceivePurchase && $purchase->items->sum('received_quantity') > $purchase->items->sum('returned_quantity'))
+            <form class="panel" method="POST" action="{{ route('admin.purchases.returns.store', $purchase) }}">
+                @csrf
+                <div class="label" style="margin-bottom:10px;">Devolucao ao fornecedor</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                    <input class="receive-select" type="date" name="return_date" value="{{ now()->toDateString() }}" required>
+                    <input class="receive-select" name="document_number" placeholder="Doc. devolucao">
+                    <input class="receive-select" name="reason" placeholder="Motivo">
+                    @if(\App\Services\ModuleSettings::enabled('stock_warehouses'))
+                        <select class="receive-select" name="warehouse_id">@foreach($warehouses as $warehouse)<option value="{{ $warehouse->id }}" @selected(($warehouseDefaults['purchases'] ?? null) == $warehouse->id)>{{ $warehouse->name }}</option>@endforeach</select>
+                    @endif
+                </div>
+                <table class="items-table">
+                    <thead><tr><th>Produto</th><th>Recebido liquido</th><th>Devolver agora</th></tr></thead>
+                    <tbody>
+                        @foreach($purchase->items as $item)
+                            @php($returnable = $item->returnable_quantity)
+                            @if($returnable > 0)
+                                <tr><td>{{ $item->product->name ?? 'Produto removido' }}</td><td>{{ $returnable }}</td><td><input class="receive-input" type="number" name="returned[{{ $item->id }}]" min="0" max="{{ $returnable }}" value="0"></td></tr>
+                            @endif
+                        @endforeach
+                    </tbody>
+                </table>
+                <div style="display:flex; justify-content:flex-end; margin-top:12px;"><button class="btn btn-danger" type="submit">Registar devolucao</button></div>
+            </form>
+        @endif
+
+        <div class="panel">
+            <div class="label">Historico de devolucoes</div>
+            <table class="items-table">
+                <thead><tr><th>Data</th><th>Documento</th><th>Motivo</th><th>Total</th><th>Operador</th></tr></thead>
+                <tbody>
+                    @forelse($purchase->returns as $return)
+                        <tr><td>{{ $return->return_date?->format('d/m/Y') }}</td><td>{{ $return->document_number ?: '-' }}</td><td>{{ $return->reason ?: '-' }}</td><td>AOA {{ number_format((float) $return->total, 2, ',', '.') }}</td><td>{{ $return->operator?->name ?? 'Sistema' }}</td></tr>
+                    @empty
+                        <tr><td colspan="5" class="muted">Sem devolucoes registadas.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
         @if($purchase->rejection_reason)
             <div class="panel">
                 <div class="label">Motivo da rejeicao</div>

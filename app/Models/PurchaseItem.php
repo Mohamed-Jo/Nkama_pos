@@ -11,6 +11,7 @@ class PurchaseItem extends Model
         'product_id',
         'quantity',
         'received_quantity',
+        'returned_quantity',
         'unit_cost',
         'tax_rate',
         'subtotal',
@@ -21,6 +22,7 @@ class PurchaseItem extends Model
     protected $casts = [
         'quantity' => 'integer',
         'received_quantity' => 'integer',
+        'returned_quantity' => 'integer',
         'unit_cost' => 'decimal:2',
         'tax_rate' => 'decimal:2',
         'subtotal' => 'decimal:2',
@@ -41,5 +43,10 @@ class PurchaseItem extends Model
     public function getPendingQuantityAttribute(): int
     {
         return max((int) $this->quantity - (int) $this->received_quantity, 0);
+    }
+
+    public function getReturnableQuantityAttribute(): int
+    {
+        return max((int) $this->received_quantity - (int) $this->returned_quantity, 0);
     }
 }
