@@ -39,19 +39,19 @@
 
         :root[data-theme="light"] {
             color-scheme: light;
-            --bg: #f8fafc;
-            --panel: rgba(255, 255, 255, 0.96);
+            --bg: #ffffff;
+            --panel: #ffffff;
             --card: #ffffff;
-            --border: rgba(15, 23, 42, 0.12);
-            --text: #0f172a;
-            --muted: #64748b;
-            --primary: #ea580c;
+            --border: rgba(17, 24, 39, 0.14);
+            --text: #111827;
+            --muted: #4b5563;
+            --primary: #f97316;
             --input-bg: #ffffff;
-            --input-text: #0f172a;
-            --soft-bg: rgba(15, 23, 42, 0.04);
-            --page-bg: linear-gradient(135deg, #f8fafc, #e8eef6);
+            --input-text: #111827;
+            --soft-bg: rgba(17, 24, 39, 0.04);
+            --page-bg: #f6f7f9;
             --swal-bg: #ffffff;
-            --swal-text: #0f172a;
+            --swal-text: #111827;
         }
 
         body {
@@ -372,9 +372,9 @@
 
         input[type="checkbox"]:checked,
         input[type="radio"]:checked {
-            background: #38bdf8;
-            border-color: #38bdf8;
-            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
         }
 
         input[type="checkbox"]:checked::after,
@@ -384,7 +384,7 @@
 
         input[type="checkbox"]:focus-visible,
         input[type="radio"]:focus-visible {
-            outline: 2px solid rgba(56, 189, 248, 0.75);
+            outline: 2px solid rgba(249, 115, 22, 0.75);
             outline-offset: 2px;
         }
 
@@ -422,7 +422,7 @@
 
         :root[data-theme="light"] .menu a:hover,
         :root[data-theme="light"] .menu a.active {
-            background: rgba(234, 88, 12, 0.1);
+            background: rgba(249, 115, 22, 0.12);
         }
 
         :root[data-theme="light"] .modal {
@@ -433,13 +433,19 @@
             color: #ffffff;
         }
 
-        :root[data-theme="light"] .content :is(.card, .panel, .module-card, .settings-card, .report-card, .purchase-card, .summary-card, .stat-card, .table-wrap, .section-card, .modal-box) {
-            background: var(--card) !important;
-            border-color: var(--border) !important;
-            color: var(--text) !important;
+        :root[data-theme="light"] .content {
+            color: var(--text);
         }
 
-        :root[data-theme="light"] .content :is(input, select, textarea) {
+        :root[data-theme="light"] .content :is(.card, .panel, .module-card, .settings-card, .report-card, .purchase-card, .summary-card, .stat-card, .table-wrap, .section-card, .modal-box, .form-card, .table-card, .filter-bar, .report-panel, .agt-card, .agt-table, .erp-panel, .erp-modal, .customer-picker, .total-box, .metric, .notification-panel, .audit-card, .warehouse-card, .stock-card, .current-account-card) {
+            background: var(--card) !important;
+            background-image: none !important;
+            border-color: var(--border) !important;
+            color: var(--text) !important;
+            box-shadow: none;
+        }
+
+        :root[data-theme="light"] .content :is(input, select, textarea, .modal-search) {
             background: var(--input-bg) !important;
             border-color: var(--border) !important;
             color: var(--input-text) !important;
@@ -449,19 +455,79 @@
             border-color: var(--border) !important;
         }
 
+        :root[data-theme="light"] .content :is(th, thead td) {
+            background: var(--soft-bg) !important;
+            color: var(--muted) !important;
+        }
+
+        :root[data-theme="light"] .content :is(h1, h2, h3, h4, .page-header h1, .form-header h1, .panel h2, .metric strong, .prod-name, .customer-name, .shift-title, .total-line strong) {
+            color: var(--text) !important;
+        }
+
+        :root[data-theme="light"] .content :is(.text-muted, .muted, .subtitle, .form-header p, .meta, small, dt) {
+            color: var(--muted) !important;
+        }
+
+        :root[data-theme="light"] .content :is(dd, tbody td, .customer-table td) {
+            color: var(--text) !important;
+        }
+
+        :root[data-theme="light"] .content :is(.btn-primary, .btn-save, .btn-orange, .erp-btn-primary, .agt-btn, button[type="submit"]):not(.btn-danger):not(.btn-del) {
+            background: var(--primary) !important;
+            border-color: var(--primary) !important;
+            color: #111827 !important;
+        }
+
+        :root[data-theme="light"] .content :is(.btn-secondary, .btn-icon, .report-btn-soft, .erp-btn-secondary) {
+            background: var(--soft-bg) !important;
+            border-color: var(--border) !important;
+            color: var(--text) !important;
+        }
+
+        :root[data-theme="light"] .content :is(.alert-success) {
+            background: #ecfdf5 !important;
+            border-color: #86efac !important;
+            color: #047857 !important;
+        }
+
+        :root[data-theme="light"] .content :is(.alert-error, .error-box) {
+            background: #fff1f2 !important;
+            border-color: #fecdd3 !important;
+            color: #be123c !important;
+        }
+
+        :root[data-theme="light"] .content :is(.stock-ok, .free) { background: #ecfdf5 !important; color: #047857 !important; }
+        :root[data-theme="light"] .content :is(.stock-low, .reserved) { background: #fffbeb !important; color: #b45309 !important; }
+        :root[data-theme="light"] .content :is(.stock-out, .occupied) { background: #fff1f2 !important; color: #be123c !important; }
+        :root[data-theme="light"] .content :is(.stock-muted, .flags span) { background: var(--soft-bg) !important; color: var(--muted) !important; }
 
         :root[data-theme="light"] .content [style*="#020617"],
         :root[data-theme="light"] .content [style*="#0f172a"],
         :root[data-theme="light"] .content [style*="#111827"],
         :root[data-theme="light"] .content [style*="#070a12"],
+        :root[data-theme="light"] .content [style*="#1e293b"],
+        :root[data-theme="light"] .content [style*="#334155"],
+        :root[data-theme="light"] .content [style*="rgba(2,6,23"],
+        :root[data-theme="light"] .content [style*="rgba(2, 6, 23"],
+        :root[data-theme="light"] .content [style*="rgba(15,23,42"],
+        :root[data-theme="light"] .content [style*="rgba(15, 23, 42"],
+        :root[data-theme="light"] .content [style*="rgba(17,24,39"],
+        :root[data-theme="light"] .content [style*="rgba(17, 24, 39"],
         :root[data-theme="light"] .content [style*="rgb(2, 6, 23)"],
         :root[data-theme="light"] .content [style*="rgb(15, 23, 42)"] {
             background: var(--card) !important;
+            background-image: none !important;
             border-color: var(--border) !important;
             color: var(--text) !important;
         }
-        :root[data-theme="light"] .content :is(.text-muted, .muted, small) {
-            color: var(--muted) !important;
+
+        :root[data-theme="light"] .content [style*="color:#fff"],
+        :root[data-theme="light"] .content [style*="color: #fff"],
+        :root[data-theme="light"] .content [style*="color:#e5e7eb"],
+        :root[data-theme="light"] .content [style*="color: #e5e7eb"],
+        :root[data-theme="light"] .content [style*="color:#e2e8f0"],
+        :root[data-theme="light"] .content [style*="color: #e2e8f0"] {
+            color: var(--text) !important;
         }
 
         @media (max-width: 768px) {
@@ -533,6 +599,7 @@
                     <a class="{{ request()->routeIs('admin.agt.*') ? 'active' : '' }}" href="{{ route('admin.agt.index') }}">Fiscalizacao AGT</a>
                 @endif
                 @if($canCurrentAccount && ($activeModules['current_account'] ?? true))
+                    <a class="{{ request()->routeIs('admin.finance.*') ? 'active' : '' }}" href="{{ route('admin.finance.index') }}">Financeiro</a>
                     <a class="{{ request()->routeIs('admin.current-accounts.*') ? 'active' : '' }}" href="{{ route('admin.current-accounts.index') }}">Conta Corrente</a>
                 @endif
                 @if($canPurchases && ($activeModules['purchases'] ?? true))
@@ -626,6 +693,45 @@
 
             <section class="content">
                 @yield('content')
+                <style id="nkama-light-content-overrides">
+                    :root[data-theme="light"] .content {
+                        --bg-panel: var(--card);
+                        --border-color: var(--border);
+                        --text-main: var(--text);
+                        --text-muted: var(--muted);
+                        --card-bg: var(--card);
+                        --card-border: var(--border);
+                        --accent-orange: var(--primary);
+                        --orange-brand: var(--primary);
+                        --bg-dashboard: var(--bg);
+                        --dashboard-card-bg: var(--card);
+                        --dashboard-card-border: var(--border);
+                        --dashboard-muted: var(--muted);
+                        --dashboard-text: var(--text);
+                    }
+                    :root[data-theme="light"] .content :is(.custom-card,.info-card,.filter-card,.filter-panel,.filter-bar,.card,.panel,.module-card,.settings-card,.report-card,.report-panel,.purchase-card,.purchase-panel,.stat-box,.summary-card,.stat-card,.table-wrap,.table-card,.section-card,.form-card,.modal-box,.erp-panel,.erp-modal,.customer-picker,.total-box,.metric,.agt-card,.agt-table,.doc-panel,.operator-panel,.operator-card,.account-panel,.current-account-panel,.stock-card,.warehouse-card) { background:var(--card) !important; background-image:none !important; border-color:var(--border) !important; color:var(--text) !important; }
+                    :root[data-theme="light"] .content :is(input,select,textarea,.input-dark,.modal-search,.receive-select,.receive-input,.reject-input) { background:var(--input-bg) !important; border-color:var(--border) !important; color:var(--input-text) !important; }
+                    :root[data-theme="light"] .content :is(table,thead,tbody,tr,th,td) { border-color:var(--border) !important; }
+                    :root[data-theme="light"] .content :is(th,thead td,.doc-table th,.purchase-table th,.items-table th) { background:var(--soft-bg) !important; color:var(--muted) !important; }
+                    :root[data-theme="light"] .content :is(td,.purchase-table td,.items-table td,.customer-table td) { color:var(--text) !important; }
+                    :root[data-theme="light"] .content :is(h1,h2,h3,h4,strong,.page-title,.page-header h1,.form-header h1,.purchase-title,.doc-title,.report-title,.card-value,.stat-value,.value,.metric strong,.panel h2,.prod-name,.customer-name,.shift-title,.total-line strong,.summary,.operator-name) { color:var(--text) !important; }
+                    :root[data-theme="light"] .content :is(.subtitle,.page-header p,.form-header p,.purchase-subtitle,.doc-muted,.card-label,.stat-label,.label,.meta,.muted,.text-muted,.empty,.empty-box,small,dt,.report-muted,.account-muted) { color:var(--muted) !important; }
+                    :root[data-theme="light"] .content :is(.btn-primary,.btn-save,.btn-orange,.purchase-btn,.erp-btn-primary,.agt-btn,.doc-btn-primary,button[type="submit"]):not(.btn-danger):not(.btn-del):not(.btn-warning) { background:var(--primary) !important; border-color:var(--primary) !important; color:#111827 !important; }
+                    :root[data-theme="light"] .content :is(.btn-secondary,.btn-icon,.btn-ghost,.report-btn-soft,.erp-btn-secondary,.doc-btn-secondary,.agt-link) { background:var(--soft-bg) !important; border-color:var(--border) !important; color:var(--text) !important; }
+                    :root[data-theme="light"] .content :is(a,.action-link,.doc-code) { color:var(--primary); }
+                    :root[data-theme="light"] .content :is(.alert-success,.purchase-alert,.agt-alert.success) { background:#ecfdf5 !important; border-color:#86efac !important; color:#047857 !important; }
+                    :root[data-theme="light"] .content :is(.alert-error,.error-box,.purchase-error,.agt-alert.error,.error) { background:#fff1f2 !important; border-color:#fecdd3 !important; color:#be123c !important; }
+                    :root[data-theme="light"] .content :is(.badge-draft,.badge-partial,.status-pending,.doc-pill-off) { background:#fffbeb !important; color:#b45309 !important; }
+                    :root[data-theme="light"] .content :is(.badge-ordered,.badge-info,.agt-status.ready) { background:#eff6ff !important; color:#1d4ed8 !important; }
+                    :root[data-theme="light"] .content :is(.badge-received,.status-paid,.agt-status.submitted,.doc-pill-on) { background:#ecfdf5 !important; color:#047857 !important; }
+                    :root[data-theme="light"] .content :is(.badge-rejected,.status-cancelled,.agt-status.failed) { background:#fff1f2 !important; color:#be123c !important; }
+                    :root[data-theme="light"] .content :is(.stock-ok,.free) { background:#ecfdf5 !important; color:#047857 !important; }
+                    :root[data-theme="light"] .content :is(.stock-low,.reserved) { background:#fffbeb !important; color:#b45309 !important; }
+                    :root[data-theme="light"] .content :is(.stock-out,.occupied) { background:#fff1f2 !important; color:#be123c !important; }
+                    :root[data-theme="light"] .content :is(.stock-muted,.flags span,.position-badge) { background:var(--soft-bg) !important; color:var(--muted) !important; }
+                    :root[data-theme="light"] .content [style*="#020617"],:root[data-theme="light"] .content [style*="#0f172a"],:root[data-theme="light"] .content [style*="#111827"],:root[data-theme="light"] .content [style*="#070a12"],:root[data-theme="light"] .content [style*="#1e293b"],:root[data-theme="light"] .content [style*="#334155"],:root[data-theme="light"] .content [style*="rgba(15, 23, 42"],:root[data-theme="light"] .content [style*="rgba(15,23,42"],:root[data-theme="light"] .content [style*="rgba(17, 24, 39"],:root[data-theme="light"] .content [style*="rgba(17,24,39"],:root[data-theme="light"] .content [style*="rgba(2, 6, 23"],:root[data-theme="light"] .content [style*="rgba(2,6,23"] { background:var(--card) !important; background-image:none !important; border-color:var(--border) !important; color:var(--text) !important; }
+                    :root[data-theme="light"] .content [style*="color:#fff"],:root[data-theme="light"] .content [style*="color: #fff"],:root[data-theme="light"] .content [style*="color:white"],:root[data-theme="light"] .content [style*="color: white"],:root[data-theme="light"] .content [style*="color:#ffffff"],:root[data-theme="light"] .content [style*="color: #ffffff"],:root[data-theme="light"] .content [style*="color:#e5e7eb"],:root[data-theme="light"] .content [style*="color: #e5e7eb"],:root[data-theme="light"] .content [style*="color:#e2e8f0"],:root[data-theme="light"] .content [style*="color: #e2e8f0"],:root[data-theme="light"] .content [style*="color:#cbd5e1"],:root[data-theme="light"] .content [style*="color: #cbd5e1"] { color:var(--text) !important; }
+                </style>
             </section>
         </main>
     </div>

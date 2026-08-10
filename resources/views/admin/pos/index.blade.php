@@ -3457,8 +3457,8 @@
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false,
-                background: document.body.classList.contains('dark') ? '#111827' : '#ffffff',
-                color: document.body.classList.contains('dark') ? '#e5e7eb' : '#0f172a'
+                background: document.documentElement.dataset.theme === 'dark' ? '#111827' : '#ffffff',
+                color: document.documentElement.dataset.theme === 'dark' ? '#e5e7eb' : '#111827'
             });
         }
 

@@ -4,21 +4,14 @@
 
 @section('content')
 <style>
-    :root {
-        --bg-dashboard: #0b0f19;
-        --card-bg: rgba(17, 24, 39, 0.7);
-        --card-border: rgba(255, 255, 255, 0.06);
-        --text-muted: #9ca3af;
-        --accent-orange: #f97316;
+    .dashboard-container {
+        --dashboard-card-bg: var(--card);
+        --dashboard-card-border: var(--border);
+        --dashboard-muted: var(--muted);
+        --dashboard-text: var(--text);
+        --accent-orange: var(--primary);
         --accent-green: #10b981;
         --accent-red: #ef4444;
-    }
-
-    body {
-        background-color: var(--bg-dashboard);
-    }
-
-    .dashboard-container {
         padding: 24px;
         max-width: 1600px;
         margin: 0 auto;
@@ -33,9 +26,9 @@
     }
 
     .custom-card {
-        background: var(--card-bg);
+        background: var(--dashboard-card-bg);
         backdrop-filter: blur(12px);
-        border: 1px solid var(--card-border);
+        border: 1px solid var(--dashboard-card-border);
         border-radius: 8px;
         padding: 20px;
         transition: all 0.2s ease-in-out;
@@ -53,7 +46,7 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: var(--text-muted);
+        color: var(--dashboard-muted);
         display: block;
         margin-bottom: 8px;
     }
@@ -61,7 +54,7 @@
     .card-value {
         font-size: 28px;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--dashboard-text);
         line-height: 1.2;
     }
 
@@ -82,9 +75,9 @@
         align-items: flex-start;
         gap: 12px;
         padding: 12px 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid var(--dashboard-card-border);
         font-size: 14px;
-        color: #e5e7eb;
+        color: var(--dashboard-text);
         line-height: 1.5;
     }
 
@@ -141,7 +134,7 @@
 
         <div class="custom-card">
             <span class="card-label">Stock Crítico</span>
-            <div class="card-value" style="color: {{ $lowStock > 5 ? 'var(--accent-red)' : '#ffffff' }}">
+            <div class="card-value" style="color: {{ $lowStock > 5 ? 'var(--accent-red)' : 'var(--dashboard-text)' }}">
                 {{ $lowStock }}
             </div>
         </div>
@@ -187,12 +180,23 @@
         const labels = @json($salesChart->pluck('date'));
         const data = @json($salesChart->pluck('total'));
         const ctx = document.getElementById('salesChart').getContext('2d');
+        function chartTheme() {
+            const styles = getComputedStyle(document.documentElement);
+            const isLight = document.documentElement.dataset.theme === 'light';
+            return {
+                card: styles.getPropertyValue('--card').trim() || (isLight ? '#ffffff' : '#111827'),
+                text: styles.getPropertyValue('--text').trim() || (isLight ? '#111827' : '#ffffff'),
+                muted: styles.getPropertyValue('--muted').trim() || '#9ca3af',
+                border: styles.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.1)',
+                grid: isLight ? 'rgba(17, 24, 39, 0.08)' : 'rgba(255, 255, 255, 0.05)',
+            };
+        }
         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
 
         gradient.addColorStop(0, 'rgba(249, 115, 22, 0.25)');
         gradient.addColorStop(1, 'rgba(249, 115, 22, 0.0)');
 
-        new Chart(ctx, {
+        const salesChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
@@ -202,7 +206,7 @@
                     borderColor: '#f97316',
                     borderWidth: 3,
                     pointBackgroundColor: '#f97316',
-                    pointBorderColor: '#0b0f19',
+                    pointBorderColor: chartTheme().card,
                     pointBorderWidth: 2,
                     pointRadius: 4,
                     pointHoverRadius: 6,
@@ -219,10 +223,10 @@
                         display: false
                     },
                     tooltip: {
-                        backgroundColor: '#111827',
-                        titleColor: '#9ca3af',
-                        bodyColor: '#ffffff',
-                        borderColor: 'rgba(255,255,255,0.1)',
+                        backgroundColor: chartTheme().card,
+                        titleColor: chartTheme().muted,
+                        bodyColor: chartTheme().text,
+                        borderColor: chartTheme().border,
                         borderWidth: 1,
                         padding: 12,
                         boxPadding: 6,
@@ -232,11 +236,11 @@
                 scales: {
                     y: {
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.05)',
+                            color: chartTheme().grid,
                             drawBorder: false
                         },
                         ticks: {
-                            color: '#9ca3af',
+                            color: chartTheme().muted,
                             font: { size: 11 }
                         },
                         beginAtZero: true
@@ -246,12 +250,29 @@
                             display: false
                         },
                         ticks: {
-                            color: '#9ca3af',
+                            color: chartTheme().muted,
                             font: { size: 11 }
                         }
                     }
                 }
             }
+        });
+        function refreshChartTheme() {
+            const theme = chartTheme();
+            salesChart.data.datasets[0].pointBorderColor = theme.card;
+            salesChart.options.plugins.tooltip.backgroundColor = theme.card;
+            salesChart.options.plugins.tooltip.titleColor = theme.muted;
+            salesChart.options.plugins.tooltip.bodyColor = theme.text;
+            salesChart.options.plugins.tooltip.borderColor = theme.border;
+            salesChart.options.scales.y.grid.color = theme.grid;
+            salesChart.options.scales.y.ticks.color = theme.muted;
+            salesChart.options.scales.x.ticks.color = theme.muted;
+            salesChart.update('none');
+        }
+
+        new MutationObserver(refreshChartTheme).observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-theme']
         });
     });
 </script>

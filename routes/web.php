@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\{
     AgtSettingController,
     ShiftController,
     CurrentAccountController,
+    FinanceController,
     PurchaseController,
     SystemDateController,
     RestaurantController,
@@ -105,6 +106,11 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             ->middleware(['module.enabled:customer_card', 'operator.permission:reports.view'])
             ->name('reports.customer-cards.pdf');
         Route::middleware(['module.enabled:current_account', 'operator.permission:current_account.manage'])->group(function () {
+            Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');
+            Route::post('finance/expenses', [FinanceController::class, 'storeExpense'])->name('finance.expenses.store');
+            Route::post('finance/bank-accounts', [FinanceController::class, 'storeBankAccount'])->name('finance.bank-accounts.store');
+            Route::post('finance/bank-transactions', [FinanceController::class, 'storeBankTransaction'])->name('finance.bank-transactions.store');
+            Route::patch('finance/bank-transactions/{bankTransaction}/reconcile', [FinanceController::class, 'reconcile'])->whereNumber('bankTransaction')->name('finance.bank-transactions.reconcile');
             Route::get('current-accounts', [CurrentAccountController::class, 'index'])->name('current-accounts.index');
             Route::post('current-accounts', [CurrentAccountController::class, 'store'])->name('current-accounts.store');
             Route::post('current-accounts/settle', [CurrentAccountController::class, 'settle'])->name('current-accounts.settle');

@@ -6,58 +6,58 @@
     <style>
         .cc-shell {
             display: grid;
-            gap: 20px;
+            gap: 12px;
         }
 
         .cc-panel {
-            background: rgba(17, 24, 39, 0.78);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--card);
+            border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 20px;
+            padding: 7px 8px;
         }
 
         .cc-header {
             align-items: flex-start;
             display: flex;
             justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 20px;
+            gap: 8px;
+            margin-bottom: 12px;
         }
 
         .cc-title {
-            color: #fff;
-            font-size: 26px;
+            color: var(--text);
+            font-size: 20px;
             font-weight: 800;
             margin: 0;
         }
 
         .cc-subtitle {
-            color: #94a3b8;
-            font-size: 13px;
+            color: var(--muted);
+            font-size: 12px;
             margin-top: 5px;
         }
 
         .cc-grid {
             display: grid;
-            gap: 14px;
+            gap: 8px;
             grid-template-columns: repeat(4, minmax(0, 1fr));
         }
 
         .cc-form-grid {
             display: grid;
-            gap: 14px;
+            gap: 8px;
             grid-template-columns: repeat(6, minmax(0, 1fr));
         }
 
         .cc-field {
             display: flex;
             flex-direction: column;
-            gap: 7px;
+            gap: 4px;
         }
 
         .cc-field label {
-            color: #94a3b8;
-            font-size: 11px;
+            color: var(--muted);
+            font-size: 10px;
             font-weight: 800;
             letter-spacing: .08em;
             text-transform: uppercase;
@@ -65,12 +65,12 @@
 
         .cc-field input,
         .cc-field select {
-            background: #070a12;
-            border: 1px solid rgba(255, 255, 255, 0.09);
+            background: var(--input-bg);
+            border: 1px solid var(--border);
             border-radius: 8px;
-            color: #e5e7eb;
-            min-height: 43px;
-            padding: 10px 12px;
+            color: var(--text);
+            min-height: 32px;
+            padding: 6px 8px;
             width: 100%;
         }
 
@@ -79,26 +79,26 @@
         }
 
         .cc-stat {
-            background: rgba(255, 255, 255, 0.035);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--soft-bg);
+            border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 16px;
+            padding: 10px;
         }
 
         .cc-stat span {
-            color: #94a3b8;
+            color: var(--muted);
             display: block;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 800;
             letter-spacing: .08em;
             text-transform: uppercase;
         }
 
         .cc-stat strong {
-            color: #fff;
+            color: var(--text);
             display: block;
-            font-size: 24px;
-            margin-top: 8px;
+            font-size: 17px;
+            margin-top: 5px;
         }
 
         .cc-table-wrap {
@@ -112,23 +112,23 @@
         }
 
         .cc-table th {
-            background: rgba(255, 255, 255, 0.04);
-            color: #94a3b8;
-            font-size: 11px;
+            background: var(--soft-bg);
+            color: var(--muted);
+            font-size: 10px;
             letter-spacing: .08em;
-            padding: 12px;
+            padding: 7px 8px;
             text-align: left;
             text-transform: uppercase;
         }
 
         .cc-table td {
             border-top: 1px solid rgba(255, 255, 255, 0.06);
-            color: #e5e7eb;
-            padding: 13px 12px;
+            color: var(--text);
+            padding: 7px 8px;
         }
 
         .cc-muted {
-            color: #94a3b8;
+            color: var(--muted);
             font-size: 12px;
         }
 
@@ -149,7 +149,7 @@
         .cc-actions {
             align-items: end;
             display: flex;
-            gap: 10px;
+            gap: 8px;
         }
 
         .cc-btn {
@@ -160,8 +160,8 @@
             display: inline-flex;
             font-weight: 800;
             justify-content: center;
-            min-height: 43px;
-            padding: 0 16px;
+            min-height: 32px;
+            padding: 0 10px;
             text-decoration: none;
         }
 
@@ -171,33 +171,33 @@
         }
 
         .cc-btn-ghost {
-            background: rgba(255, 255, 255, 0.06);
-            color: #e5e7eb;
+            background: var(--soft-bg);
+            color: var(--text);
         }
 
         .cc-section-title {
-            color: #fff;
-            font-size: 15px;
+            color: var(--text);
+            font-size: 13px;
             font-weight: 900;
             margin-bottom: 6px;
         }
 
         .cc-section-note {
-            color: #94a3b8;
+            color: var(--muted);
             font-size: 12px;
             line-height: 1.45;
-            margin-bottom: 14px;
+            margin-bottom: 8px;
         }
 
         .cc-warning-note {
             background: rgba(251, 191, 36, 0.08);
             border: 1px solid rgba(251, 191, 36, 0.22);
             border-radius: 8px;
-            color: #fde68a;
+            color: #b45309;
             font-size: 12px;
             line-height: 1.45;
-            margin-bottom: 14px;
-            padding: 10px 12px;
+            margin-bottom: 8px;
+            padding: 6px 8px;
         }
 
         @media (max-width: 1000px) {

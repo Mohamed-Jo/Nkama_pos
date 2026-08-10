@@ -25,7 +25,7 @@
         .agt-card strong { color:var(--text); display:block; font-size:22px; margin-top:6px; }
         .agt-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
         .agt-tab { background:var(--card); border:1px solid var(--border); border-radius:8px; color:var(--text); font-weight:800; padding:8px 12px; text-decoration:none; }
-        .agt-tab.active { border-color:#38bdf8; color:#bae6fd; }
+        .agt-tab.active { border-color:var(--primary); color:var(--primary); }
         .agt-table { background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:18px; }
         .agt-table th, .agt-table td { border-bottom:1px solid var(--border); padding:12px; text-align:left; vertical-align:top; }
         .agt-table th { color:var(--muted); font-size:11px; text-transform:uppercase; }
