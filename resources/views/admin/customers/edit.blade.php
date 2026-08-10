@@ -36,6 +36,15 @@
             <textarea name="address" placeholder="Morada" style="width:100%; min-height:110px; margin-top:6px; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--input-bg); color:var(--input-text);">{{ old('address', $customer->address) }}</textarea>
         </label>
 
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <label style="display:block; color:var(--muted); font-size:12px; font-weight:800; text-transform:uppercase;">Desconto comercial (%)
+                <input name="discount_percent" type="number" min="0" max="100" step="0.01" value="{{ old('discount_percent', $customer->discount_percent ?? 0) }}" placeholder="0">
+            </label>
+            <label style="display:block; color:var(--muted); font-size:12px; font-weight:800; text-transform:uppercase;">Tabela de preco
+                <input name="price_table" value="{{ old('price_table', $customer->price_table) }}" placeholder="VIP, Grossista...">
+            </label>
+        </div>
         <label style="display:flex; gap:8px; align-items:center; color:var(--text);">
             <input type="checkbox" name="status" value="1" @checked(old('status', $customer->status))>
             Cliente ativo

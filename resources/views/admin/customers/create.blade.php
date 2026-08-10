@@ -17,6 +17,10 @@
 
         <textarea name="address" placeholder="Morada" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg"></textarea>
 
+        <input name="discount_percent" type="number" min="0" max="100" step="0.01" placeholder="Desconto comercial (%)" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg">
+
+        <input name="price_table" placeholder="Tabela de preco, ex: VIP" class="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg">
+
         <button class="accent-bg text-black px-6 py-3 rounded-lg font-semibold">
 
             Guardar Cliente

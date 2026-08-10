@@ -44,4 +44,14 @@ class StockTransfer extends Model
     {
         return $this->hasMany(StockTransferItem::class);
     }
+
+    public function approver()
+    {
+        return $this->belongsTo(Operator::class, 'approved_by');
+    }
+
+    public function rejecter()
+    {
+        return $this->belongsTo(Operator::class, 'rejected_by');
+    }
 }

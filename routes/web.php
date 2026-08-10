@@ -31,7 +31,8 @@ use App\Http\Controllers\Admin\{
     SystemDateController,
     RestaurantController,
     StockController,
-    WarehouseController
+    WarehouseController,
+    CommercialController
 };
 
 /*
@@ -165,6 +166,11 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
                 Route::patch('warehouses/transfers/{transfer}/reject', [WarehouseController::class, 'rejectTransfer'])->whereNumber('transfer')->name('warehouses.transfers.reject');
             });
             Route::resource('customers', CustomerController::class);
+            Route::get('commercial', [CommercialController::class, 'index'])->name('commercial.index');
+            Route::post('commercial/prices', [CommercialController::class, 'storePriceRule'])->name('commercial.prices.store');
+            Route::delete('commercial/prices/{priceRule}', [CommercialController::class, 'destroyPriceRule'])->whereNumber('priceRule')->name('commercial.prices.destroy');
+            Route::post('commercial/promotions', [CommercialController::class, 'storePromotion'])->name('commercial.promotions.store');
+            Route::delete('commercial/promotions/{promotion}', [CommercialController::class, 'destroyPromotion'])->whereNumber('promotion')->name('commercial.promotions.destroy');
             Route::resource('suppliers', SupplierController::class);
         });
 

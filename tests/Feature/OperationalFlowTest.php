@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\CommercialPriceRule;
+use App\Models\Customer;
 use App\Models\Operator;
 use App\Models\Payments;
 use App\Models\Product;
@@ -289,6 +291,46 @@ class OperationalFlowTest extends TestCase
         $this->assertSame(8, (int) ProductWarehouseStock::where('warehouse_id', $source->id)->where('product_id', $product->id)->value('quantity'));
         $this->assertSame(2, (int) ProductWarehouseStock::where('warehouse_id', $target->id)->where('product_id', $product->id)->value('quantity'));
         $this->assertSame(2, StockMovement::where('reference_type', 'stock_transfer')->where('reference_id', $transfer->id)->count());
+    }
+    public function test_commercial_proforma_uses_customer_price_rule_and_does_not_move_stock(): void
+    {
+        $operator = $this->operator('Comercial QA', 'admin');
+        $customer = Customer::create([
+            'name' => 'Cliente VIP QA',
+            'discount_percent' => 10,
+            'price_table' => 'VIP',
+            'status' => true,
+        ]);
+        $product = $this->product(['stock_quantity' => 5, 'selling_price' => 100, 'tax_rate' => 0]);
+
+        CommercialPriceRule::create([
+            'name' => 'VIP Produto QA',
+            'price_table' => 'VIP',
+            'product_id' => $product->id,
+            'unit_price' => 80,
+            'active' => true,
+        ]);
+
+        $this->withSession(['operator_id' => $operator->id, 'operator_role' => 'admin'])
+            ->postJson('/admin/sales', [
+                'customer_id' => $customer->id,
+                'items' => [['id' => $product->id, 'qty' => 1]],
+                'payments' => ['cash' => 0, 'card' => 0, 'multi' => 0, 'transf' => 0],
+                'total' => 68,
+                'commercial_discount' => 5,
+                'is_proforma' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $sale = Sale::latest()->firstOrFail();
+        $product->refresh();
+
+        $this->assertTrue((bool) $sale->is_proforma);
+        $this->assertSame('PROFORMA', $sale->document_type_code);
+        $this->assertSame(68.0, (float) $sale->total);
+        $this->assertSame(5, (int) $product->stock_quantity);
+        $this->assertSame(0, StockMovement::where('reference_type', 'sale')->where('reference_id', $sale->id)->count());
     }
     private function operator(string $name, string $role): Operator
     {

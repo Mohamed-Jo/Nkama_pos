@@ -29,6 +29,8 @@ class CustomerController extends Controller
             'phone' => ['nullable', 'string', 'max:60'],
             'email' => ['nullable', 'email', 'max:180', 'unique:customers,email'],
             'address' => ['nullable', 'string', 'max:500'],
+            'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'price_table' => ['nullable', 'string', 'max:40'],
         ]);
 
         $customer = Customer::create([
@@ -65,6 +67,8 @@ class CustomerController extends Controller
                 Rule::unique('customers', 'email')->ignore($customer->id),
             ],
             'address' => ['nullable', 'string', 'max:500'],
+            'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'price_table' => ['nullable', 'string', 'max:40'],
             'status' => ['nullable', 'boolean'],
         ]);
 

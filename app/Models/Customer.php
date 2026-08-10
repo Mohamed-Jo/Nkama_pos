@@ -11,7 +11,14 @@ class Customer extends Model
         'phone',
         'email',
         'address',
+        'discount_percent',
+        'price_table',
         'status'
+    ];
+
+    protected $casts = [
+        'discount_percent' => 'decimal:2',
+        'status' => 'boolean',
     ];
 
     public function card()

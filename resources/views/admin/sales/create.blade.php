@@ -89,6 +89,7 @@
             <h2 class="erp-title">Nova venda</h2>
             <div class="erp-actions">
                 <a class="erp-btn erp-btn-ghost" href="{{ route('admin.sales.index') }}">Voltar</a>
+                <button class="erp-btn erp-btn-secondary" id="save-proforma" type="button" onclick="emitProforma()">Guardar Proforma</button>
                 <button class="erp-btn erp-btn-primary" id="submit-sale" type="submit">Gravar / Pagar</button>
             </div>
         </div>
@@ -324,6 +325,8 @@
                 'phone' => $customer->phone,
                 'email' => $customer->email,
                 'address' => $customer->address,
+                'discount_percent' => (float) ($customer->discount_percent ?? 0),
+                'price_table' => $customer->price_table,
             ];
         })->values();
 
@@ -336,6 +339,7 @@
                 'tax' => (float) ($product->tax_rate ?? 0),
                 'stock' => (float) $product->stock_quantity,
                 'unit' => $product->unit,
+                'category_id' => $product->category_id,
             ];
         })->values();
     @endphp
@@ -361,8 +365,17 @@
             return currentCurrency() + ' ' + Number(value || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
-        function readCommercialDiscount() {
+        function readManualDiscount() {
             return Math.min(Math.max(Number(document.getElementById('commercial-discount')?.value || 0), 0), 100);
+        }
+
+        function readCustomerDiscount() {
+            const customer = selectedCustomerId ? findCustomer(selectedCustomerId) : null;
+            return Math.min(Math.max(Number(customer?.discount_percent || 0), 0), 100);
+        }
+
+        function readCommercialDiscount() {
+            return Math.min(readManualDiscount() + readCustomerDiscount(), 100);
         }
 
         function escapeHtml(value) {
@@ -384,7 +397,10 @@
 
         function customerMeta(customer) {
             if (!customer) return 'Sem cliente associado ao documento.';
-            return [customer.phone, customer.email, customer.address].filter(Boolean).join(' | ') || 'Cliente sem contactos registados.';
+            const details = [customer.phone, customer.email, customer.address].filter(Boolean);
+            if (Number(customer.discount_percent || 0) > 0) details.push('Desconto ' + Number(customer.discount_percent).toLocaleString('pt-PT') + '%');
+            if (customer.price_table) details.push('Tabela ' + customer.price_table);
+            return details.join(' | ') || 'Cliente sem contactos registados.';
         }
 
         function renderSelectedCustomer() {
@@ -753,7 +769,7 @@
                         currency: currentCurrency(),
                         exchange_rate: Number(document.getElementById('invoice-exchange-rate')?.value || 1),
                         exemption_reason: document.getElementById('exemption-reason')?.value || '',
-                        commercial_discount: readCommercialDiscount(),
+                        commercial_discount: readManualDiscount(),
                         payment_condition: document.getElementById('payment-condition')?.value || '',
                         due_date: document.getElementById('due-date')?.value || null,
                     }),
@@ -780,6 +796,44 @@
             }
         }
 
+
+        async function emitProforma() {
+            const totals = recalcSale();
+            const items = documentLines.map((line) => ({ id: line.id, qty: line.qty })).filter((item) => item.id && Number(item.qty) > 0);
+            if (!items.length) {
+                setStatus('Selecione pelo menos um artigo.', 'error');
+                return;
+            }
+            setStatus('A guardar proforma...', 'ok');
+            try {
+                const response = await fetch(storeUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify({
+                        customer_id: selectedCustomerId,
+                        items,
+                        payments: { cash: 0, card: 0, multi: 0, transf: 0 },
+                        total: totals.gross,
+                        currency: currentCurrency(),
+                        exchange_rate: Number(document.getElementById('invoice-exchange-rate')?.value || 1),
+                        exemption_reason: document.getElementById('exemption-reason')?.value || '',
+                        commercial_discount: readManualDiscount(),
+                        payment_condition: document.getElementById('payment-condition')?.value || 'Proforma',
+                        due_date: document.getElementById('due-date')?.value || null,
+                        is_proforma: true,
+                    }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) throw new Error(data.error || 'Nao foi possivel guardar a proforma.');
+                window.location.href = showUrlTemplate.replace('__SALE_ID__', data.sale_id);
+            } catch (error) {
+                setStatus(error.message, 'error');
+            }
+        }
         document.addEventListener('keydown', (event) => {
             if (event.key !== 'Escape') return;
             closeShiftModal();

@@ -29,6 +29,8 @@ class Sale extends Model
         'payment_method',
         'payment_status',
         'status',
+        'is_proforma',
+        'converted_sale_id',
         'currency',
         'exchange_rate',
         'exemption_reason',
@@ -45,6 +47,7 @@ class Sale extends Model
         'exchange_rate' => 'decimal:6',
         'commercial_discount' => 'decimal:2',
         'due_date' => 'date',
+        'is_proforma' => 'boolean',
     ];
 
 
@@ -86,6 +89,11 @@ class Sale extends Model
     public function documentSeries()
     {
         return $this->belongsTo(DocumentSeries::class, 'document_series_id');
+    }
+
+    public function convertedSale()
+    {
+        return $this->belongsTo(Sale::class, 'converted_sale_id');
     }
 
     public function creditNotes()

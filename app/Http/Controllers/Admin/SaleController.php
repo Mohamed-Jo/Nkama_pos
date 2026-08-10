@@ -14,6 +14,7 @@ use App\Models\StockMovement;
 use App\Services\AGTSeriesRequestService;
 use App\Services\AGTElectronicInvoiceService;
 use App\Services\BusinessSettings;
+use App\Services\CommercialPricingService;
 use App\Services\CustomerCardService;
 use App\Services\DocumentNumbering;
 use App\Services\ModuleSettings;
@@ -34,6 +35,9 @@ class SaleController extends Controller
         $operatorId = session('operator_id');
         $isCashier = session('operator_role') === 'cashier';
         $baseSalesQuery = Sale::query();
+        if (Schema::hasColumn('sales', 'is_proforma')) {
+            $baseSalesQuery->where('is_proforma', false);
+        }
 
         if ($isCashier) {
             $baseSalesQuery->where('operator_id', $operatorId);
@@ -150,14 +154,14 @@ class SaleController extends Controller
                 $query->whereNull('status')->orWhere('status', true);
             })
             ->orderBy('name')
-            ->get(['id', 'name', 'barcode', 'selling_price', 'tax_rate', 'stock_quantity', 'unit']);
+            ->get(['id', 'name', 'barcode', 'selling_price', 'tax_rate', 'stock_quantity', 'unit', 'category_id']);
 
         $customers = Customer::query()
             ->where(function ($query) {
                 $query->whereNull('status')->orWhere('status', true);
             })
             ->orderBy('name')
-            ->get(['id', 'name', 'phone', 'email', 'address']);
+            ->get(['id', 'name', 'phone', 'email', 'address', 'discount_percent', 'price_table']);
 
         $viewTicket = ModuleSettings::enabled('view_ticket');
         $shift = Shift::where('operator_id', session('operator_id'))
@@ -240,6 +244,7 @@ class SaleController extends Controller
             'commercial_discount' => 'nullable|numeric|min:0|max:100',
             'payment_condition' => 'nullable|string|max:120',
             'due_date' => 'nullable|date',
+            'is_proforma' => 'nullable|boolean',
         ]);
 
         try {
@@ -276,7 +281,10 @@ class SaleController extends Controller
             $multi = round((float) ($payments['multi'] ?? 0), 2);
 
             $invoiceSettings = BusinessSettings::invoice();
-            $commercialDiscount = round((float) $request->input('commercial_discount', $invoiceSettings['commercial_discount'] ?? 0), 2);
+            $customerId = $request->integer('customer_id') ?: null;
+            $customer = $customerId ? Customer::find($customerId) : null;
+            $isProforma = $request->boolean('is_proforma');
+            $commercialDiscount = round((float) $request->input('commercial_discount', $invoiceSettings['commercial_discount'] ?? 0) + app(CommercialPricingService::class)->customerDiscount($customer), 2);
             $currency = strtoupper(trim((string) $request->input('currency', $invoiceSettings['currency'] ?? 'AOA')));
             $exchangeRate = round(max((float) $request->input('exchange_rate', $invoiceSettings['exchange_rate'] ?? 1), 0.000001), 6);
             $paymentCondition = trim((string) $request->input('payment_condition', $invoiceSettings['payment_condition'] ?? 'Pronto pagamento'));
@@ -285,10 +293,9 @@ class SaleController extends Controller
 
             $total = round((float) $request->total, 2);
             $totalPaid = $cash + $card + $transf + $multi;
-            $calculated = $this->calculateSaleItems($request->items, $commercialDiscount, 'sales');
+            $calculated = $this->calculateSaleItems($request->items, $commercialDiscount, 'sales', $customer, ! $isProforma);
             $total = $calculated['total'];
-            $outstanding = round(max($total - $totalPaid, 0), 2);
-            $customerId = $request->integer('customer_id') ?: null;
+            $outstanding = $isProforma ? 0 : round(max($total - $totalPaid, 0), 2);
             $customerCard = null;
 
             if (ModuleSettings::enabled('customer_card') && $request->filled('customer_card_number')) {
@@ -323,7 +330,7 @@ class SaleController extends Controller
             // ==============================
             // TRANSACTION
             // ==============================
-            $sale = DB::transaction(function () use ($calculated, $operator, $operatorId, $totalPaid, $change, $cash, $card, $transf, $multi, $outstanding, $customerId, $customerCard, $currency, $exchangeRate, $paymentCondition, $exemptionReason, $dueDate) {
+            $sale = DB::transaction(function () use ($calculated, $operator, $operatorId, $totalPaid, $change, $cash, $card, $transf, $multi, $outstanding, $customerId, $customerCard, $currency, $exchangeRate, $paymentCondition, $exemptionReason, $dueDate, $isProforma) {
 
                 // SHIFT
                 $shift = Shift::where('operator_id', $operatorId)
@@ -355,7 +362,7 @@ class SaleController extends Controller
                     ? 'mixed'
                     : ($methodsUsed[0] ?? 'cash');
 
-                if ($outstanding > 0) {
+                if (! $isProforma && $outstanding > 0) {
                     $paymentMethod = $totalPaid > 0 ? 'mixed_credit' : 'credit';
                 }
 
@@ -363,8 +370,8 @@ class SaleController extends Controller
                     ? ($totalPaid > 0 ? 'partial' : 'unpaid')
                     : 'paid';
 
-                $documentType = $outstanding > 0 ? 'FT' : 'FR';
-                $document = DocumentNumbering::next($documentType);
+                $documentType = $isProforma ? 'PROFORMA' : ($outstanding > 0 ? 'FT' : 'FR');
+                $document = $isProforma ? ['invoice_number' => 'PRO-' . now()->format('Ymd-His'), 'document_type_code' => 'PROFORMA', 'document_series_id' => null, 'document_number' => null] : DocumentNumbering::next($documentType);
                 $invoiceNumber = $document['invoice_number'];
 
                 // ==============================
@@ -388,7 +395,8 @@ class SaleController extends Controller
                     'paid' => $totalPaid,
                     'change' => $change,
                     'payment_status' => $paymentStatus,
-                    'status' => $paymentStatus,
+                    'status' => $isProforma ? 'proforma' : $paymentStatus,
+                    'is_proforma' => $isProforma,
                     'currency' => $currency ?: 'AOA',
                     'exchange_rate' => $exchangeRate,
                     'exemption_reason' => $exemptionReason,
@@ -410,7 +418,7 @@ class SaleController extends Controller
                         throw new \Exception("Quantidade inválida {$product->name}");
                     }
 
-                    if (($product->track_stock ?? true) && $product->stock_quantity < $qty) {
+                    if (! $isProforma && ($product->track_stock ?? true) && $product->stock_quantity < $qty) {
                         throw new \Exception("Stock insuficiente {$product->name}");
                     }
 
@@ -424,7 +432,7 @@ class SaleController extends Controller
                         'net_subtotal' => $item['net_subtotal'],
                         'tax_rate' => $item['tax_rate'],
                         'tax_amount' => $item['tax_amount'],
-                    ]);                    if ($product->track_stock ?? true) {
+                    ]);                    if (! $isProforma && ($product->track_stock ?? true)) {
                         [$stockBefore, $stockAfter] = app(StockWarehouseService::class)->decrease($product, (int) ceil($qty), 'sales');
                         $movementWarehouseId = app(StockWarehouseService::class)->warehouseIdFor('sales');
 
@@ -468,7 +476,7 @@ class SaleController extends Controller
                     ]);
                 }
 
-                if ($outstanding > 0) {
+                if (! $isProforma && $outstanding > 0) {
                     CurrentAccountEntry::create([
                         'entity_type' => 'customer',
                         'entity_id' => $customerId,
@@ -488,14 +496,19 @@ class SaleController extends Controller
                 // ==============================
                 // $shift->increment('total', $total);
 
-                app(CustomerCardService::class)->earnFromSale($sale);
+                if (! $isProforma) {
+                    app(CustomerCardService::class)->earnFromSale($sale);
+                }
 
 
                 return $sale;
             });
 
-            app(AGTSeriesRequestService::class)->requestForSale($sale);
-            $agtDocument = $this->registerAgtSale($sale);
+            $agtDocument = null;
+            if (! $sale->is_proforma) {
+                app(AGTSeriesRequestService::class)->requestForSale($sale);
+                $agtDocument = $this->registerAgtSale($sale);
+            }
 
             // ==============================
             // RESPONSE
@@ -509,7 +522,7 @@ class SaleController extends Controller
                 'total' => $sale->total,
                 'paid' => $sale->paid,
                 'change' => $sale->change,
-                'message' => 'Venda concluida com sucesso',
+                'message' => $sale->is_proforma ? 'Proforma guardada com sucesso' : 'Venda concluida com sucesso',
                 'agt_status' => $agtDocument?->status,
                 'agt_status_label' => $agtDocument?->status_label,
                 'agt_message' => $agtDocument?->validation_message,
@@ -538,7 +551,7 @@ class SaleController extends Controller
             return null;
         }
     }
-    private function calculateSaleItems(array $items, float $discountPercent = 0, string $stockOperation = 'sales'): array
+    private function calculateSaleItems(array $items, float $discountPercent = 0, string $stockOperation = 'sales', ?Customer $customer = null, bool $checkStock = true): array
     {
         $calculatedItems = [];
         $grossTotal = 0.0;
@@ -554,11 +567,11 @@ class SaleController extends Controller
                 throw new \Exception("Quantidade invalida {$product->name}");
             }
 
-            if (! app(StockWarehouseService::class)->available($product, (int) ceil($qty), $stockOperation)) {
+            if ($checkStock && ! app(StockWarehouseService::class)->available($product, (int) ceil($qty), $stockOperation)) {
                 throw new \Exception("Stock insuficiente {$product->name}");
             }
 
-            $price = round((float) $product->selling_price, 2);
+            $price = round((float) app(CommercialPricingService::class)->priceFor($product, $customer)['unit_price'], 2);
             $gross = round($qty * $price, 2);
             $taxRate = round((float) ($product->tax_rate ?? 0), 2);
             $split = BusinessSettings::splitGrossTotal($gross, $taxRate);
