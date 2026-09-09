@@ -866,12 +866,22 @@
     </div>
 
     <!-- Campo oculto para guardar o método de pagamento selecionado -->
+    @php
+        $posPaymentButtonMeta = [
+            'cash' => ['color' => '#10b981', 'fallback' => 'Dinheiro', 'desc' => 'Calcula troco automaticamente'],
+            'card' => ['color' => '#38bdf8', 'fallback' => 'Multicaixa', 'desc' => 'TPA, cartao ou referencia'],
+            'transf' => ['color' => '#8b5cf6', 'fallback' => 'Transferencia', 'desc' => 'Pagamento bancario confirmado'],
+            'multi' => ['color' => '#f59e0b', 'fallback' => 'Pagamento Misto', 'desc' => 'Combina dinheiro e digital'],
+            'customer_card' => ['color' => '#22c55e', 'fallback' => 'Cartao Cliente', 'desc' => 'Usa bonus de pontos e saldo do cartao'],
+        ];
+        $posPaymentMethods = ($posPaymentMethods ?? collect())->filter(fn ($method) => ($method->code !== 'customer_card') || ($modules['customer_card'] ?? true))->values();
+        $defaultPosPaymentMethod = $posPaymentMethods->first()?->code ?: 'cash';
+        $posPaymentLabels = collect($posPaymentLabels ?? [])->merge($posPaymentMethods->pluck('name', 'code'));
+    @endphp
     <select id="select-metodo-pagamento" style="display: none;">
-        <option value="cash">Dinheiro</option>
-        <option value="card">Multicaixa</option>
-        <option value="transf">Transferência</option>
-        <option value="multi">Pagamento Misto</option>
-        <option value="customer_card">Cartao Cliente</option>
+        @foreach($posPaymentMethods as $method)
+            <option value="{{ $method->code }}" @selected($method->code === $defaultPosPaymentMethod)>{{ $method->name }}</option>
+        @endforeach
         @if($modules['current_account'] ?? true)
             <option value="credit">Conta Corrente</option>
         @endif
@@ -991,29 +1001,20 @@
                             style="display: block; font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; font-weight: bold;">Selecionar Método</label>
                         <div id="metodo-pagamento-ativo"
                             style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22); color: #34d399; padding: 6px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; margin-bottom: 6px;">
-                            Dinheiro selecionado
+                            {{ $posPaymentLabels[$defaultPosPaymentMethod] ?? 'Pagamento selecionado' }} selecionado
                         </div>
                         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;">
-                            <button type="button" onclick="selecionarMetodoPagamento('cash')" class="metodo-pagamento active" data-metodo="cash" data-cor="#10b981" data-label="Dinheiro" data-desc="Calcula troco automaticamente"
-                                style="background: #10b981; color: #020617; padding: 12px; border: 2px solid #10b981; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
-                                💵 Dinheiro
-                            </button>
-                            <button type="button" onclick="selecionarMetodoPagamento('card')" class="metodo-pagamento" data-metodo="card" data-cor="#38bdf8" data-label="Multicaixa" data-desc="TPA, cartao ou referencia"
-                                style="background: transparent; color: #38bdf8; padding: 12px; border: 2px solid #38bdf8; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
-                                💳 Multicaixa
-                            </button>
-                            <button type="button" onclick="selecionarMetodoPagamento('transf')" class="metodo-pagamento" data-metodo="transf" data-cor="#8b5cf6" data-label="Transferencia" data-desc="Pagamento bancario confirmado"
-                                style="background: transparent; color: #8b5cf6; padding: 12px; border: 2px solid #8b5cf6; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
-                                🏦 Transferência
-                            </button>
-                            <button type="button" onclick="selecionarMetodoPagamento('multi')" class="metodo-pagamento" data-metodo="multi" data-cor="#f59e0b" data-label="Pagamento Misto" data-desc="Combina dinheiro e digital"
-                                style="background: transparent; color: #f59e0b; padding: 12px; border: 2px solid #f59e0b; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
-                                🔀 Pagamento Misto
-                            </button>
-                            <button type="button" onclick="selecionarMetodoPagamento('customer_card')" class="metodo-pagamento" data-metodo="customer_card" data-cor="#22c55e" data-label="Cartao Cliente" data-desc="Usa bonus de pontos e saldo do cartao"
-                                style="background: transparent; color: #22c55e; padding: 12px; border: 2px solid #22c55e; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
-                                Fidelidade
-                            </button>                        </div>
+                            @foreach($posPaymentMethods as $method)
+                                @php
+                                    $meta = $posPaymentButtonMeta[$method->code] ?? ['color' => '#38bdf8', 'fallback' => $method->name, 'desc' => 'Pagamento configurado'];
+                                    $label = $method->name ?: $meta['fallback'];
+                                @endphp
+                                <button type="button" onclick="selecionarMetodoPagamento('{{ $method->code }}')" class="metodo-pagamento {{ $method->code === $defaultPosPaymentMethod ? 'active' : '' }}" data-metodo="{{ $method->code }}" data-cor="{{ $meta['color'] }}" data-label="{{ $label }}" data-desc="{{ $meta['desc'] }}"
+                                    style="background: {{ $method->code === $defaultPosPaymentMethod ? $meta['color'] : 'transparent' }}; color: {{ $method->code === $defaultPosPaymentMethod ? '#020617' : $meta['color'] }}; padding: 12px; border: 2px solid {{ $meta['color'] }}; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.3s;">
+                                    {{ $label }}
+                                </button>
+                            @endforeach
+                        </div>
                     </div>
 
 
@@ -1347,6 +1348,8 @@
         @endforeach
 
         const modulosAtivos = @json($modules ?? ['restaurant' => true, 'supermarket' => true]);
+        const paymentMethodLabels = @json(($posPaymentLabels ?? collect())->merge(['credit' => 'Conta Corrente', 'mixed' => ($posPaymentLabels['multi'] ?? 'Pagamento Misto'), 'mixed_credit' => 'Misto + Conta'])->all());
+        const defaultPaymentMethod = @json($defaultPosPaymentMethod ?? 'cash');
         const customerCardLookupUrl = @json(route('admin.customer-cards.lookup'));
         const customerCardOtpUrl = @json(route('admin.customer-cards.otp'));
         const customerCardAuthorizationRequestUrl = @json(route('admin.customer-cards.authorizations.request'));
@@ -2160,7 +2163,7 @@
             if (document.getElementById('input-pago-customer-card')) {
                 document.getElementById('input-pago-customer-card').value = 0;
             }
-            selecionarMetodoPagamento('cash');
+            selecionarMetodoPagamento(defaultPaymentMethod);
             
             // Mostrar modal
             const modal = document.getElementById('modal-pagamento');
@@ -2233,16 +2236,16 @@
             const splitWrapper = document.getElementById('payment-split-wrapper');
             const inputPrincipal = document.getElementById('input-valor-pago');
             const labelsValores = {
-                cash: 'Valor recebido em dinheiro',
-                card: 'Valor confirmado no Multicaixa',
-                transf: 'Valor confirmado na transferencia',
-                multi: 'Pagamento misto',
-                customer_card: 'Bonus de fidelidade e saldo do cartao',
+                cash: `Valor recebido em ${paymentMethodLabels.cash || 'dinheiro'}`,
+                card: `Valor confirmado em ${paymentMethodLabels.card || 'Multicaixa'}`,
+                transf: `Valor confirmado em ${paymentMethodLabels.transf || 'transferencia'}`,
+                multi: paymentMethodLabels.multi || 'Pagamento misto',
+                customer_card: paymentMethodLabels.customer_card || 'Cartao Cliente',
                 credit: 'Valor recebido agora'
             };
 
             if (labelValorPago) {
-                labelValorPago.innerText = labelsValores[metodo] || 'Valor recebido';
+                labelValorPago.innerText = labelsValores[metodo] || `Valor recebido em ${paymentMethodLabels[metodo] || 'pagamento'}`;
             }
 
             if (boxTroco) {
@@ -2302,16 +2305,8 @@
         }
 
         function abrirModalSucessoVenda(data, payload) {
-            const labels = {
-                cash: 'Dinheiro',
-                card: 'Multicaixa',
-                transf: 'Transferencia',
-                multi: 'Pagamento Misto',
-                mixed: 'Pagamento Misto',
-                credit: 'Conta Corrente',
-                mixed_credit: 'Misto + Conta',
-                customer_card: 'Cartao Cliente'
-            };
+            const labels = paymentMethodLabels;
+
 
             ultimaVendaId = data.sale_id || null;
 

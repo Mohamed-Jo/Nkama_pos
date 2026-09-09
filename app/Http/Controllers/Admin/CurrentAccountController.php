@@ -11,6 +11,9 @@ use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\Supplier;
+use App\Services\PaymentMethodRegistry;
+use App\Services\AccountingPostingService;
+use App\Services\FiscalYearService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +82,7 @@ class CurrentAccountController extends Controller
             'totalCredit' => (float) $totals->credit,
             'balance' => (float) $totals->debit - (float) $totals->credit,
             'filters' => $request->only(['entity_type', 'entity_id']),
+            'settlementPaymentMethods' => PaymentMethodRegistry::active('current_account'),
         ]);
     }
 
@@ -92,6 +96,12 @@ class CurrentAccountController extends Controller
             'entry_date' => ['required', 'date'],
             'description' => ['nullable', 'string', 'max:255'],
         ]);
+
+        try {
+            FiscalYearService::assertDateIsOpen($validated['entry_date']);
+        } catch (\Throwable $e) {
+            return back()->withInput()->withErrors(['entry_date' => $e->getMessage()]);
+        }
 
         $exists = $validated['entity_type'] === 'customer'
             ? Customer::whereKey($validated['entity_id'])->exists()
@@ -125,7 +135,7 @@ class CurrentAccountController extends Controller
             'operation' => ['required', Rule::in(['customer_receipt', 'supplier_payment'])],
             'entity_id' => ['required', 'integer', 'min:1'],
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'method' => ['required', Rule::in(['cash', 'card', 'transf'])],
+            'method' => ['required', Rule::in(PaymentMethodRegistry::codes('current_account'))],
             'entry_date' => ['required', 'date'],
             'description' => ['nullable', 'string', 'max:255'],
         ]);
@@ -142,6 +152,8 @@ class CurrentAccountController extends Controller
         }
 
         try {
+            FiscalYearService::assertDateIsOpen($validated['entry_date']);
+
             DB::transaction(function () use ($validated, $entityType) {
                 $operatorId = session('operator_id');
                 $shift = Shift::where('operator_id', $operatorId)
@@ -184,6 +196,8 @@ class CurrentAccountController extends Controller
                 } else {
                     $this->allocateSupplierPayment((int) $validated['entity_id'], $amount);
                 }
+
+                app(AccountingPostingService::class)->postCurrentAccountSettlement($entry);
             });
         } catch (\Throwable $e) {
             report($e);

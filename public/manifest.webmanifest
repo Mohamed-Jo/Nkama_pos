@@ -1,0 +1,13 @@
+{
+  "name": "Nkama POS",
+  "short_name": "Nkama POS",
+  "start_url": "/admin/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f97316",
+  "description": "Nkama POS com instalacao PWA e pagina offline segura.",
+  "icons": [
+    { "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

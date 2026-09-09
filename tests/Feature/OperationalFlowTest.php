@@ -331,6 +331,10 @@ class OperationalFlowTest extends TestCase
         $this->assertSame(68.0, (float) $sale->total);
         $this->assertSame(5, (int) $product->stock_quantity);
         $this->assertSame(0, StockMovement::where('reference_type', 'sale')->where('reference_id', $sale->id)->count());
+
+        $this->withSession(['operator_id' => $operator->id, 'operator_role' => 'admin'])
+            ->get("/admin/sales/{$sale->id}/proforma-pdf")
+            ->assertOk();
     }
     private function operator(string $name, string $role): Operator
     {

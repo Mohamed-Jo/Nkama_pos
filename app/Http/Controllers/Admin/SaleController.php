@@ -12,12 +12,15 @@ use App\Models\Sale;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Services\AGTSeriesRequestService;
+use App\Services\AccountingPostingService;
+use App\Services\FiscalYearService;
 use App\Services\AGTElectronicInvoiceService;
 use App\Services\BusinessSettings;
 use App\Services\CommercialPricingService;
 use App\Services\CustomerCardService;
 use App\Services\DocumentNumbering;
 use App\Services\ModuleSettings;
+use App\Services\PaymentMethodRegistry;
 use App\Services\StockWarehouseService;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -171,8 +174,10 @@ class SaleController extends Controller
         $canOpenShift = \App\Services\OperatorPermissions::allows(session('operator_role'), 'cash.operate');
         $invoiceSettings = BusinessSettings::invoice();
         $invoiceDueDate = now()->addDays((int) ($invoiceSettings['due_days'] ?? 0))->toDateString();
+        $salePaymentMethods = PaymentMethodRegistry::active('sales')->values();
+        $salePaymentLabels = $salePaymentMethods->pluck('name', 'code');
 
-        return view('admin.sales.create', compact('products', 'customers', 'viewTicket', 'shift', 'canOpenShift', 'invoiceSettings', 'invoiceDueDate'));
+        return view('admin.sales.create', compact('products', 'customers', 'viewTicket', 'shift', 'canOpenShift', 'invoiceSettings', 'invoiceDueDate', 'salePaymentMethods', 'salePaymentLabels'));
     }
     public function show($id)
     {
@@ -211,6 +216,28 @@ class SaleController extends Controller
         ])->setPaper('a4', 'portrait')
             ->stream('fatura-' . str_replace(['/', ' '], '-', $sale->invoice_number) . '.pdf');
     }
+    public function proformaPdf($id)
+    {
+        $sale = Sale::with('operator', 'items.product', 'customer')
+            ->findOrFail($id);
+
+        if (! $sale->is_proforma) {
+            abort(404, 'Este documento nao e uma proforma.');
+        }
+
+        if (session('operator_role') === 'cashier' && (int) $sale->operator_id !== (int) session('operator_id')) {
+            abort(403, 'Sem permissao para ver esta proforma.');
+        }
+
+        $company = BusinessSettings::company();
+
+        return Pdf::loadView('admin.sales.proforma-pdf', [
+            'sale' => $sale,
+            'company' => $company,
+            'logoUrl' => BusinessSettings::logoDataUri($company),
+        ])->setPaper('a4', 'portrait')
+            ->stream('proforma-' . str_replace(['/', ' '], '-', $sale->invoice_number) . '.pdf');
+    }
     public function ticket($id)
     {
         $sale = Sale::with('operator', 'items.product', 'payments', 'agtDocument', 'customer.card', 'customerCard.balanceTransactions', 'pointTransactions')
@@ -248,6 +275,7 @@ class SaleController extends Controller
         ]);
 
         try {
+            FiscalYearService::assertDateIsOpen(now(), 'Abra um exercicio fiscal antes de faturar.');
 
             // ==============================
             // OPERATOR SESSION
@@ -275,10 +303,23 @@ class SaleController extends Controller
             // ==============================
             $payments = $request->input('payments', []);
 
+            $allowedSalePaymentMethods = PaymentMethodRegistry::codes('sales');
+            $payments = collect($payments)
+                ->map(fn ($amount) => round((float) $amount, 2))
+                ->filter(fn ($amount) => $amount > 0)
+                ->all();
+
+            foreach ($payments as $method => $amount) {
+                if (! in_array($method, $allowedSalePaymentMethods, true)) {
+                    return response()->json(['success' => false, 'error' => 'Forma de pagamento desativada para vendas.'], 422);
+                }
+            }
+
             $cash = round((float) ($payments['cash'] ?? 0), 2);
             $card = round((float) ($payments['card'] ?? 0), 2);
             $transf = round((float) ($payments['transf'] ?? 0), 2);
             $multi = round((float) ($payments['multi'] ?? 0), 2);
+            $customPaymentsTotal = collect($payments)->except(['cash', 'card', 'transf', 'multi'])->sum();
 
             $invoiceSettings = BusinessSettings::invoice();
             $customerId = $request->integer('customer_id') ?: null;
@@ -292,7 +333,7 @@ class SaleController extends Controller
             $dueDate = $request->input('due_date') ?: now()->addDays((int) ($invoiceSettings['due_days'] ?? 0))->toDateString();
 
             $total = round((float) $request->total, 2);
-            $totalPaid = $cash + $card + $transf + $multi;
+            $totalPaid = $cash + $card + $transf + $multi + $customPaymentsTotal;
             $calculated = $this->calculateSaleItems($request->items, $commercialDiscount, 'sales', $customer, ! $isProforma);
             $total = $calculated['total'];
             $outstanding = $isProforma ? 0 : round(max($total - $totalPaid, 0), 2);
@@ -330,7 +371,7 @@ class SaleController extends Controller
             // ==============================
             // TRANSACTION
             // ==============================
-            $sale = DB::transaction(function () use ($calculated, $operator, $operatorId, $totalPaid, $change, $cash, $card, $transf, $multi, $outstanding, $customerId, $customerCard, $currency, $exchangeRate, $paymentCondition, $exemptionReason, $dueDate, $isProforma) {
+            $sale = DB::transaction(function () use ($calculated, $operator, $operatorId, $totalPaid, $change, $cash, $card, $transf, $multi, $payments, $outstanding, $customerId, $customerCard, $currency, $exchangeRate, $paymentCondition, $exemptionReason, $dueDate, $isProforma) {
 
                 // SHIFT
                 $shift = Shift::where('operator_id', $operatorId)
@@ -347,13 +388,8 @@ class SaleController extends Controller
                 // ==============================
                 $methodsUsed = [];
 
-                foreach ([
-                    'cash' => $cash,
-                    'card' => $card,
-                    'transf' => $transf,
-                    'multi' => $multi
-                ] as $k => $v) {
-                    if (round($v, 2) > 0) {
+                foreach ($payments as $k => $v) {
+                    if (round((float) $v, 2) > 0) {
                         $methodsUsed[] = $k;
                     }
                 }
@@ -455,12 +491,8 @@ class SaleController extends Controller
                 // ==============================
                 // PAYMENTS SAVE
                 // ==============================
-                $paymentAmounts = $this->netPaymentAmounts([
-                    'cash' => $cash,
-                    'card' => $card,
-                    'transf' => $transf,
-                    'multi' => $multi
-                ], $change);
+                $paymentAmounts = $this->netPaymentAmounts($payments, $change);
+
 
                 foreach ($paymentAmounts as $method => $amount) {
 
@@ -498,6 +530,7 @@ class SaleController extends Controller
 
                 if (! $isProforma) {
                     app(CustomerCardService::class)->earnFromSale($sale);
+                    app(AccountingPostingService::class)->postSale($sale->load('payments'));
                 }
 
 

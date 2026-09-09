@@ -10,6 +10,7 @@ use App\Models\StockTransferItem;
 use App\Models\StockMovement;
 use App\Models\ProductStockBatch;
 use App\Models\Warehouse;
+use App\Services\AuditLogger;
 use App\Services\ModuleSettings;
 use App\Services\StockWarehouseService;
 use Illuminate\Http\RedirectResponse;
@@ -126,6 +127,14 @@ class WarehouseController extends Controller
                     'notes' => $validated['notes'] ?? null,
                 ]);
 
+                AuditLogger::log('stock_transfer_requested', 'StockTransfer', $transfer->id, [
+                    'reference' => $transfer->reference,
+                    'from_warehouse_id' => $validated['from_warehouse_id'],
+                    'to_warehouse_id' => $validated['to_warehouse_id'],
+                    'product_id' => $product->id,
+                    'quantity' => (int) $validated['quantity'],
+                ], 'warning');
+
                 StockTransferItem::create([
                     'stock_transfer_id' => $transfer->id,
                     'product_id' => $product->id,
@@ -215,6 +224,11 @@ class WarehouseController extends Controller
                     'approved_by' => session('operator_id'),
                     'approved_at' => now(),
                 ]);
+
+                AuditLogger::log('stock_transfer_approved', 'StockTransfer', $transfer->id, [
+                    'reference' => $transfer->reference,
+                    'approved_by' => session('operator_id'),
+                ], 'warning');
             });
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
@@ -236,6 +250,11 @@ class WarehouseController extends Controller
             'rejected_at' => now(),
             'rejection_reason' => $validated['rejection_reason'] ?? null,
         ]);
+
+        AuditLogger::log('stock_transfer_rejected', 'StockTransfer', $transfer->id, [
+            'reference' => $transfer->reference,
+            'reason' => $validated['rejection_reason'] ?? null,
+        ], 'warning');
 
         return back()->with('success', 'Transferencia rejeitada.');
     }

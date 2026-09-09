@@ -11,6 +11,8 @@ use App\Models\PurchaseReturn;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Services\ModuleSettings;
+use App\Services\AccountingPostingService;
+use App\Services\FiscalYearService;
 use App\Services\OperatorPermissions;
 use App\Services\StockWarehouseService;
 use Illuminate\Http\Request;
@@ -78,6 +80,12 @@ class PurchaseController extends Controller
             'attachments' => ['nullable', 'array'],
             'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx', 'max:5120'],
         ]);
+
+        try {
+            FiscalYearService::assertDateIsOpen($validated['purchase_date']);
+        } catch (\Throwable $e) {
+            return back()->withInput()->withErrors(['purchase_date' => $e->getMessage()]);
+        }
 
         if ($validated['payment_type'] === 'credit' && !ModuleSettings::enabled('current_account')) {
             return back()->withInput()->withErrors(['payment_type' => 'Ative o modulo de conta corrente para registar compras a credito.']);
@@ -238,6 +246,8 @@ class PurchaseController extends Controller
 
                 $purchase->update(['current_account_entry_id' => $entry->id]);
             }
+
+            app(AccountingPostingService::class)->postPurchaseApproval($purchase->refresh());
         });
 
         return back()->with('success', 'Compra aprovada com sucesso.');
@@ -368,6 +378,8 @@ class PurchaseController extends Controller
         ]);
 
         try {
+            FiscalYearService::assertDateIsOpen($validated['return_date']);
+
             DB::transaction(function () use ($purchase, $validated, $request) {
                 $purchase->load('items.product');
                 $return = PurchaseReturn::create([
@@ -449,6 +461,8 @@ class PurchaseController extends Controller
                         'operator_id' => session('operator_id'),
                     ]);
                 }
+
+                app(AccountingPostingService::class)->postPurchaseReturn($return->refresh());
             });
         } catch (\Throwable $e) {
             report($e);
@@ -484,6 +498,8 @@ class PurchaseController extends Controller
         $receivedAny = false;
 
         try {
+            FiscalYearService::assertDateIsOpen(now(), 'Abra um exercicio fiscal antes de receber stock.');
+
             DB::transaction(function () use ($purchase, $receivedInput, &$receivedAny, $request) {
                 $purchase->load('items.product');
 

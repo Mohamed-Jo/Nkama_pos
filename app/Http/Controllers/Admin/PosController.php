@@ -16,12 +16,15 @@ use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\StockMovement;
 use App\Services\AuditLogger;
+use App\Services\AccountingPostingService;
+use App\Services\FiscalYearService;
 use App\Services\AGTElectronicInvoiceService;
 use App\Services\BusinessSettings;
 use App\Services\CustomerCardAuthorizationService;
 use App\Services\CustomerCardOtpService;
 use App\Services\CustomerCardService;
 use App\Services\OperatorPermissions;
+use App\Services\PaymentMethodRegistry;
 use App\Services\DocumentNumbering;
 use App\Services\ModuleSettings;
 use App\Services\StockWarehouseService;
@@ -94,6 +97,8 @@ class PosController extends Controller
             'todayCashSales' => $todayCashSales,
             'todayCardSales' => $todayCardSales,
             'shift' => Shift::where('operator_id', session('operator_id'))->where('status', 'open')->first(),
+            'posPaymentMethods' => PaymentMethodRegistry::active('pos')->values(),
+            'posPaymentLabels' => PaymentMethodRegistry::labels('pos'),
             'tables' => RestaurantTable::with('currentOrder')
                 ->when(!$this->currentOperatorCanReleaseAnyTable(), function ($query) use ($operatorId) {
                     $query->where(function ($query) use ($operatorId) {
@@ -147,6 +152,8 @@ class PosController extends Controller
         }
 
         try {
+            FiscalYearService::assertDateIsOpen(now(), 'Abra um exercicio fiscal antes de vender.');
+
             $sale = DB::transaction(function () use ($request) {
                 $operatorId = session('operator_id');
                 $operator = $operatorId ? Operator::find($operatorId) : null;
@@ -170,6 +177,9 @@ class PosController extends Controller
                 }
 
                 $paymentMethod = $request->input('payment_method', 'cash');
+                if ($paymentMethod !== 'credit' && ! PaymentMethodRegistry::supports($paymentMethod, 'pos')) {
+                    throw new \Exception('Forma de pagamento desativada para o POS.');
+                }
                 $stockOperation = $request->filled('table_id') ? 'restaurant' : 'supermarket';
                 $calculated = $this->calculateSaleItems($request->items, $stockOperation);
                 $total = $calculated['total'];
@@ -379,6 +389,7 @@ class PosController extends Controller
                 }
 
                 app(CustomerCardService::class)->earnFromSale($sale);
+                app(AccountingPostingService::class)->postSale($sale->load('payments'));
 
                 $this->applyRestaurantSplitPayment($request, $operator);
 

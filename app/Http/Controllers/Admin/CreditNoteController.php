@@ -15,6 +15,7 @@ use App\Models\Sale;
 use App\Models\Shift;
 use App\Models\StockMovement;
 use App\Services\AGTElectronicInvoiceService;
+use App\Services\AccountingPostingService;
 use App\Services\BusinessSettings;
 use App\Services\DocumentNumbering;
 use App\Services\DirectPrintService;
@@ -218,6 +219,8 @@ class CreditNoteController extends Controller
                         'notes' => 'Reembolso NC ' . $creditNote->invoice_number,
                     ]));
                 }
+
+                app(AccountingPostingService::class)->postCreditNote($creditNote->load('payments'));
 
                 return $creditNote;
             });

@@ -304,11 +304,28 @@
                 <div class="total-line"><span>Troco</span><strong id="payment-change-total">AOA 0,00</strong></div>
                 <div class="total-line"><span>Pendente</span><strong id="payment-due-total">AOA 0,00</strong></div>
             </div>
+            @php
+                $paymentInputs = [
+                    'cash' => ['id' => 'pay-cash', 'fallback' => 'Numerario'],
+                    'card' => ['id' => 'pay-card', 'fallback' => 'Cartao'],
+                    'multi' => ['id' => 'pay-multi', 'fallback' => 'Pagamento Misto'],
+                    'transf' => ['id' => 'pay-transf', 'fallback' => 'Transferencia'],
+                ];
+                foreach (($salePaymentMethods ?? collect()) as $method) {
+                    if (! isset($paymentInputs[$method->code])) {
+                        $paymentInputs[$method->code] = ['id' => 'pay-' . str_replace('_', '-', $method->code), 'fallback' => $method->name];
+                    }
+                }
+                $salePaymentLabels = $salePaymentLabels ?? collect();
+            @endphp
             <div class="payment-grid">
-                <div class="erp-field"><label>Numerario</label><input class="payment-input erp-number" id="pay-cash" type="number" min="0" step="0.01" value="0"></div>
-                <div class="erp-field"><label>Cartao</label><input class="payment-input erp-number" id="pay-card" type="number" min="0" step="0.01" value="0"></div>
-                <div class="erp-field"><label>Multicaixa</label><input class="payment-input erp-number" id="pay-multi" type="number" min="0" step="0.01" value="0"></div>
-                <div class="erp-field"><label>Transferencia</label><input class="payment-input erp-number" id="pay-transf" type="number" min="0" step="0.01" value="0"></div>
+                @foreach($paymentInputs as $code => $input)
+                    @if($salePaymentLabels->has($code))
+                        <div class="erp-field"><label>{{ $salePaymentLabels[$code] ?: $input['fallback'] }}</label><input class="payment-input erp-number" id="{{ $input['id'] }}" data-payment-code="{{ $code }}" type="number" min="0" step="0.01" value="0"></div>
+                    @else
+                        <input id="{{ $input['id'] }}" data-payment-code="{{ $code }}" type="hidden" value="0">
+                    @endif
+                @endforeach
             </div>
             <div class="erp-actions">
                 <button class="erp-btn erp-btn-ghost" type="button" onclick="closePaymentModal()">Cancelar</button>
@@ -494,16 +511,14 @@
         }
 
         function readPayments() {
-            return {
-                cash: Number(document.getElementById('pay-cash').value || 0),
-                card: Number(document.getElementById('pay-card').value || 0),
-                multi: Number(document.getElementById('pay-multi').value || 0),
-                transf: Number(document.getElementById('pay-transf').value || 0),
-            };
+            const payments = {};
+            document.querySelectorAll('[data-payment-code]').forEach((input) => {
+                payments[input.dataset.paymentCode] = Number(input.value || 0);
+            });
+            return payments;
         }
         function paymentTotal() {
-            const payments = readPayments();
-            return payments.cash + payments.card + payments.multi + payments.transf;
+            return Object.values(readPayments()).reduce((sum, value) => sum + Number(value || 0), 0);
         }
 
         function applyShiftState(open) {

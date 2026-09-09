@@ -8,6 +8,7 @@ use App\Models\Payments;
 use App\Models\Shift;
 use App\Services\BusinessSettings;
 use App\Services\DirectPrintService;
+use App\Services\PaymentMethodSummary;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
@@ -130,9 +131,10 @@ class ShiftController extends Controller
             'shift_id'            => $shift->id,
             'opening_cash'        => $shift->opening_cash,
             'cash_sales_total'    => $cashTotal,
-            'card_sales_total'    => $cardTotal,
-            'multi_sales_total'   => $multiTotal,
-            'transf_sales_total'  => $transfTotal,
+            'card_sales_total'    => (float) optional($paymentMethodTotals->firstWhere('code', 'card'))->total,
+            'multi_sales_total'   => (float) optional($paymentMethodTotals->firstWhere('code', 'multi'))->total,
+            'transf_sales_total'  => (float) optional($paymentMethodTotals->firstWhere('code', 'transf'))->total,
+            'payment_method_totals' => $paymentMethodTotals,
             'expected'            => $expectedCashPhysical, // Foco no dinheiro físico
             'total_sales'         => $totalSystemSales,
             'sales_count'         => $salesCount
@@ -180,9 +182,9 @@ class ShiftController extends Controller
             'status'             => 'closed',
             'closed_at'          => now(),
             'cash_sales_total'   => $cashTotal,
-            'card_sales_total'   => $cardTotal,
-            'multi_sales_total'  => $multiTotal,
-            'transf_sales_total' => $transfTotal,
+            'card_sales_total'   => (float) optional($paymentMethodTotals->firstWhere('code', 'card'))->total,
+            'multi_sales_total'  => (float) optional($paymentMethodTotals->firstWhere('code', 'multi'))->total,
+            'transf_sales_total' => (float) optional($paymentMethodTotals->firstWhere('code', 'transf'))->total,
             'expected_cash'      => $expectedCashPhysical,
             'closing_cash'       => $countedCash,
             'difference'         => $difference,
@@ -211,9 +213,10 @@ class ShiftController extends Controller
             'counted_cash'       => $countedCash,
             'difference'         => $difference,
             'cash_sales_total'   => $cashTotal,
-            'card_sales_total'   => $cardTotal,
-            'multi_sales_total'  => $multiTotal,
-            'transf_sales_total' => $transfTotal,
+            'card_sales_total'   => (float) optional($paymentMethodTotals->firstWhere('code', 'card'))->total,
+            'multi_sales_total'  => (float) optional($paymentMethodTotals->firstWhere('code', 'multi'))->total,
+            'transf_sales_total' => (float) optional($paymentMethodTotals->firstWhere('code', 'transf'))->total,
+            'payment_method_totals' => $paymentMethodTotals,
             'total_sales'        => $totalSystemSales,
             'sales_count'        => $salesCount
         ]);
@@ -230,6 +233,10 @@ class ShiftController extends Controller
         $shifts = Shift::where('status', 'closed')
             ->orderBy('closed_at', 'desc')
             ->paginate(15);
+
+        $shifts->getCollection()->each(function ($shift) {
+            $shift->payment_method_totals = PaymentMethodSummary::totalsForShift($shift->id);
+        });
 
         return view('admin.shifts.history', compact('shifts'));
     }
@@ -248,7 +255,10 @@ class ShiftController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        return view('admin.shifts.show', compact('shift', 'payments', 'cashMovements'));
+        $paymentMethodTotals = PaymentMethodSummary::totalsForCollections($payments, $cashMovements);
+        $paymentMethodLabels = PaymentMethodSummary::labels();
+
+        return view('admin.shifts.show', compact('shift', 'payments', 'cashMovements', 'paymentMethodTotals', 'paymentMethodLabels'));
     }
 
     private function methodTotal(int $shiftId, string $method): float
@@ -273,10 +283,14 @@ class ShiftController extends Controller
             $cashMovements = CashMovement::where('shift_id', $shift->id)->orderBy('created_at')->get();
             $company = BusinessSettings::company();
 
+            $paymentMethodTotals = PaymentMethodSummary::totalsForCollections($payments, $cashMovements);
+
             $printer->printView('admin.shifts.ticket', [
                 'shift' => $shift,
                 'payments' => $payments,
                 'cashMovements' => $cashMovements,
+                'paymentMethodTotals' => $paymentMethodTotals,
+                'paymentMethodLabels' => PaymentMethodSummary::labels(),
                 'company' => $company,
                 'logoUrl' => BusinessSettings::logoUrl($company),
                 'printSettings' => BusinessSettings::print(),

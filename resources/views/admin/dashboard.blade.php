@@ -95,6 +95,21 @@
         flex-shrink: 0;
     }
 
+
+    .dashboard-filter {
+        align-items: center;
+        background: var(--dashboard-card-bg);
+        border: 1px solid var(--dashboard-card-border);
+        border-radius: 8px;
+        display: flex;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding: 12px;
+    }
+
+    .dashboard-filter label { color: var(--dashboard-muted); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+    .dashboard-filter select { background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--input-text); padding: 9px 10px; min-width: 220px; }
+    .dashboard-filter a { color: var(--accent-orange); font-weight: 800; text-decoration: none; }
     @media (max-width: 1024px) {
         .dashboard-layout-bottom {
             grid-template-columns: 1fr;
@@ -103,6 +118,18 @@
 </style>
 
 <div class="dashboard-container">
+    <form method="GET" action="{{ route('admin.dashboard') }}" class="dashboard-filter">
+        <label for="warehouse_id">Filial</label>
+        <select id="warehouse_id" name="warehouse_id" onchange="this.form.submit()">
+            <option value="">Todas filiais</option>
+            @foreach ($warehouses as $warehouse)
+                <option value="{{ $warehouse->id }}" @selected((int) $selectedWarehouseId === (int) $warehouse->id)>{{ $warehouse->name }}</option>
+            @endforeach
+        </select>
+        @if ($selectedWarehouseId)
+            <a href="{{ route('admin.dashboard') }}">Limpar</a>
+        @endif
+    </form>
     <div class="metrics-grid">
         <div class="custom-card">
             <span class="card-label">Vendas Hoje</span>

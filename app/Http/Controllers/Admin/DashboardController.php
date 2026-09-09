@@ -5,24 +5,38 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\ProductWarehouseStock;
 use App\Models\Sale;
 use App\Models\Shift;
+use App\Models\StockMovement;
 use App\Models\Supplier;
+use App\Models\Warehouse;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $today = Carbon::today();
         $now = Carbon::now();
         $operatorId = session('operator_id');
         $isCashier = session('operator_role') === 'cashier';
+        $selectedWarehouseId = $request->integer('warehouse_id') ?: null;
+        $warehouses = Warehouse::orderBy('name')->get(['id', 'name']);
 
-        $paidSales = Sale::where('status', 'paid');
-        if ($isCashier) {
-            $paidSales->where('operator_id', $operatorId);
+        $warehouseSaleIds = collect();
+        if ($selectedWarehouseId) {
+            $warehouseSaleIds = StockMovement::where('warehouse_id', $selectedWarehouseId)
+                ->where('reference_type', Sale::class)
+                ->pluck('reference_id')
+                ->unique()
+                ->values();
         }
+
+        $paidSales = Sale::where('status', 'paid')
+            ->when($isCashier, fn ($query) => $query->where('operator_id', $operatorId))
+            ->when($selectedWarehouseId, fn ($query) => $query->whereIn('id', $warehouseSaleIds));
 
         $todaySales = (clone $paidSales)->whereDate('created_at', $today)->sum('total');
         $totalSales = (clone $paidSales)->sum('total');
@@ -31,6 +45,7 @@ class DashboardController extends Controller
         $dailyTotalsLast30 = Sale::selectRaw('DATE(created_at) as sale_date, SUM(total) as total')
             ->where('status', 'paid')
             ->when($isCashier, fn ($query) => $query->where('operator_id', $operatorId))
+            ->when($selectedWarehouseId, fn ($query) => $query->whereIn('id', $warehouseSaleIds))
             ->whereDate('created_at', '>=', $now->copy()->subDays(29)->toDateString())
             ->groupBy('sale_date')
             ->pluck('total', 'sale_date');
@@ -40,7 +55,9 @@ class DashboardController extends Controller
             ->avg() ?? 0;
 
         $productsCount = Product::count();
-        $lowStock = Product::whereColumn('stock_quantity', '<=', 'minimum_stock')->count();
+        $lowStock = $selectedWarehouseId
+            ? ProductWarehouseStock::where('warehouse_id', $selectedWarehouseId)->whereColumn('quantity', '<=', 'minimum_stock')->count()
+            : Product::whereColumn('stock_quantity', '<=', 'minimum_stock')->count();
         $customers = Customer::count();
 
         $shiftOpen = $operatorId
@@ -50,6 +67,7 @@ class DashboardController extends Controller
         $salesChartSource = Sale::selectRaw('DATE(created_at) as sale_date, SUM(total) as total')
             ->where('status', 'paid')
             ->when($isCashier, fn ($query) => $query->where('operator_id', $operatorId))
+            ->when($selectedWarehouseId, fn ($query) => $query->whereIn('id', $warehouseSaleIds))
             ->whereDate('created_at', '>=', $now->copy()->subDays(6)->toDateString())
             ->groupBy('sale_date')
             ->pluck('total', 'sale_date');
@@ -82,7 +100,7 @@ class DashboardController extends Controller
         $insights = [];
 
         if ($lowStock > 5) {
-            $insights[] = "Atenção: Tens $lowStock produtos com stock crítico ou rutura.";
+            $insights[] = "Atencao: Tens $lowStock produtos com stock critico ou rutura.";
         }
 
         if ($inactiveSuppliers > $activeSuppliers && $totalSuppliers > 0) {
@@ -90,15 +108,15 @@ class DashboardController extends Controller
         }
 
         if ($salesAverage > 0 && $todaySales < ($salesAverage * 0.5)) {
-            $insights[] = 'O volume de faturação de hoje está abaixo de 50% da média diária dos últimos 30 dias.';
+            $insights[] = 'O volume de faturacao de hoje esta abaixo de 50% da media diaria dos ultimos 30 dias.';
         }
 
         if ($growth > 20) {
-            $insights[] = 'Ritmo forte: A tua base de fornecedores cresceu ' . number_format($growth, 1) . '% em relação ao mês passado.';
+            $insights[] = 'Ritmo forte: A tua base de fornecedores cresceu ' . number_format($growth, 1) . '% em relacao ao mes passado.';
         }
 
         if (empty($insights)) {
-            $insights[] = 'Tudo operacional. O sistema apresenta um comportamento saudável e estável.';
+            $insights[] = 'Tudo operacional. O sistema apresenta um comportamento saudavel e estavel.';
         }
 
         return view('admin.dashboard', compact(
@@ -115,7 +133,9 @@ class DashboardController extends Controller
             'activeSuppliers',
             'inactiveSuppliers',
             'growth',
-            'insights'
+            'insights',
+            'warehouses',
+            'selectedWarehouseId'
         ));
     }
 }

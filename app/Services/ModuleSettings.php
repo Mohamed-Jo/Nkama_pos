@@ -15,6 +15,7 @@ class ModuleSettings
         'stock_warehouses' => false,
         'transfers' => true,
         'current_account' => true,
+        'accounting' => true,
         'customer_card' => true,
         'customer_card_otp' => true,
         'purchases' => true,
@@ -24,7 +25,7 @@ class ModuleSettings
 
     public static function all(): array
     {
-        if (!Schema::hasTable('app_settings')) {
+        if (! Schema::hasTable('app_settings')) {
             return self::DEFAULTS;
         }
 
@@ -40,20 +41,11 @@ class ModuleSettings
 
     public static function update(array $modules): array
     {
-        $values = [
-            'restaurant' => (bool) ($modules['restaurant'] ?? false),
-            'supermarket' => (bool) ($modules['supermarket'] ?? false),
-            'sales' => (bool) ($modules['sales'] ?? false),
-            'stock' => (bool) ($modules['stock'] ?? false),
-            'stock_warehouses' => (bool) ($modules['stock_warehouses'] ?? false),
-            'transfers' => (bool) ($modules['transfers'] ?? false),
-            'current_account' => (bool) ($modules['current_account'] ?? false),
-            'customer_card' => (bool) ($modules['customer_card'] ?? false),
-            'customer_card_otp' => (bool) ($modules['customer_card_otp'] ?? false),
-            'purchases' => (bool) ($modules['purchases'] ?? false),
-            'view_ticket' => (bool) ($modules['view_ticket'] ?? false),
-            'audit' => (bool) ($modules['audit'] ?? false),
-        ];
+        $values = [];
+
+        foreach (array_keys(self::DEFAULTS) as $key) {
+            $values[$key] = (bool) ($modules[$key] ?? false);
+        }
 
         AppSetting::updateOrCreate(
             ['key' => 'modules'],

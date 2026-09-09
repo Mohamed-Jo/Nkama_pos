@@ -281,9 +281,9 @@
                     <div class="cc-field">
                         <label>Método</label>
                         <select name="method" required>
-                            <option value="cash" @selected(old('method') === 'cash')>Dinheiro</option>
-                            <option value="card" @selected(old('method') === 'card')>Multicaixa</option>
-                            <option value="transf" @selected(old('method') === 'transf')>Transferência</option>
+                            @foreach($settlementPaymentMethods as $method)
+                                <option value="{{ $method->code }}" @selected(old('method', 'cash') === $method->code)>{{ $method->name }}</option>
+                            @endforeach
                         </select>
                     </div>
 

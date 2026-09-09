@@ -192,12 +192,17 @@
                 @php
                     $saleTicketUrl = route('admin.sales.ticket', $sale);
                     $salePrintUrl = route('admin.print.sales', $sale);
+                    $proformaPdfUrl = route('admin.sales.proforma-pdf', $sale);
                 @endphp
-                <a href="{{ $viewTicket ? $saleTicketUrl : $salePrintUrl }}"
-                    @if($viewTicket) target="_blank" @else data-direct-print-url="{{ $salePrintUrl }}" @endif
-                    class="btn-print" style="text-decoration:none;">
-                    {{ $viewTicket ? 'Ticket' : 'Imprimir ticket' }}
-                </a>
+                @if($sale->is_proforma)
+                    <a href="{{ $proformaPdfUrl }}" target="_blank" class="btn-print" style="text-decoration:none;">PDF Proforma</a>
+                @else
+                    <a href="{{ $viewTicket ? $saleTicketUrl : $salePrintUrl }}"
+                        @if($viewTicket) target="_blank" @else data-direct-print-url="{{ $salePrintUrl }}" @endif
+                        class="btn-print" style="text-decoration:none;">
+                        {{ $viewTicket ? 'Ticket' : 'Imprimir ticket' }}
+                    </a>
+                @endif
                 @php
                     $availableToCredit = max((float) $sale->total - (float) $sale->creditNotes->sum('total'), 0);
                 @endphp

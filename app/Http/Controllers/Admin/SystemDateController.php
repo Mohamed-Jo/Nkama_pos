@@ -11,6 +11,7 @@ use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\Shift;
 use App\Services\AuditLogger;
+use App\Services\FiscalYearService;
 use App\Services\BusinessSettings;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -25,8 +26,10 @@ class SystemDateController extends Controller
     {
         $currentDate = Cache::get('system_date', now()->toDateString());
         $date = Carbon::parse($currentDate);
-        $reportPath = $this->generateDailyReport($date);
         $nextDate = $date->copy()->addDay()->toDateString();
+        FiscalYearService::assertDateIsOpen($currentDate);
+        FiscalYearService::assertDateIsOpen($nextDate, 'Abra o novo exercicio fiscal antes de avancar a data do sistema.');
+        $reportPath = $this->generateDailyReport($date);
 
         Cache::forever('system_date', $nextDate);
 

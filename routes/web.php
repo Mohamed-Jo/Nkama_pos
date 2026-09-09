@@ -24,6 +24,7 @@ use App\Http\Controllers\Admin\{
     ReportController,
     AgtDocumentController,
     AgtSettingController,
+    AccountingController,
     ShiftController,
     CurrentAccountController,
     FinanceController,
@@ -32,7 +33,10 @@ use App\Http\Controllers\Admin\{
     RestaurantController,
     StockController,
     WarehouseController,
-    CommercialController
+    CommercialController,
+    BackupController,
+    PaymentMethodController,
+    FiscalYearController
 };
 
 /*
@@ -79,6 +83,16 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
         Route::patch('document-settings/series/{series}/toggle', [DocumentSettingController::class, 'toggleSeries'])->name('document-settings.series.toggle');
         Route::get('modules', [ModuleController::class, 'index'])->name('modules.index');
         Route::put('modules', [ModuleController::class, 'update'])->name('modules.update');
+        Route::get('backups', [BackupController::class, 'index'])->name('backups.index');
+        Route::post('backups/run', [BackupController::class, 'run'])->name('backups.run');
+        Route::put('backups/schedule', [BackupController::class, 'updateSchedule'])->name('backups.schedule');
+        Route::get('payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods.index');
+        Route::post('payment-methods', [PaymentMethodController::class, 'store'])->name('payment-methods.store');
+        Route::put('payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update'])->whereNumber('paymentMethod')->name('payment-methods.update');
+        Route::get('fiscal-years', [FiscalYearController::class, 'index'])->name('fiscal-years.index');
+        Route::post('fiscal-years', [FiscalYearController::class, 'store'])->name('fiscal-years.store');
+        Route::patch('fiscal-years/{fiscalYear}/activate', [FiscalYearController::class, 'activate'])->whereNumber('fiscalYear')->name('fiscal-years.activate');
+        Route::patch('fiscal-years/{fiscalYear}/close', [FiscalYearController::class, 'close'])->whereNumber('fiscalYear')->name('fiscal-years.close');
     });
 
     Route::middleware('operator.permission:management.view')->group(function () {
@@ -115,6 +129,14 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             Route::get('current-accounts', [CurrentAccountController::class, 'index'])->name('current-accounts.index');
             Route::post('current-accounts', [CurrentAccountController::class, 'store'])->name('current-accounts.store');
             Route::post('current-accounts/settle', [CurrentAccountController::class, 'settle'])->name('current-accounts.settle');
+        });
+
+        Route::middleware(['module.enabled:accounting', 'operator.permission:accounting.view,accounting.manage'])->group(function () {
+            Route::get('accounting', [AccountingController::class, 'index'])->name('accounting.index');
+        });
+        Route::middleware(['module.enabled:accounting', 'operator.permission:accounting.manage'])->group(function () {
+            Route::post('accounting/accounts', [AccountingController::class, 'storeAccount'])->name('accounting.accounts.store');
+            Route::post('accounting/entries', [AccountingController::class, 'storeJournalEntry'])->name('accounting.entries.store');
         });
 
         Route::middleware(['module.enabled:purchases', 'operator.permission:purchases.create,purchases.approve,purchases.receive'])->group(function () {
@@ -227,6 +249,7 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
     Route::middleware('operator.permission:sales.view')->group(function () {
         Route::get('credit-notes/{creditNote}/ticket', [CreditNoteController::class, 'ticket'])->name('credit-notes.ticket');
         Route::get('sales/{sale}/invoice-a4', [SaleController::class, 'invoicePdf'])->whereNumber('sale')->name('sales.invoice-a4');
+        Route::get('sales/{sale}/proforma-pdf', [SaleController::class, 'proformaPdf'])->whereNumber('sale')->name('sales.proforma-pdf');
         Route::get('sales/{sale}/ticket', [SaleController::class, 'ticket'])->name('sales.ticket');
         Route::post('print/sales/{sale}', [DirectPrintController::class, 'sale'])->name('print.sales');
         Route::post('print/credit-notes/{creditNote}', [DirectPrintController::class, 'creditNote'])->name('print.credit-notes');

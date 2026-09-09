@@ -32,6 +32,7 @@ class OperatorController extends Controller
             ->latest()
             ->paginate(25)
             ->withQueryString();
+
         $roleOptions = OperatorPermissions::roleOptions();
 
         return view('admin.operators.index', compact('operators', 'roleOptions'));
@@ -48,12 +49,18 @@ class OperatorController extends Controller
             'active' => 'sometimes|boolean',
         ]);
 
+        if ($validated['role'] === 'super_user' && ! $this->currentOperatorIsSuperUser()) {
+            return back()
+                ->withInput($request->except(['pin', 'pin_confirmation', 'password', 'password_confirmation']))
+                ->withErrors(['role' => 'Apenas o super usuario pode criar outro super usuario.']);
+        }
+
         $pinFingerprint = Operator::pinFingerprint($validated['pin']);
 
         if (Operator::where('pin_fingerprint', $pinFingerprint)->exists()) {
             return back()
                 ->withInput($request->except(['pin', 'pin_confirmation', 'password', 'password_confirmation']))
-                ->withErrors(['pin' => 'Este PIN já está a ser usado por outro operador.']);
+                ->withErrors(['pin' => 'Este PIN ja esta a ser usado por outro operador.']);
         }
 
         $recoveryCode = $this->newRecoveryCode();
@@ -74,7 +81,7 @@ class OperatorController extends Controller
             'name' => $operator->name,
             'email' => $operator->email,
             'role' => $operator->role,
-        ]);
+        ], $operator->role === 'super_user' ? 'critical' : 'warning');
 
         return redirect()
             ->route('admin.operators.index')
@@ -94,6 +101,15 @@ class OperatorController extends Controller
             'active' => 'sometimes|boolean',
         ]);
 
+        if (($operator->role === 'super_user' || $validated['role'] === 'super_user') && ! $this->currentOperatorIsSuperUser()) {
+            return back()->withErrors(['role' => 'Apenas o super usuario pode alterar contas super usuario.']);
+        }
+
+        $willRemainSuperUser = $validated['role'] === 'super_user' && $request->boolean('active');
+        if ($operator->role === 'super_user' && ! $willRemainSuperUser && $this->isLastActiveSuperUser($operator)) {
+            return back()->withErrors(['role' => 'Nao e possivel rebaixar ou inativar o ultimo super usuario ativo.']);
+        }
+
         $payload = [
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -101,33 +117,32 @@ class OperatorController extends Controller
             'active' => $request->boolean('active'),
         ];
 
-        if (!empty($validated['pin'])) {
+        if (! empty($validated['pin'])) {
             $pinFingerprint = Operator::pinFingerprint($validated['pin']);
 
             if (Operator::where('pin_fingerprint', $pinFingerprint)->whereKeyNot($operator->id)->exists()) {
                 return back()
                     ->withInput($request->except(['pin', 'pin_confirmation', 'password', 'password_confirmation']))
-                    ->withErrors(['pin' => 'Este PIN já está a ser usado por outro operador.']);
+                    ->withErrors(['pin' => 'Este PIN ja esta a ser usado por outro operador.']);
             }
 
             $payload['pin'] = $validated['pin'];
             $payload['pin_fingerprint'] = $pinFingerprint;
         }
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $payload['password'] = $validated['password'];
         }
 
+        $before = $operator->only(['name', 'email', 'role', 'active']);
         $operator->update($payload);
 
         AuditLogger::log('operator_updated', 'Operator', $operator->id, [
-            'name' => $operator->name,
-            'email' => $operator->email,
-            'role' => $operator->role,
-            'active' => $operator->active,
-            'pin_changed' => !empty($validated['pin']),
-            'password_changed' => !empty($validated['password']),
-        ]);
+            'before' => $before,
+            'after' => $operator->only(['name', 'email', 'role', 'active']),
+            'pin_changed' => ! empty($validated['pin']),
+            'password_changed' => ! empty($validated['password']),
+        ], ($before['role'] === 'super_user' || $operator->role === 'super_user') ? 'critical' : 'warning');
 
         return redirect()
             ->route('admin.operators.index')
@@ -136,6 +151,10 @@ class OperatorController extends Controller
 
     public function regenerateRecoveryCode(Operator $operator): RedirectResponse
     {
+        if ($operator->role === 'super_user' && ! $this->currentOperatorIsSuperUser()) {
+            return back()->withErrors(['role' => 'Apenas o super usuario pode gerar recuperacao para outro super usuario.']);
+        }
+
         $recoveryCode = $this->newRecoveryCode();
 
         $operator->update([
@@ -146,13 +165,27 @@ class OperatorController extends Controller
         AuditLogger::log('operator_recovery_code_regenerated', 'Operator', $operator->id, [
             'name' => $operator->name,
             'email' => $operator->email,
-        ]);
+            'role' => $operator->role,
+        ], $operator->role === 'super_user' ? 'critical' : 'warning');
 
         return redirect()
             ->route('admin.operators.index')
-            ->with('success', 'Código de recuperação gerado com sucesso.')
+            ->with('success', 'Codigo de recuperacao gerado com sucesso.')
             ->with('recovery_code', $recoveryCode)
             ->with('recovery_operator', $operator->name);
+    }
+
+    private function currentOperatorIsSuperUser(): bool
+    {
+        return session('operator_role') === 'super_user';
+    }
+
+    private function isLastActiveSuperUser(Operator $operator): bool
+    {
+        return Operator::where('role', 'super_user')
+            ->where('active', true)
+            ->whereKeyNot($operator->id)
+            ->doesntExist();
     }
 
     private function newRecoveryCode(): string

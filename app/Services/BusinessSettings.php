@@ -482,7 +482,11 @@ class BusinessSettings
             return self::$settingsCache[$key];
         }
 
-        self::$hasAppSettingsTable ??= Schema::hasTable('app_settings');
+        try {
+            self::$hasAppSettingsTable ??= Schema::getConnection()->getSchemaBuilder()->hasTable('app_settings');
+        } catch (\Throwable) {
+            self::$hasAppSettingsTable = false;
+        }
 
         if (! self::$hasAppSettingsTable) {
             return $defaults;

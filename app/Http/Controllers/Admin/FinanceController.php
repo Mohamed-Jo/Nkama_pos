@@ -10,6 +10,9 @@ use App\Models\CurrentAccountEntry;
 use App\Models\Expense;
 use App\Models\Shift;
 use App\Models\Supplier;
+use App\Services\AccountingPostingService;
+use App\Services\PaymentMethodRegistry;
+use App\Services\FiscalYearService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,6 +63,7 @@ class FinanceController extends Controller
             'cashMovementsTotal' => $cashMovementsTotal,
             'customerBalances' => $customerBalances,
             'supplierBalances' => $supplierBalances,
+            'expensePaymentMethods' => PaymentMethodRegistry::active('expenses'),
         ]);
     }
 
@@ -102,41 +106,46 @@ class FinanceController extends Controller
             'document_number' => ['nullable', 'string', 'max:80'],
             'expense_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date'],
-            'payment_method' => ['required', Rule::in(['pending', 'cash', 'card', 'transf', 'bank'])],
+            'payment_method' => ['required', Rule::in(PaymentMethodRegistry::codes('expenses'))],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         try {
+            FiscalYearService::assertDateIsOpen($validated['expense_date']);
+
             DB::transaction(function () use ($validated) {
                 $amount = round((float) $validated['amount'], 2);
                 $method = $validated['payment_method'];
-                $status = $method === 'pending' ? Expense::STATUS_PENDING : Expense::STATUS_PAID;
+                $paymentMethod = PaymentMethodRegistry::active('expenses')->firstWhere('code', $method);
+                $isPending = $method === 'pending' || ($paymentMethod?->type === 'credit');
+                $usesBank = ! $isPending && ($method === 'bank' || $paymentMethod?->type === 'bank' || (bool) ($paymentMethod?->requires_bank_account));
+                $status = $isPending ? Expense::STATUS_PENDING : Expense::STATUS_PAID;
                 $operatorId = session('operator_id');
                 $shift = null;
 
-                if (in_array($method, ['cash', 'card', 'transf'], true)) {
+                if (! $isPending && ! $usesBank) {
                     $shift = Shift::where('operator_id', $operatorId)->where('status', 'open')->lockForUpdate()->first();
                     if (! $shift) {
                         throw new \RuntimeException('Abra o caixa antes de registar despesa paga por caixa.');
                     }
                 }
 
-                if ($method === 'bank' && empty($validated['bank_account_id'])) {
+                if ($usesBank && empty($validated['bank_account_id'])) {
                     throw new \RuntimeException('Selecione a conta bancaria para despesa paga por banco.');
                 }
 
                 $expense = Expense::create([
                     'supplier_id' => $validated['supplier_id'] ?? null,
                     'operator_id' => $operatorId,
-                    'bank_account_id' => $method === 'bank' ? $validated['bank_account_id'] : null,
+                    'bank_account_id' => $usesBank ? $validated['bank_account_id'] : null,
                     'shift_id' => $shift?->id,
                     'category' => $validated['category'],
                     'description' => $validated['description'],
                     'document_number' => $validated['document_number'] ?? null,
                     'expense_date' => $validated['expense_date'],
                     'due_date' => $validated['due_date'] ?? null,
-                    'payment_method' => $method === 'pending' ? null : $method,
+                    'payment_method' => $isPending ? null : $method,
                     'amount' => $amount,
                     'status' => $status,
                     'paid_at' => $status === Expense::STATUS_PAID ? now() : null,
@@ -154,7 +163,7 @@ class FinanceController extends Controller
                     ]);
                 }
 
-                if ($method === 'bank') {
+                if ($usesBank) {
                     $this->recordBankTransaction(
                         BankAccount::lockForUpdate()->findOrFail((int) $validated['bank_account_id']),
                         'debit',
@@ -166,6 +175,8 @@ class FinanceController extends Controller
                         $expense->id
                     );
                 }
+
+                app(AccountingPostingService::class)->postExpense($expense->refresh());
             });
         } catch (\Throwable $e) {
             report($e);
@@ -187,8 +198,14 @@ class FinanceController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
         ]);
 
+        try {
+            FiscalYearService::assertDateIsOpen($validated['transaction_date']);
+        } catch (\Throwable $e) {
+            return back()->withInput()->withErrors(['transaction_date' => $e->getMessage()]);
+        }
+
         DB::transaction(function () use ($validated) {
-            $this->recordBankTransaction(
+            $transaction = $this->recordBankTransaction(
                 BankAccount::lockForUpdate()->findOrFail((int) $validated['bank_account_id']),
                 $validated['type'],
                 round((float) $validated['amount'], 2),
@@ -196,6 +213,16 @@ class FinanceController extends Controller
                 $validated['description'] ?? null,
                 $validated['reference'] ?? null,
                 'manual'
+            );
+
+            app(AccountingPostingService::class)->postBankTransaction(
+                (int) $transaction->id,
+                $transaction->type,
+                (float) $transaction->amount,
+                $transaction->transaction_date->toDateString(),
+                $transaction->reference,
+                $transaction->description,
+                (int) $transaction->operator_id
             );
         });
 

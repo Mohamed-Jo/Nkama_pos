@@ -16,31 +16,40 @@ class AuditLogger
         'remember_token',
     ];
 
-    public static function log(string $action, string $model, ?int $modelId = null, array $data = []): void
+    public static function log(string $action, string $model, ?int $modelId = null, array $data = [], string $severity = 'info'): void
     {
         try {
             if (!Schema::hasTable('audit_logs')) {
                 return;
             }
 
-            $forcedAction = $action === 'modules_updated' || str_starts_with($action, 'customer_card_');
+            $forcedAction = in_array($action, ['modules_updated', 'backup_created', 'backup_manual_requested'], true) || str_starts_with($action, 'customer_card_') || str_starts_with($action, 'security_') || str_starts_with($action, 'accounting_');
 
             if (!$forcedAction && !ModuleSettings::enabled('audit')) {
                 return;
             }
 
+            $context = array_filter([
+                'operator_id' => session('operator_id'),
+                'operator_name' => session('operator_name'),
+                'operator_role' => session('operator_role'),
+                'session_id' => session()->getId(),
+                'ip' => request()?->ip(),
+                'user_agent' => request()?->userAgent(),
+                'route' => request()?->route()?->getName(),
+                'url' => request()?->fullUrl(),
+                'method' => request()?->method(),
+                'data' => self::sanitize($data),
+            ], fn ($value) => $value !== null && $value !== []);
+
             AuditLog::create([
                 'user_id' => Auth::id(),
                 'action' => $action,
+                'severity' => $severity,
                 'model' => $model,
                 'model_id' => $modelId,
-                'data' => array_filter([
-                    'operator_id' => session('operator_id'),
-                    'ip' => request()?->ip(),
-                    'url' => request()?->fullUrl(),
-                    'method' => request()?->method(),
-                    'data' => self::sanitize($data),
-                ], fn ($value) => $value !== null && $value !== []),
+                'data' => $context,
+                'event_hash' => hash('sha256', $action . '|' . $model . '|' . $modelId . '|' . json_encode($context) . '|' . microtime(true)),
             ]);
         } catch (\Throwable $e) {
             report($e);

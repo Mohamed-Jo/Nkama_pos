@@ -181,7 +181,8 @@
                 'customer_card_otp' => ['title' => 'OTP Cartao Cliente', 'desc' => 'Ativa/desativa solicitar e enviar OTP no POS. Se desligado, o Cartao Fidelidade pode ser usado diretamente.'],
                 'view_ticket'     => ['title' => 'Ver Ticket', 'desc' => 'Quando ativo, abre o ticket para conferir. Quando inativo, envia direto para impressão.'],
                 'audit'           => ['title' => 'Auditoria', 'desc' => 'Ativa trilha de auditoria, relatório de auditoria e fecho diário pela auditoria.'],
-                'purchases'       => ['title' => 'Compras', 'desc' => 'Ativa registo de compras, entrada de mercadoria e atualização de stock.']
+                'purchases'       => ['title' => 'Compras', 'desc' => 'Ativa registo de compras, entrada de mercadoria e atualização de stock.'],
+                'accounting'      => ['title' => 'Contabilidade', 'desc' => 'Ativa plano de contas, lancamentos, diario contabilistico e balancete.']
             ];
         @endphp
 

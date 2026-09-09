@@ -8,6 +8,8 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#f97316">
+    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
     <script src="{{ asset('vendor/offline/sweetalert2.all.min.js') }}"></script>
 
     <script>
@@ -573,6 +575,7 @@
             $canAudit = \App\Services\OperatorPermissions::allows($operatorRole, 'audit.view');
             $canReports = \App\Services\OperatorPermissions::allows($operatorRole, 'reports.view');
             $canCurrentAccount = \App\Services\OperatorPermissions::allows($operatorRole, 'current_account.manage');
+            $canAccounting = \App\Services\OperatorPermissions::allowsAny($operatorRole, ['accounting.view', 'accounting.manage']);
             $canPurchases = \App\Services\OperatorPermissions::allowsAny($operatorRole, ['purchases.create', 'purchases.approve', 'purchases.receive']);
             $canCatalog = \App\Services\OperatorPermissions::allows($operatorRole, 'catalog.manage');
             $canShiftAudit = \App\Services\OperatorPermissions::allows($operatorRole, 'cash.audit');
@@ -601,6 +604,9 @@
                 @if($canCurrentAccount && ($activeModules['current_account'] ?? true))
                     <a class="{{ request()->routeIs('admin.finance.*') ? 'active' : '' }}" href="{{ route('admin.finance.index') }}">Financeiro</a>
                     <a class="{{ request()->routeIs('admin.current-accounts.*') ? 'active' : '' }}" href="{{ route('admin.current-accounts.index') }}">Conta Corrente</a>
+                    @if($canAccounting && ($activeModules['accounting'] ?? true))
+                        <a class="{{ request()->routeIs('admin.accounting.*') ? 'active' : '' }}" href="{{ route('admin.accounting.index') }}">Contabilidade</a>
+                    @endif
                 @endif
                 @if($canPurchases && ($activeModules['purchases'] ?? true))
                     <a class="{{ request()->routeIs('admin.purchases.*') ? 'active' : '' }}" href="{{ route('admin.purchases.index') }}">Compras</a>
@@ -631,6 +637,9 @@
                     <a class="{{ request()->routeIs('admin.document-settings.*') ? 'active' : '' }}" href="{{ route('admin.document-settings.index') }}">Documentos & Séries</a>
                     <a class="{{ request()->routeIs('admin.agt.settings') ? 'active' : '' }}" href="{{ route('admin.agt.settings') }}">Configuracoes AGT</a>
                     <a class="{{ request()->routeIs('admin.modules.*') ? 'active' : '' }}" href="{{ route('admin.modules.index') }}">🧩 Módulos</a>
+                    <a class="{{ request()->routeIs('admin.backups.*') ? 'active' : '' }}" href="{{ route('admin.backups.index') }}">Backups</a>
+                    <a class="{{ request()->routeIs('admin.payment-methods.*') ? 'active' : '' }}" href="{{ route('admin.payment-methods.index') }}">Formas de Pagamento</a>
+                    <a class="{{ request()->routeIs('admin.fiscal-years.*') ? 'active' : '' }}" href="{{ route('admin.fiscal-years.index') }}">Exercicios Fiscais</a>
                     <a class="{{ request()->routeIs('admin.operators.*') ? 'active' : '' }}" href="{{ route('admin.operators.index') }}">🔐 Operadores</a>
                 @endif
             </nav>
@@ -959,6 +968,11 @@
             const sb = document.getElementById("sidebar");
             sb.classList.toggle("collapsed");
             localStorage.setItem("nkama_sidebar", sb.classList.contains("collapsed"));
+        }
+    </script>
+<script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
         }
     </script>
 </body>
