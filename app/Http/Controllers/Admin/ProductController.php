@@ -175,8 +175,8 @@ class ProductController extends Controller
     {
         return $request->validate([
             'name' => 'required|string|max:255',
-            'category_id' => 'required|exists:categories,id',
-            'barcode' => ['nullable', 'string', 'max:100', Rule::unique('products', 'barcode')->ignore($product?->id)],
+            'category_id' => ['required', Rule::exists('categories', 'id')->where('company_id', session('company_id'))],
+            'barcode' => ['nullable', 'string', 'max:100', Rule::unique('products', 'barcode')->where('company_id', session('company_id'))->ignore($product?->id)],
             'purchase_price' => 'nullable|numeric|min:0',
             'price' => 'required|numeric|min:0',
             'tax_rate' => 'required|numeric|min:0|max:100',

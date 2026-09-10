@@ -41,7 +41,7 @@
     <div class="acct-grid">
         <section class="acct-panel">
             <h2>Novo lancamento</h2>
-            <form method="POST" action="{{ route('admin.accounting.entries.store') }}" class="acct-form">
+            <form method="POST" action="{{ route('admin.accounting.entries.store') }}" class="acct-form acct-entry-form">
                 @csrf
                 <div class="form-row three">
                     <label>Data<input type="date" name="entry_date" value="{{ old('entry_date', now()->toDateString()) }}" required></label>
@@ -148,43 +148,49 @@
 </div>
 
 <style>
-    .acct-page { color: var(--text); margin: 0 auto; max-width: 1380px; padding: 20px; }
-    .acct-head { align-items: end; display: flex; gap: 14px; justify-content: space-between; margin-bottom: 16px; }
-    .acct-head h1 { font-size: 28px; font-weight: 800; margin: 0; }
-    .acct-head p { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
-    .acct-filter { align-items: end; display: grid; gap: 8px; grid-template-columns: 145px 145px auto; }
-    .acct-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .8fr); margin-bottom: 16px; }
+    .acct-page { color: var(--text); margin: 0 auto; max-width: 1380px; }
+    .acct-head { align-items: end; display: flex; gap: 12px; justify-content: space-between; margin-bottom: 14px; }
+    .acct-head h1 { color:var(--text); font-size: 22px; font-weight: 900; margin: 0; }
+    .acct-head p { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
+    .acct-filter { align-items: end; display: grid; gap: 8px; grid-template-columns: 138px 138px auto; }
+    .acct-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .8fr); margin-bottom: 14px; }
     .acct-grid.bottom { grid-template-columns: minmax(0, 1.25fr) minmax(360px, .85fr); }
-    .acct-audit { margin-bottom: 16px; }
-    .acct-panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-    .acct-panel h2 { font-size: 16px; font-weight: 800; margin: 0 0 12px; }
-    .acct-form { display: grid; gap: 12px; }
-    .acct-form.compact { gap: 10px; }
-    .form-row.three { display: grid; gap: 10px; grid-template-columns: 150px 160px minmax(0, 1fr); }
-    label { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
-    input, select { background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; color: var(--input-text); font-size: 13px; margin-top: 5px; min-height: 38px; padding: 8px 10px; width: 100%; }
-    .entry-lines { display: grid; gap: 8px; }
-    .entry-line { display: grid; gap: 8px; grid-template-columns: minmax(220px, 1fr) 120px 120px minmax(150px, .7fr); }
-    .acct-check { align-items: center; display: flex; gap: 8px; text-transform: none; }
-    .acct-check input { width: auto; }
-    .acct-primary, .acct-secondary, .acct-filter button { border: 0; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 900; min-height: 38px; padding: 9px 13px; }
+    .acct-audit { margin-bottom: 14px; }
+    .acct-panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 13px; }
+    .acct-panel h2 { color:var(--text); font-size: 15px; font-weight: 900; margin: 0 0 10px; }
+    .acct-form { display: grid; gap: 10px; }
+    .acct-form.compact { gap: 9px; }
+    .acct-entry-form { gap: 8px; }
+    .acct-entry-form .form-row.three { grid-template-columns: 128px 136px minmax(240px, 1fr); }
+    .acct-entry-form input, .acct-entry-form select { min-height: 30px; padding: 4px 7px; }
+    .acct-entry-form .entry-lines { gap: 6px; }
+    .acct-entry-form .entry-line { align-items:center; grid-template-columns: minmax(260px, 1.25fr) 92px 92px minmax(120px, .65fr); }
+    .acct-entry-form .acct-primary { justify-self:start; margin-top:2px; min-height:32px; padding:6px 11px; }
+    .form-row.three { display: grid; gap: 9px; grid-template-columns: 138px 150px minmax(0, 1fr); }
+    .acct-page label { color: var(--muted); display:block; font-size: 11px; font-weight: 900; letter-spacing:0; text-transform: uppercase; }
+    .acct-page input, .acct-page select { background: var(--input-bg); border: 1px solid var(--border); border-radius: 7px; box-sizing: border-box; color: var(--input-text); font-size: 13px; margin-top: 4px; min-height: 34px; padding: 6px 9px; width: 100%; }
+    .entry-lines { display: grid; gap: 7px; }
+    .entry-line { display: grid; gap: 7px; grid-template-columns: minmax(220px, 1fr) 108px 108px minmax(140px, .7fr); }
+    .acct-check { align-items: center; display: inline-flex; gap: 8px; min-height:26px; text-transform: none; }
+    .acct-check input { flex:0 0 auto; height:15px; margin:0; min-height:15px; width:15px; }
+    .acct-primary, .acct-secondary, .acct-filter button { border: 0; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 900; min-height: 34px; padding: 7px 12px; white-space:nowrap; }
     .acct-primary, .acct-filter button { background: var(--primary); color: #111827; }
     .acct-secondary { background: var(--soft-bg); border: 1px solid var(--border); color: var(--text); }
-    .acct-alert { border-radius: 8px; font-size: 13px; margin-bottom: 12px; padding: 11px 13px; }
-    .acct-alert.success { background: rgba(22, 163, 74, .12); border: 1px solid rgba(22, 163, 74, .35); color: #86efac; }
-    .acct-alert.error { background: rgba(220, 38, 38, .12); border: 1px solid rgba(220, 38, 38, .35); color: #fecaca; }
-    .table-panel { overflow: hidden; padding: 0; }
-    .panel-title { padding: 16px 16px 0; }
-    table { border-collapse: collapse; width: 100%; }
-    th { background: var(--soft-bg); color: var(--muted); font-size: 11px; padding: 10px; text-align: left; text-transform: uppercase; }
-    td { border-top: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 10px; vertical-align: top; }
-    tfoot th { border-top: 1px solid var(--border); color: var(--text); }
+    .acct-alert { border-radius: 8px; font-size: 13px; margin-bottom: 12px; padding: 10px 12px; }
+    .acct-alert.success { background: rgba(22, 163, 74, .12); border: 1px solid rgba(22, 163, 74, .35); color: #047857; }
+    .acct-alert.error { background: rgba(220, 38, 38, .10); border: 1px solid rgba(220, 38, 38, .35); color: #b91c1c; }
+    .table-panel { overflow-x: auto; padding: 0; }
+    .panel-title { padding: 13px 13px 0; }
+    .acct-page table { border-collapse: collapse; min-width:760px; width: 100%; }
+    .acct-page th { background: var(--soft-bg); color: var(--muted); font-size: 10px; letter-spacing:0; padding: 8px 9px; text-align: left; text-transform: uppercase; white-space:nowrap; }
+    .acct-page td { border-top: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 8px 9px; vertical-align: top; }
+    .acct-page tfoot th { border-top: 1px solid var(--border); color: var(--text); }
     .line-mini { align-items: center; display: flex; gap: 10px; justify-content: space-between; margin-bottom: 4px; }
     .line-mini span { color: var(--muted); }
     .line-mini strong { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
-    .pos { color: #22c55e; font-weight: 800; }
-    .neg { color: #f97316; font-weight: 800; }
-    .empty { color: var(--muted); padding: 26px; text-align: center; }
+    .pos { color: #166534; font-weight: 900; }
+    .neg { color: #b45309; font-weight: 900; }
+    .empty { color: var(--muted); padding: 24px; text-align: center; }
     .pager { padding: 12px; }
     @media (max-width: 1100px) { .acct-grid, .acct-grid.bottom, .form-row.three, .entry-line, .acct-filter { grid-template-columns: 1fr; } .acct-head { align-items: stretch; flex-direction: column; } }
 </style>

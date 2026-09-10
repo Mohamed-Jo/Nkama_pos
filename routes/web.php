@@ -36,7 +36,8 @@ use App\Http\Controllers\Admin\{
     CommercialController,
     BackupController,
     PaymentMethodController,
-    FiscalYearController
+    FiscalYearController,
+    CompanyController
 };
 
 /*
@@ -69,6 +70,10 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
             ->where('date', '\d{4}-\d{2}-\d{2}')
             ->name('system-date.daily-report');
 
+        Route::get('companies', [CompanyController::class, 'index'])->name('companies.index');
+        Route::post('companies', [CompanyController::class, 'store'])->name('companies.store');
+        Route::put('companies/{company}', [CompanyController::class, 'update'])->whereNumber('company')->name('companies.update');
+        Route::post('companies/{company}/switch', [CompanyController::class, 'switch'])->whereNumber('company')->name('companies.switch');
         Route::resource('operators', OperatorController::class)->only(['index', 'store', 'update']);
         Route::post('operators/{operator}/recovery-code', [OperatorController::class, 'regenerateRecoveryCode'])->name('operators.recovery-code');
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');

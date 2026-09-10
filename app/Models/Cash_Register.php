@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Cash_Register extends Model
 {
+    use BelongsToCompany;
+
     //
 
 

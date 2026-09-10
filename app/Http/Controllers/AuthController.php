@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Operator;
 use App\Services\AuditLogger;
 use App\Services\BusinessSettings;
+use App\Services\CurrentCompany;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 
@@ -62,10 +63,14 @@ class AuthController extends Controller
             ], 401);
         }
 
+        $companyId = $operator->company_id ?: CurrentCompany::defaultId();
+
         session([
             'operator_id' => $operator->id,
             'operator_name' => $operator->name,
             'operator_role' => $operator->role,
+            'company_id' => $companyId,
+            'company_name' => $operator->company?->name,
         ]);
 
         AuditLogger::log('login', 'Operator', $operator->id, [
@@ -90,7 +95,9 @@ class AuthController extends Controller
         session()->forget([
             'operator_id',
             'operator_name',
-            'operator_role'
+            'operator_role',
+            'company_id',
+            'company_name'
         ]);
 
         $request->session()->invalidate();

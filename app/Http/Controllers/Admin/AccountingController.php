@@ -199,10 +199,10 @@ class AccountingController extends Controller
     public function storeAccount(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:30', 'unique:accounting_accounts,code'],
+            'code' => ['required', 'string', 'max:30', Rule::unique('accounting_accounts', 'code')->where('company_id', session('company_id'))],
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::in(['asset', 'liability', 'equity', 'income', 'expense'])],
-            'parent_id' => ['nullable', 'exists:accounting_accounts,id'],
+            'parent_id' => ['nullable', Rule::exists('accounting_accounts', 'id')->where('company_id', session('company_id'))],
             'active' => ['nullable', 'boolean'],
         ]);
 

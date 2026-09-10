@@ -59,7 +59,7 @@ class WarehouseController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:40', 'unique:warehouses,code'],
+            'code' => ['nullable', 'string', 'max:40', Rule::unique('warehouses', 'code')->where('company_id', session('company_id'))],
             'location' => ['nullable', 'string', 'max:120'],
         ]);
 
@@ -78,7 +78,7 @@ class WarehouseController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:40', Rule::unique('warehouses', 'code')->ignore($warehouse->id)],
+            'code' => ['nullable', 'string', 'max:40', Rule::unique('warehouses', 'code')->where('company_id', session('company_id'))->ignore($warehouse->id)],
             'location' => ['nullable', 'string', 'max:120'],
             'active' => ['sometimes', 'boolean'],
         ]);
@@ -96,9 +96,9 @@ class WarehouseController extends Controller
     public function transfer(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'from_warehouse_id' => ['required', 'exists:warehouses,id', 'different:to_warehouse_id'],
-            'to_warehouse_id' => ['required', 'exists:warehouses,id'],
-            'product_id' => ['required', 'exists:products,id'],
+            'from_warehouse_id' => ['required', Rule::exists('warehouses', 'id')->where('company_id', session('company_id')), 'different:to_warehouse_id'],
+            'to_warehouse_id' => ['required', Rule::exists('warehouses', 'id')->where('company_id', session('company_id'))],
+            'product_id' => ['required', Rule::exists('products', 'id')->where('company_id', session('company_id'))],
             'quantity' => ['required', 'integer', 'min:1'],
             'lot_number' => ['nullable', 'string', 'max:80'],
             'expires_at' => ['nullable', 'date'],
@@ -272,7 +272,7 @@ class WarehouseController extends Controller
     {
         $validated = $request->validate([
             'defaults' => ['required', 'array'],
-            'defaults.*' => ['required', 'exists:warehouses,id'],
+            'defaults.*' => ['required', Rule::exists('warehouses', 'id')->where('company_id', session('company_id'))],
         ]);
 
         $warehouseService->updateDefaults($validated['defaults']);

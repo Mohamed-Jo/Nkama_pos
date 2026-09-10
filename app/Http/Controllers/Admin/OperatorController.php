@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\Operator;
 use App\Services\AuditLogger;
 use App\Services\OperatorPermissions;
@@ -29,13 +30,15 @@ class OperatorController extends Controller
             ->when($request->filled('status'), function ($query) use ($request) {
                 $query->where('active', $request->input('status') === 'active');
             })
+            ->with('company')
             ->latest()
             ->paginate(25)
             ->withQueryString();
 
         $roleOptions = OperatorPermissions::roleOptions();
+        $companies = Company::where('active', true)->orderBy('name')->get();
 
-        return view('admin.operators.index', compact('operators', 'roleOptions'));
+        return view('admin.operators.index', compact('operators', 'roleOptions', 'companies'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -43,6 +46,7 @@ class OperatorController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:operators,email',
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
             'pin' => 'required|digits:8|confirmed',
             'password' => 'nullable|string|min:8|confirmed',
             'role' => ['required', Rule::in(OperatorPermissions::roleKeys())],
@@ -68,6 +72,7 @@ class OperatorController extends Controller
         $operator = Operator::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'company_id' => $validated['company_id'],
             'pin' => $validated['pin'],
             'pin_fingerprint' => $pinFingerprint,
             'password' => $validated['password'] ?? null,
@@ -95,6 +100,7 @@ class OperatorController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', 'max:255', Rule::unique('operators', 'email')->ignore($operator->id)],
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
             'pin' => 'nullable|digits:8|confirmed',
             'password' => 'nullable|string|min:8|confirmed',
             'role' => ['required', Rule::in(OperatorPermissions::roleKeys())],
@@ -113,6 +119,7 @@ class OperatorController extends Controller
         $payload = [
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'company_id' => $validated['company_id'],
             'role' => $validated['role'],
             'active' => $request->boolean('active'),
         ];
@@ -134,12 +141,12 @@ class OperatorController extends Controller
             $payload['password'] = $validated['password'];
         }
 
-        $before = $operator->only(['name', 'email', 'role', 'active']);
+        $before = $operator->only(['name', 'email', 'company_id', 'role', 'active']);
         $operator->update($payload);
 
         AuditLogger::log('operator_updated', 'Operator', $operator->id, [
             'before' => $before,
-            'after' => $operator->only(['name', 'email', 'role', 'active']),
+            'after' => $operator->only(['name', 'email', 'company_id', 'role', 'active']),
             'pin_changed' => ! empty($validated['pin']),
             'password_changed' => ! empty($validated['password']),
         ], ($before['role'] === 'super_user' || $operator->role === 'super_user') ? 'critical' : 'warning');

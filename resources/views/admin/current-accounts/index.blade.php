@@ -13,7 +13,7 @@
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 7px 8px;
+            padding: 8px 9px;
         }
 
         .cc-header {
@@ -59,7 +59,7 @@
             color: var(--muted);
             font-size: 10px;
             font-weight: 800;
-            letter-spacing: .08em;
+            letter-spacing: 0;
             text-transform: uppercase;
         }
 
@@ -67,10 +67,11 @@
         .cc-field select {
             background: var(--input-bg);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
+            border-radius: 7px;
+            color: var(--input-text);
+            font-size: 13px;
             min-height: 32px;
-            padding: 6px 8px;
+            padding: 5px 8px;
             width: 100%;
         }
 
@@ -90,7 +91,7 @@
             display: block;
             font-size: 10px;
             font-weight: 800;
-            letter-spacing: .08em;
+            letter-spacing: 0;
             text-transform: uppercase;
         }
 
@@ -115,16 +116,18 @@
             background: var(--soft-bg);
             color: var(--muted);
             font-size: 10px;
-            letter-spacing: .08em;
-            padding: 7px 8px;
+            letter-spacing: 0;
+            padding: 8px 9px;
             text-align: left;
             text-transform: uppercase;
         }
 
         .cc-table td {
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            border-top: 1px solid var(--border);
             color: var(--text);
-            padding: 7px 8px;
+            font-size: 13px;
+            padding: 8px 9px;
+            vertical-align: middle;
         }
 
         .cc-muted {
@@ -133,17 +136,17 @@
         }
 
         .cc-debit {
-            color: #fbbf24;
+            color: #b45309;
             font-weight: 800;
         }
 
         .cc-credit {
-            color: #34d399;
+            color: #047857;
             font-weight: 800;
         }
 
         .cc-negative {
-            color: #fb7185;
+            color: #b91c1c;
         }
 
         .cc-actions {
@@ -155,14 +158,16 @@
         .cc-btn {
             align-items: center;
             border: 0;
-            border-radius: 8px;
+            border-radius: 7px;
             cursor: pointer;
             display: inline-flex;
-            font-weight: 800;
+            font-size: 13px;
+            font-weight: 900;
             justify-content: center;
             min-height: 32px;
             padding: 0 10px;
             text-decoration: none;
+            white-space: nowrap;
         }
 
         .cc-btn-primary {

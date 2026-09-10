@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class SaleItem extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'sale_id',
         'product_id',

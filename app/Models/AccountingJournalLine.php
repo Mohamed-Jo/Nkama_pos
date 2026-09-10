@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class AccountingJournalLine extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'journal_entry_id',
         'accounting_account_id',

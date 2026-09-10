@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class StockTransfer extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'reference',
         'from_warehouse_id',

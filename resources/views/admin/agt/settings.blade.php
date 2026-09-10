@@ -15,25 +15,30 @@
     @endphp
 
     <style>
-        .agt-settings-actions { display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; margin-bottom:14px; }
-        .agt-settings-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
-        .agt-settings-panel { background:var(--card); border:1px solid var(--border); border-radius:8px; margin-bottom:16px; padding:16px; }
-        .agt-settings-panel h2 { color:var(--text); font-size:17px; font-weight:900; margin:0 0 14px; }
-        .agt-field { display:block; font-weight:800; margin-bottom:10px; }
-        .agt-field span { color:var(--muted); display:block; font-size:12px; margin-bottom:6px; text-transform:uppercase; }
+        .agt-settings-actions { align-items:center; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; margin-bottom:12px; }
+        .agt-settings-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px 12px; }
+        .agt-settings-panel { background:var(--card); border:1px solid var(--border); border-radius:8px; margin-bottom:14px; padding:13px; }
+        .agt-settings-panel h2 { color:var(--text); font-size:15px; font-weight:900; margin:0 0 10px; }
+        .agt-field { color:var(--text); display:block; font-weight:800; margin-bottom:0; }
+        .agt-field span { color:var(--muted); display:block; font-size:11px; font-weight:900; margin-bottom:4px; text-transform:uppercase; }
         .agt-field input, .agt-field select, .agt-field textarea {
-            background:var(--input-bg); border:1px solid var(--border); border-radius:8px; color:var(--input-text);
-            min-height:42px; padding:10px; width:100%;
+            background:var(--input-bg); border:1px solid var(--border); border-radius:7px; color:var(--input-text);
+            font-size:13px; min-height:34px; padding:6px 9px; width:100%;
         }
-        .agt-field textarea { font-family:ui-monospace, SFMono-Regular, Consolas, monospace; min-height:120px; resize:vertical; }
-        .agt-check-row { align-items:center; display:flex; gap:10px; font-weight:900; margin:8px 0 2px; }
-        .agt-check-row input { height:18px; width:18px; }
-        .agt-help { color:var(--muted); font-size:12px; line-height:1.5; margin-top:6px; }
-        .agt-save { background:#f97316; border:0; border-radius:8px; color:#111827; cursor:pointer; font-weight:900; padding:11px 14px; }
-        .agt-link { background:var(--card); border:1px solid var(--border); border-radius:8px; color:var(--text); display:inline-flex; font-weight:900; padding:10px 12px; text-decoration:none; }
-        .agt-alert { border-radius:8px; margin-bottom:14px; padding:12px; }
-        .agt-alert.success { background:rgba(16,185,129,.15); border:1px solid #10b981; color:#86efac; }
-        .agt-alert.error { background:rgba(239,68,68,.12); border:1px solid #ef4444; color:#fecaca; }
+        .agt-field textarea { font-family:ui-monospace, SFMono-Regular, Consolas, monospace; min-height:104px; resize:vertical; }
+        .agt-checks { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:12px; }
+        .agt-check-row { align-items:center; display:inline-flex; gap:8px; font-size:13px; font-weight:900; margin:0; min-height:26px; }
+        .agt-check-row input { flex:0 0 auto; height:15px; margin:0; width:15px; }
+        .agt-help { color:var(--muted); font-size:11px; line-height:1.4; margin-top:4px; }
+        .agt-save { background:#f97316; border:0; border-radius:7px; color:#111827; cursor:pointer; font-size:13px; font-weight:900; min-height:36px; padding:8px 13px; }
+        .agt-link { align-items:center; background:var(--card); border:1px solid var(--border); border-radius:8px; color:var(--text); display:inline-flex; font-size:13px; font-weight:900; min-height:34px; padding:7px 11px; text-decoration:none; }
+        .agt-alert { border-radius:8px; font-size:13px; margin-bottom:12px; padding:10px 12px; }
+        .agt-alert.success { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.35); color:#047857; }
+        .agt-alert.error { background:rgba(239,68,68,.10); border:1px solid rgba(239,68,68,.35); color:#b91c1c; }
+        @media (max-width:640px) {
+            .agt-settings-grid { grid-template-columns:1fr; }
+            .agt-link, .agt-save { justify-content:center; width:100%; }
+        }
     </style>
 
     @if(session('success'))
@@ -92,14 +97,16 @@
                     <input type="text" name="log_channel" value="{{ old('log_channel', $settings['log_channel']) }}" required>
                 </label>
             </div>
-            <label class="agt-check-row">
-                <input type="checkbox" name="enabled" value="1" @checked(old('enabled', $settings['enabled']))>
-                Envio AGT ativo
-            </label>
-            <label class="agt-check-row">
-                <input type="checkbox" name="debug_jws" value="1" @checked(old('debug_jws', $settings['debug_jws']))>
-                Registar debug da assinatura JWS
-            </label>
+            <div class="agt-checks">
+                <label class="agt-check-row">
+                    <input type="checkbox" name="enabled" value="1" @checked(old('enabled', $settings['enabled']))>
+                    Envio AGT ativo
+                </label>
+                <label class="agt-check-row">
+                    <input type="checkbox" name="debug_jws" value="1" @checked(old('debug_jws', $settings['debug_jws']))>
+                    Registar debug da assinatura JWS
+                </label>
+            </div>
         </div>
 
         <div class="agt-settings-panel">

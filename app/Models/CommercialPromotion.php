@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class CommercialPromotion extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'name',
         'product_id',

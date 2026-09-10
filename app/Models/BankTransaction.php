@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class BankTransaction extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'bank_account_id',
         'operator_id',

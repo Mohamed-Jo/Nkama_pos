@@ -78,6 +78,7 @@ return [
     'required_unless' => 'O campo :attribute e obrigatorio exceto quando :other estiver em :values.',
     'required_with' => 'O campo :attribute e obrigatorio quando :values estiver presente.',
     'required_without' => 'O campo :attribute e obrigatorio quando :values nao estiver presente.',
+    'regex' => 'O formato do campo :attribute e invalido.',
     'same' => 'Os campos :attribute e :other devem coincidir.',
     'size' => [
         'array' => 'O campo :attribute deve ter :size itens.',
@@ -91,6 +92,7 @@ return [
     'uuid' => 'O campo :attribute deve ser um UUID valido.',
     'attributes' => [
         'amount' => 'valor',
+        'code' => 'codigo',
         'card_number' => 'numero do cartao',
         'customer_card_number' => 'numero do cartao cliente',
         'customer_id' => 'cliente',

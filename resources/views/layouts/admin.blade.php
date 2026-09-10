@@ -633,7 +633,7 @@
 
                 @if($isSuperUser)
                     <div class="menu-section">Segurança</div>
-                    <a class="{{ request()->routeIs('admin.settings.*') ? 'active' : '' }}" href="{{ route('admin.settings.index') }}">Empresa & IVA</a>
+                    <a class="{{ request()->routeIs('admin.settings.*') || request()->routeIs('admin.companies.*') ? 'active' : '' }}" href="{{ route('admin.settings.index') }}">Configura��o de Empresa</a>
                     <a class="{{ request()->routeIs('admin.document-settings.*') ? 'active' : '' }}" href="{{ route('admin.document-settings.index') }}">Documentos & Séries</a>
                     <a class="{{ request()->routeIs('admin.agt.settings') ? 'active' : '' }}" href="{{ route('admin.agt.settings') }}">Configuracoes AGT</a>
                     <a class="{{ request()->routeIs('admin.modules.*') ? 'active' : '' }}" href="{{ route('admin.modules.index') }}">🧩 Módulos</a>
@@ -664,6 +664,10 @@
                         <strong>{{ $systemDate->format('d/m/Y') }}</strong>
                     </div>
 
+                    <div class="operator-chip" title="Empresa ativa">
+                        <span>Empresa</span>
+                        <strong>{{ session('company_name') ?: (\App\Services\BusinessSettings::company()['name'] ?: config('app.name', 'NKAMA POS')) }}</strong>
+                    </div>
                     <div class="operator-chip" title="Operador autenticado">
                         <span>Operador</span>
                         <strong>{{ session('operator_name', 'Operador') }}</strong>

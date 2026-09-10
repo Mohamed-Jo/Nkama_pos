@@ -3,12 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Shift;
 
 class Operator extends Model
 {
     protected $fillable = [
         'name',
+        'company_id',
         'email',
         'pin',
         'pin_fingerprint',
@@ -42,13 +42,16 @@ class Operator extends Model
         return hash_hmac('sha256', $pin, (string) config('app.key'));
     }
 
-    // CAIXAS DO OPERADOR
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
+
     public function shifts()
     {
         return $this->hasMany(Shift::class);
     }
 
-    // CAIXA ABERTO
     public function openShift()
     {
         return $this->hasOne(Shift::class)

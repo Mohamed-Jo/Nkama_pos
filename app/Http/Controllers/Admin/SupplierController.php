@@ -106,7 +106,7 @@ class SupplierController extends Controller
             'company_name' => ['required', 'string', 'max:255'],
             'contact_person' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
-            'email' => ['nullable', 'email', 'max:255', Rule::unique('suppliers', 'email')->ignore($supplier?->id)],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('suppliers', 'email')->where('company_id', session('company_id'))->ignore($supplier?->id)],
             'address' => ['nullable', 'string', 'max:500'],
             'status' => ['sometimes', 'boolean'],
         ]);

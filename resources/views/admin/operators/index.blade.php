@@ -305,6 +305,14 @@
                     <label>Email</label>
                     <input name="email" type="email" value="{{ old('email') }}" required>
                 </div>
+                <div class="operator-field">
+                    <label>Empresa</label>
+                    <select name="company_id" required>
+                        @foreach($companies as $company)
+                            <option value="{{ $company->id }}" @selected((int) old('company_id', session('company_id')) === $company->id)>{{ $company->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
                 <div class="operator-field">
                     <label>PIN de acesso</label>
@@ -373,6 +381,7 @@
                         <tr>
                             <th style="width:70px;">#</th>
                             <th>Operador</th>
+                            <th>Empresa</th>
                             <th>Funcao</th>
                             <th>Estado</th>
                             <th>Registo</th>
@@ -387,6 +396,7 @@
                                     <div class="operator-name">{{ $operator->name }}</div>
                                     <div class="operator-muted">{{ $operator->email }}</div>
                                 </td>
+                                <td>{{ $operator->company?->name ?? '-' }}</td>
                                 <td>{{ $roleOptions[$operator->role] ?? $operator->role }}</td>
                                 <td>
                                     <span class="operator-status {{ $operator->active ? 'active' : 'inactive' }}">
@@ -401,6 +411,7 @@
                                             data-update-url="{{ route('admin.operators.update', $operator) }}"
                                             data-name="{{ e($operator->name) }}"
                                             data-email="{{ e($operator->email) }}"
+                                            data-company-id="{{ $operator->company_id }}"
                                             data-role="{{ e($operator->role) }}"
                                             data-active="{{ $operator->active ? '1' : '0' }}">
                                             Editar
@@ -415,7 +426,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" style="text-align:center; color:#94a3b8; padding:28px;">Nenhum operador encontrado.</td>
+                                <td colspan="7" style="text-align:center; color:#94a3b8; padding:28px;">Nenhum operador encontrado.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -449,6 +460,15 @@
                         <label>Email</label>
                         <input id="edit-operator-email" name="email" type="email" required>
                     </div>
+                    <div class="operator-field">
+                        <label>Empresa</label>
+                        <select id="edit-operator-company" name="company_id" required>
+                            @foreach($companies as $company)
+                                <option value="{{ $company->id }}">{{ $company->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     <div class="operator-field">
                         <label>Funcao</label>
                         <select id="edit-operator-role" name="role" required>
@@ -491,6 +511,7 @@
             const nameInput = document.getElementById('edit-operator-name');
             const emailInput = document.getElementById('edit-operator-email');
             const roleInput = document.getElementById('edit-operator-role');
+            const companyInput = document.getElementById('edit-operator-company');
             const activeInput = document.getElementById('edit-operator-active');
 
             function closeModal() {
@@ -504,6 +525,7 @@
                     nameInput.value = button.dataset.name || '';
                     emailInput.value = button.dataset.email || '';
                     roleInput.value = button.dataset.role || '';
+                    companyInput.value = button.dataset.companyId || '';
                     activeInput.checked = button.dataset.active === '1';
                     form.querySelectorAll('input[type="password"]').forEach(function (input) {
                         input.value = '';

@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class ProductWarehouseStock extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'product_id',
         'warehouse_id',

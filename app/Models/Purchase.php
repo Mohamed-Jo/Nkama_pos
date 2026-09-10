@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Purchase extends Model
 {
+    use BelongsToCompany;
+
     public const STATUS_DRAFT = 'draft';
     public const STATUS_ORDERED = 'ordered';
     public const STATUS_PARTIAL = 'partial';

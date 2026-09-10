@@ -49,10 +49,10 @@ class PaymentMethodController extends Controller
     private function validateMethod(Request $request, ?PaymentMethod $method = null): array
     {
         return $request->validate([
-            'code' => ['required', 'string', 'max:40', 'regex:/^[a-z0-9_]+$/', Rule::unique('payment_methods', 'code')->ignore($method?->id)],
+            'code' => ['required', 'string', 'max:40', 'regex:/^[a-z0-9_]+$/', Rule::unique('payment_methods', 'code')->where('company_id', session('company_id'))->ignore($method?->id)],
             'name' => ['required', 'string', 'max:120'],
             'type' => ['required', Rule::in(array_keys($this->types()))],
-            'bank_account_id' => ['nullable', 'exists:bank_accounts,id'],
+            'bank_account_id' => ['nullable', Rule::exists('bank_accounts', 'id')->where('company_id', session('company_id'))],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'active' => ['nullable', 'boolean'],
             'show_in_pos' => ['nullable', 'boolean'],

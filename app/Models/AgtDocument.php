@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class AgtDocument extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'document_model',
         'document_id',

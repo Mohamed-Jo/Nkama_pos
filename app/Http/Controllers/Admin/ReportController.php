@@ -64,7 +64,7 @@ class ReportController extends Controller
                 'fr' => (float) $sales->where('document_type_code', 'FR')->sum('total'),
                 'ft' => (float) $sales->where('document_type_code', 'FT')->sum('total'),
                 'paid' => (float) $sales->sum('paid'),
-                'pending' => (float) $sales->sum(fn ($sale) => max((float) $sale->total - (float) $sale->creditNotes->sum('total') - (float) $sale->paid, 0)),
+                'pending' => (float) $sales->sum(fn($sale) => max((float) $sale->total - (float) $sale->creditNotes->sum('total') - (float) $sale->paid, 0)),
                 'nc' => (float) $creditNotes->sum('total'),
                 'net' => (float) $sales->sum('total') - (float) $creditNotes->sum('total'),
             ],
@@ -169,8 +169,8 @@ class ReportController extends Controller
             'totals' => [
                 'items' => $products->count(),
                 'stock' => (float) $products->sum('stock_quantity'),
-                'low' => $products->filter(fn ($product) => (float) $product->stock_quantity <= (float) $product->minimum_stock)->count(),
-                'value' => (float) $products->sum(fn ($product) => (float) $product->stock_quantity * (float) $product->selling_price),
+                'low' => $products->filter(fn($product) => (float) $product->stock_quantity <= (float) $product->minimum_stock)->count(),
+                'value' => (float) $products->sum(fn($product) => (float) $product->stock_quantity * (float) $product->selling_price),
             ],
         ], 'relatorio-stock.pdf');
     }
@@ -246,7 +246,7 @@ class ReportController extends Controller
             'purchases' => $purchases,
             'totals' => [
                 'count' => $purchases->count(),
-                'open' => $purchases->filter(fn ($purchase) => in_array($purchase->status, [
+                'open' => $purchases->filter(fn($purchase) => in_array($purchase->status, [
                     Purchase::STATUS_DRAFT,
                     Purchase::STATUS_ORDERED,
                     Purchase::STATUS_PARTIAL,
@@ -259,8 +259,8 @@ class ReportController extends Controller
                 'credit' => (float) $purchases->where('payment_type', 'credit')->sum('total'),
                 'direct' => (float) $purchases->where('payment_type', 'direct')->sum('total'),
                 'paid' => (float) $purchases->sum('paid_amount'),
-                'balance' => (float) $purchases->sum(fn ($purchase) => $purchase->balance),
-                'overdue' => $purchases->filter(fn ($purchase) => $purchase->isOverdue())->count(),
+                'balance' => (float) $purchases->sum(fn($purchase) => $purchase->balance),
+                'overdue' => $purchases->filter(fn($purchase) => $purchase->isOverdue())->count(),
                 'total' => (float) $purchases->sum('total'),
             ],
         ], 'relatorio-compras.pdf');
@@ -300,7 +300,7 @@ class ReportController extends Controller
             ->whereBetween('created_at', [$from, $to]);
 
         if ($cardIds->isNotEmpty()) {
-            $paymentsQuery->whereHas('sale', fn ($query) => $query->whereIn('customer_card_id', $cardIds));
+            $paymentsQuery->whereHas('sale', fn($query) => $query->whereIn('customer_card_id', $cardIds));
         } else {
             $paymentsQuery->whereRaw('1 = 0');
         }

@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class CreditNote extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'original_sale_id',
         'customer_id',

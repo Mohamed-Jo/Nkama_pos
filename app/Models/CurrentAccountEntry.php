@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CurrentAccountEntry extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'entity_type',
         'entity_id',

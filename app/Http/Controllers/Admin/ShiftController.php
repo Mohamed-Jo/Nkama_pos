@@ -120,6 +120,7 @@ class ShiftController extends Controller
         $cardTotal   = $this->methodTotal($shift->id, 'card');
         $multiTotal  = $this->methodTotal($shift->id, 'multi');
         $transfTotal = $this->methodTotal($shift->id, 'transf');
+        $paymentMethodTotals = PaymentMethodSummary::totalsForShift($shift->id);
 
         // O total esperado em dinheiro físico na gaveta é a abertura + vendas em dinheiro
         $expectedCashPhysical = $shift->opening_cash + $cashTotal;
@@ -170,6 +171,7 @@ class ShiftController extends Controller
         $cardTotal   = $this->methodTotal($shift->id, 'card');
         $multiTotal  = $this->methodTotal($shift->id, 'multi');
         $transfTotal = $this->methodTotal($shift->id, 'transf');
+        $paymentMethodTotals = PaymentMethodSummary::totalsForShift($shift->id);
 
         // CORRECCAO FINANCEIRA: o operador so conta dinheiro vivo. O esperado e abertura + vendas em dinheiro.
         $expectedCashPhysical = $shift->opening_cash + $cashTotal;

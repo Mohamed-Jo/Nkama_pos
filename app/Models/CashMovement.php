@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class CashMovement extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'shift_id',
         'operator_id',

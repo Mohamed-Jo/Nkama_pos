@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class PurchaseReturn extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = ['purchase_id', 'supplier_id', 'operator_id', 'return_date', 'document_number', 'reason', 'total'];
 
     protected $casts = ['return_date' => 'date', 'total' => 'decimal:2'];

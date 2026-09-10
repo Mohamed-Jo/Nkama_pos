@@ -27,7 +27,7 @@ class CustomerController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:180'],
             'phone' => ['nullable', 'string', 'max:60'],
-            'email' => ['nullable', 'email', 'max:180', 'unique:customers,email'],
+            'email' => ['nullable', 'email', 'max:180', Rule::unique('customers', 'email')->where('company_id', session('company_id'))],
             'address' => ['nullable', 'string', 'max:500'],
             'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'price_table' => ['nullable', 'string', 'max:40'],
@@ -64,7 +64,7 @@ class CustomerController extends Controller
                 'nullable',
                 'email',
                 'max:180',
-                Rule::unique('customers', 'email')->ignore($customer->id),
+                Rule::unique('customers', 'email')->where('company_id', session('company_id'))->ignore($customer->id),
             ],
             'address' => ['nullable', 'string', 'max:500'],
             'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],

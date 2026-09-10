@@ -79,8 +79,9 @@
                 radial-gradient(circle at 85% 85%, var(--halo2) 0%, transparent 46%),
                 linear-gradient(135deg, var(--bg2), var(--bg1));
             color: var(--text);
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh;
+            min-height: 100svh;
+            overflow-x: hidden;
         }
 
         body.has-login-bg {
@@ -91,15 +92,17 @@
 
         .login-shell {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 460px;
-            height: 100vh;
+            grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
             min-height: 620px;
+            min-height: 100vh;
+            min-height: 100svh;
             width: 100%;
         }
 
         .brand-side {
             display: flex;
             flex-direction: column;
+            gap: 32px;
             justify-content: space-between;
             min-width: 0;
             padding: 48px;
@@ -178,6 +181,7 @@
             box-shadow: var(--login-shadow);
             display: flex;
             justify-content: center;
+            min-width: 0;
             padding: 34px;
         }
 
@@ -334,17 +338,14 @@
         }
 
         @media (max-width: 920px) {
-            body {
-                overflow-y: auto;
-            }
-
             .login-shell {
                 grid-template-columns: 1fr;
                 min-height: 100vh;
+                min-height: 100svh;
             }
 
             .brand-side {
-                min-height: 250px;
+                min-height: 240px;
                 padding: 28px;
             }
 
@@ -359,10 +360,136 @@
             .login-side {
                 border-left: none;
                 border-top: 1px solid var(--border);
+                box-shadow: none;
                 padding: 22px;
             }
         }
-    </style>
+
+        @media (max-width: 560px) {
+            .login-shell {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .brand-side {
+                gap: 24px;
+                min-height: auto;
+                padding: 22px 18px;
+            }
+
+            .brand-top {
+                gap: 12px;
+            }
+
+            .brand-copy h1 {
+                font-size: 28px;
+                line-height: 1.08;
+                margin-bottom: 10px;
+            }
+
+            .brand-copy p {
+                font-size: 13px;
+                line-height: 1.45;
+            }
+
+            .brand-footer {
+                display: none;
+            }
+
+            .login-side {
+                align-items: flex-start;
+                flex: 1;
+                padding: 18px;
+            }
+
+            .box {
+                padding: 22px;
+                width: 100%;
+            }
+
+            .pin-box {
+                margin-bottom: 18px;
+                padding: 12px;
+            }
+
+            .pin {
+                font-size: 24px;
+                letter-spacing: 10px;
+                min-height: 34px;
+            }
+
+            .grid {
+                gap: 10px;
+            }
+
+            .btn {
+                font-size: 20px;
+                min-height: 58px;
+                padding: 14px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .brand-side {
+                padding: 18px 14px;
+            }
+
+            .brand-mark,
+            .kiosk-action-btn {
+                font-size: 11px;
+            }
+
+            .kiosk-action-btn {
+                min-height: 34px;
+                padding: 0 10px;
+            }
+
+            .brand-copy h1 {
+                font-size: 24px;
+            }
+
+            .box {
+                padding: 18px;
+            }
+
+            .pin {
+                font-size: 22px;
+                letter-spacing: 7px;
+            }
+
+            .btn {
+                min-height: 52px;
+                padding: 12px;
+            }
+        }
+
+        @media (max-height: 640px) and (min-width: 921px) {
+            .login-shell {
+                min-height: 100vh;
+                min-height: 100svh;
+            }
+
+            .brand-side {
+                padding: 30px;
+            }
+
+            .brand-copy h1 {
+                font-size: 42px;
+            }
+
+            .login-side {
+                padding: 22px;
+            }
+
+            .box {
+                padding: 24px;
+            }
+
+            .btn {
+                min-height: 56px;
+                padding: 14px;
+            }
+        }    </style>
 </head>
 
 <body class="{{ $loginBackgroundUrl ? 'has-login-bg' : '' }}">

@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('page-title', 'Empresa & IVA')
+@section('page-title', 'Configuração de Empresa')
 
 @section('content')
     <style>
@@ -149,6 +149,47 @@
             text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
         }
 
+        .settings-context {
+            align-items: center;
+            background: rgba(249, 115, 22, 0.1);
+            border: 1px solid rgba(249, 115, 22, 0.24);
+            border-radius: 8px;
+            color: #fed7aa;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            padding: 12px 14px;
+        }
+
+        .settings-context strong {
+            color: #fff;
+        }
+
+        .settings-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .settings-nav a {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 12px;
+            font-weight: 900;
+            padding: 10px 12px;
+            text-decoration: none;
+        }
+
+        .settings-nav a.active {
+            background: rgba(249, 115, 22, 0.14);
+            border-color: rgba(249, 115, 22, 0.28);
+            color: #fdba74;
+        }
         .settings-actions {
             display: flex;
             justify-content: flex-end;
@@ -208,6 +249,116 @@
             color: #fcd34d;
         }
 
+
+
+        /* settings-compact-fields */
+        .settings-grid {
+            gap: 12px 14px;
+        }
+
+        .settings-field label {
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .settings-field input,
+        .settings-field select {
+            min-height: 36px;
+            padding: 8px 10px;
+        }
+
+        .settings-field input[type="file"] {
+            min-height: 36px;
+            padding: 6px 8px;
+        }
+
+        .settings-toggle {
+            min-height: 36px;
+        }
+
+        .settings-section {
+            margin-bottom: 14px;
+            padding-bottom: 14px;
+        }
+
+        .settings-title {
+            margin-bottom: 10px;
+        }
+        /* settings-polish */
+        .settings-panel {
+            background: var(--card);
+            border-color: var(--border);
+            box-shadow: 0 18px 45px rgba(2, 6, 23, 0.16);
+            color: var(--text);
+        }
+
+        .settings-section {
+            border-bottom-color: var(--border);
+        }
+
+        .settings-title {
+            color: var(--text);
+        }
+
+        .settings-field label,
+        .settings-hint,
+        .settings-discovery-status {
+            color: var(--muted);
+        }
+
+        .settings-field input,
+        .settings-field select,
+        .settings-logo-preview,
+        .settings-background-preview {
+            background-color: var(--input-bg);
+            border-color: var(--border);
+            color: var(--input-text);
+        }
+
+        .settings-toggle {
+            color: var(--text);
+        }
+
+        .settings-context {
+            color: #fed7aa;
+        }
+
+        .settings-context strong {
+            color: var(--text);
+        }
+
+        .settings-nav a,
+        .settings-secondary-btn {
+            background: var(--soft-bg);
+            border-color: var(--border);
+            color: var(--text);
+        }
+
+        .settings-nav a.active {
+            background: rgba(249, 115, 22, 0.14);
+            border-color: rgba(249, 115, 22, 0.34);
+            color: #fdba74;
+        }
+
+        :root[data-theme="light"] .settings-panel {
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+        }
+
+        :root[data-theme="light"] .settings-context {
+            background: #fff7ed;
+            border-color: #fed7aa;
+            color: #9a3412;
+        }
+
+        :root[data-theme="light"] .settings-nav a.active {
+            background: #ffedd5;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
+
+        :root[data-theme="light"] .settings-secondary-btn {
+            color: #9a3412;
+        }
         @media (max-width: 820px) {
             .settings-grid {
                 grid-template-columns: 1fr;
@@ -228,6 +379,16 @@
         @if($errors->any())
             <div class="settings-error">{{ $errors->first() }}</div>
         @endif
+
+        <div class="settings-context">
+            <span>Empresa a configurar: <strong>{{ $company['name'] ?: config('app.name', 'NKAMA POS') }}</strong></span>
+            <span>{{ !empty($company['nif']) ? 'NIF: ' . $company['nif'] : 'Sem NIF configurado' }}</span>
+        </div>
+
+        <div class="settings-nav">
+            <a class="active" href="{{ route('admin.settings.index') }}">Dados, IVA e impressão</a>
+            <a href="{{ route('admin.companies.index') }}">Empresas registadas</a>
+        </div>
 
         <form method="POST" action="{{ route('admin.settings.update') }}" enctype="multipart/form-data" class="settings-panel">
             @csrf

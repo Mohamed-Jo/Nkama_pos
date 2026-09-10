@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
+
 use Illuminate\Database\Eloquent\Model;
 
 class CustomerCardBalanceTransaction extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
         'customer_card_id',
         'sale_id',

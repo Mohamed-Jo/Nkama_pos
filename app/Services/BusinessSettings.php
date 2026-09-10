@@ -69,6 +69,10 @@ class BusinessSettings
 
     public static function company(): array
     {
+        if ($company = CurrentCompany::get()) {
+            return array_merge(self::COMPANY_DEFAULTS, $company->profile());
+        }
+
         return self::setting('company_profile', self::COMPANY_DEFAULTS);
     }
 
@@ -108,6 +112,24 @@ class BusinessSettings
             'logo_path' => (string) ($company['logo_path'] ?? ''),
             'login_background_path' => (string) ($company['login_background_path'] ?? ''),
         ]);
+
+        if ($activeCompany = CurrentCompany::get()) {
+            $activeCompany->update([
+                'name' => $values['name'] ?: $activeCompany->name,
+                'location' => $values['location'],
+                'nif' => $values['nif'],
+                'iban' => $values['iban'],
+                'account_number' => $values['account_number'],
+                'bank_name' => $values['bank_name'],
+                'swift' => $values['swift'],
+                'logo_path' => $values['logo_path'],
+                'login_background_path' => $values['login_background_path'],
+            ]);
+
+            self::forgetAll();
+
+            return array_merge(self::COMPANY_DEFAULTS, $activeCompany->fresh()->profile());
+        }
 
         AppSetting::updateOrCreate(
             ['key' => 'company_profile'],
@@ -500,6 +522,13 @@ class BusinessSettings
     private static function forgetSetting(string $key): void
     {
         unset(self::$settingsCache[$key]);
+    }
+
+    public static function forgetAll(): void
+    {
+        self::$settingsCache = [];
+        self::$logoDataUriCache = [];
+        self::$agtQrSvgCache = [];
     }
 
     private static function clampNumber(mixed $value, float $min, float $max, float $default, int $precision = 2): float

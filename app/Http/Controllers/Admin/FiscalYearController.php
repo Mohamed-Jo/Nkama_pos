@@ -26,7 +26,7 @@ class FiscalYearController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'year' => ['required', 'integer', 'min:2000', 'max:2100', 'unique:fiscal_years,year'],
+            'year' => ['required', 'integer', 'min:2000', 'max:2100', Rule::unique('fiscal_years', 'year')->where('company_id', session('company_id'))],
             'name' => ['nullable', 'string', 'max:80'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after:start_date'],
