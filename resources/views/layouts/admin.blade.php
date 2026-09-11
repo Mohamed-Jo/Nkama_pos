@@ -590,6 +590,7 @@
             </div>
             <nav class="menu">
                 <a class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">📊 Dashboard</a>
+                <a class="{{ request()->routeIs('admin.manual.*') ? 'active' : '' }}" href="{{ route('admin.manual.user') }}" target="_blank" rel="noopener">📘 Manual MARIA ERP</a>
 
                 <div class="menu-section">Operações</div>
                 <a class="{{ request()->routeIs('admin.pos.*') ? 'active' : '' }}" href="{{ route('admin.pos.index') }}">⌗ POS / Caixa</a>
@@ -633,7 +634,7 @@
 
                 @if($isSuperUser)
                     <div class="menu-section">Segurança</div>
-                    <a class="{{ request()->routeIs('admin.settings.*') || request()->routeIs('admin.companies.*') ? 'active' : '' }}" href="{{ route('admin.settings.index') }}">Configura��o de Empresa</a>
+                    <a class="{{ request()->routeIs('admin.settings.*') || request()->routeIs('admin.companies.*') ? 'active' : '' }}" href="{{ route('admin.settings.index') }}">Configura��o de Empresa</a>
                     <a class="{{ request()->routeIs('admin.document-settings.*') ? 'active' : '' }}" href="{{ route('admin.document-settings.index') }}">Documentos & Séries</a>
                     <a class="{{ request()->routeIs('admin.agt.settings') ? 'active' : '' }}" href="{{ route('admin.agt.settings') }}">Configuracoes AGT</a>
                     <a class="{{ request()->routeIs('admin.modules.*') ? 'active' : '' }}" href="{{ route('admin.modules.index') }}">🧩 Módulos</a>

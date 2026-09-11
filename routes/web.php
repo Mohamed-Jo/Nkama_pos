@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\{
     OperatorController,
     ModuleController,
     SettingController,
+    ManualController,
     DocumentSettingController,
     CreditNoteController,
     DirectPrintController,
@@ -63,6 +64,7 @@ Route::prefix('admin')->middleware('operator')->name('admin.')->group(function (
 
     // Dashboard Centralizado
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/manual-utilizador', [ManualController::class, 'userManual'])->name('manual.user');
 
     Route::middleware('operator.permission:security.manage')->group(function () {
         Route::post('/system-date/next', [SystemDateController::class, 'next'])->name('system-date.next');

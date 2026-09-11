@@ -7,19 +7,19 @@ use Dompdf\Options;
 
 $outputDir = __DIR__ . '/../output/pdf';
 if (! is_dir($outputDir)) {
-    mkdir($outputDir, 0777, true);
+    mkdir($outputDir, 0755, true);
 }
 
-$generatedAt = '18/07/2026';
+$generatedAt = date('d/m/Y');
 $title = 'Manual de Utilizador';
 $systemName = 'MARIA ERP';
 
 $sections = [
     [
-        'title' => '1. Visao Geral',
+        'title' => '1. Visão Geral',
         'body' => [
-            'O MARIA ERP e um sistema de ponto de venda e gestao operacional para vendas de supermercado, atendimento de restaurante, faturacao, caixa, stock, compras, clientes, conta corrente, relatorios, auditoria e configuracoes fiscais.',
-            'O acesso ao sistema e feito por operador. Cada operador ve apenas os menus permitidos para a sua funcao, por isso alguns botoes ou paginas podem nao aparecer em todos os perfis.',
+            'O MARIA ERP é um sistema de ponto de venda e gestão operacional para vendas de supermercado, atendimento de restaurante, faturação, caixa, stock, compras, clientes, conta corrente, relatórios, auditoria e configurações fiscais.',
+            'O acesso ao sistema é feito por operador. Cada operador vê apenas os menus permitidos para a sua função, por isso alguns botões ou páginas podem não aparecer em todos os perfis.',
         ],
         'bullets' => [
             'Dashboard: resumo rapido de vendas, caixa, catalogo, clientes e stock critico.',
@@ -251,7 +251,7 @@ $sections = [
             'Uma rotina consistente reduz erros de caixa, stock e faturacao. Use este checklist como referencia diaria.',
         ],
         'bullets' => [
-            'Antes de abrir: confirme impressora, internet, turno de caixa e stock critico.',
+            'Antes de abrir: confirme impressora, ligação à internet, cabos, turno de caixa e stock crítico.',
             'Durante a venda: confira cliente, artigos, quantidades, descontos e metodo de pagamento.',
             'Ao imprimir: verifique se total, IVA e numero do documento estao legiveis.',
             'Ao anular: emita nota de credito, nunca apague documentos fiscais do historico.',
@@ -541,7 +541,7 @@ $html = <<<HTML
 HTML;
 
 $options = new Options();
-$options->set('isRemoteEnabled', true);
+$options->set('isRemoteEnabled', false);
 $options->set('isHtml5ParserEnabled', true);
 $options->set('defaultFont', 'DejaVu Sans');
 
@@ -552,7 +552,7 @@ $dompdf->render();
 
 $canvas = $dompdf->getCanvas();
 $font = $dompdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
-$canvas->page_text(500, 810, 'Pagina {PAGE_NUM} / {PAGE_COUNT}', $font, 8, [0.32, 0.38, 0.45]);
+$canvas->page_text(500, 810, 'Página {PAGE_NUM} / {PAGE_COUNT}', $font, 8, [0.32, 0.38, 0.45]);
 
 $output = $outputDir . '/manual-utilizador-maria-erp.pdf';
 file_put_contents($output, $dompdf->output());
